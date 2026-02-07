@@ -9,6 +9,8 @@ import os
 final class ConnectionManager: ObservableObject {
     private let logger = Logger(subsystem: "com.balcony.ios", category: "ConnectionManager")
 
+    private static let pairedDevicesKey = "com.balcony.pairedDevices"
+
     @Published var discoveredDevices: [DeviceInfo] = []
     @Published var pairedDevices: [DeviceInfo] = []
     @Published var isConnected = false
@@ -24,6 +26,10 @@ final class ConnectionManager: ObservableObject {
 
     /// Receive callback for incoming messages.
     var onMessage: ((BalconyMessage) -> Void)?
+
+    init() {
+        loadPairedDevices()
+    }
 
     // MARK: - Discovery
 
@@ -88,6 +94,17 @@ final class ConnectionManager: ObservableObject {
                 }
             }
 
+            // Set up disconnect handler
+            await webSocketClient.setOnDisconnect { [weak self] unexpected in
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
+                    self.isConnected = false
+                    if unexpected {
+                        self.logger.warning("Connection lost unexpectedly, WebSocket will auto-reconnect")
+                    }
+                }
+            }
+
             // Connect WebSocket
             try await webSocketClient.connect(host: host, port: port)
 
@@ -96,9 +113,57 @@ final class ConnectionManager: ObservableObject {
 
             isConnected = true
             connectedDevice = device
+            savePairedDevice(device)
             logger.info("Connected to \(device.name)")
         } catch {
             logger.error("Connection failed: \(error.localizedDescription)")
+            isConnected = false
+            connectedDevice = nil
+        }
+    }
+
+    /// Connect directly using host/port from QR code scan.
+    func connectDirect(host: String, port: Int, publicKeyBase64: String?) async {
+        logger.info("Direct connect to \(host):\(port)")
+
+        let device = DeviceInfo(
+            id: "\(host):\(port)",
+            name: host,
+            platform: .macOS,
+            publicKeyFingerprint: publicKeyBase64 ?? ""
+        )
+
+        do {
+            // Set up message receive handler
+            await webSocketClient.setOnMessage { [weak self] message in
+                Task { @MainActor [weak self] in
+                    self?.handleMessage(message)
+                }
+            }
+
+            // Set up disconnect handler
+            await webSocketClient.setOnDisconnect { [weak self] unexpected in
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
+                    self.isConnected = false
+                    if unexpected {
+                        self.logger.warning("Connection lost unexpectedly, WebSocket will auto-reconnect")
+                    }
+                }
+            }
+
+            // Connect WebSocket
+            try await webSocketClient.connect(host: host, port: port)
+
+            // Perform E2E handshake
+            try await performHandshake(with: device)
+
+            isConnected = true
+            connectedDevice = device
+            savePairedDevice(device)
+            logger.info("Connected to \(host):\(port) via QR")
+        } catch {
+            logger.error("Direct connection failed: \(error.localizedDescription)")
             isConnected = false
             connectedDevice = nil
         }
@@ -222,6 +287,44 @@ final class ConnectionManager: ObservableObject {
 
     private func handleMessage(_ message: BalconyMessage) {
         onMessage?(message)
+    }
+
+    // MARK: - Device Persistence
+
+    private func loadPairedDevices() {
+        guard let data = UserDefaults.standard.data(forKey: Self.pairedDevicesKey) else { return }
+        do {
+            let decoder = JSONDecoder()
+            pairedDevices = try decoder.decode([DeviceInfo].self, from: data)
+            logger.info("Loaded \(self.pairedDevices.count) paired devices")
+        } catch {
+            logger.error("Failed to load paired devices: \(error.localizedDescription)")
+        }
+    }
+
+    private func savePairedDevice(_ device: DeviceInfo) {
+        if !pairedDevices.contains(where: { $0.id == device.id }) {
+            pairedDevices.append(device)
+        }
+        do {
+            let encoder = JSONEncoder()
+            let data = try encoder.encode(pairedDevices)
+            UserDefaults.standard.set(data, forKey: Self.pairedDevicesKey)
+        } catch {
+            logger.error("Failed to save paired devices: \(error.localizedDescription)")
+        }
+    }
+
+    /// Remove a paired device.
+    func removePairedDevice(_ device: DeviceInfo) {
+        pairedDevices.removeAll { $0.id == device.id }
+        do {
+            let encoder = JSONEncoder()
+            let data = try encoder.encode(pairedDevices)
+            UserDefaults.standard.set(data, forKey: Self.pairedDevicesKey)
+        } catch {
+            logger.error("Failed to save paired devices after removal: \(error.localizedDescription)")
+        }
     }
 }
 

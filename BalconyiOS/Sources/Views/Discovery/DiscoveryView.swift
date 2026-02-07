@@ -1,7 +1,9 @@
 import SwiftUI
+import BalconyShared
 
 struct DiscoveryView: View {
     @EnvironmentObject var connectionManager: ConnectionManager
+    @State private var showingQRScanner = false
 
     var body: some View {
         VStack(spacing: 24) {
@@ -42,13 +44,36 @@ struct DiscoveryView: View {
             Spacer()
 
             Button("Scan QR Code") {
-                // TODO: Present QR scanner
+                showingQRScanner = true
             }
             .buttonStyle(.borderedProminent)
         }
         .navigationTitle("Balcony")
         .onAppear {
             connectionManager.startDiscovery()
+        }
+        .sheet(isPresented: $showingQRScanner) {
+            QRScannerView { scannedURL in
+                handleScannedURL(scannedURL)
+            }
+        }
+    }
+
+    private func handleScannedURL(_ urlString: String) {
+        guard let components = URLComponents(string: urlString),
+              components.scheme == "balcony",
+              components.host == "pair",
+              let queryItems = components.queryItems,
+              let host = queryItems.first(where: { $0.name == "host" })?.value,
+              let portString = queryItems.first(where: { $0.name == "port" })?.value,
+              let port = Int(portString) else {
+            return
+        }
+
+        let publicKey = queryItems.first(where: { $0.name == "pk" })?.value
+
+        Task {
+            await connectionManager.connectDirect(host: host, port: port, publicKeyBase64: publicKey)
         }
     }
 }

@@ -11,6 +11,9 @@ struct BalconyiOSApp: App {
             ContentView()
                 .environmentObject(connectionManager)
                 .environmentObject(sessionManager)
+                .onAppear {
+                    sessionManager.configure(connectionManager: connectionManager)
+                }
         }
     }
 }
