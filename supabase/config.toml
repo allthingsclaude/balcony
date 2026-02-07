@@ -1,0 +1,6 @@
+# Supabase configuration for Balcony cloud relay (Phase 2)
+[project]
+name = "balcony"
+
+[db]
+port = 54322

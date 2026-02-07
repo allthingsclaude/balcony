@@ -1,0 +1,821 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		05F879B73DA8046A8D8E49A4 /* StatusBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C4666F5F2F672B0D7E53B59 /* StatusBadge.swift */; };
+		0FE6915E324A2EA05EEEC639 /* SessionRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A153BA8C47D076D9BD988A08 /* SessionRowView.swift */; };
+		15A28C87E7BAC5940DF63E23 /* WebSocketClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30D8A1BC1C4516A364BFA87F /* WebSocketClient.swift */; };
+		1EE8C4879DF09145406EDB96 /* DeviceManagementView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4241CE63445459C9D9FD3C36 /* DeviceManagementView.swift */; };
+		2D59B119C66E821CA94AE3BC /* ModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C02C757F4FB8D345A6EFEF9 /* ModelTests.swift */; };
+		341C959AD5EDFD51716EB1D7 /* AwayDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BEB54F3C74377613045762F /* AwayDetector.swift */; };
+		37DAD914079DAE9B4CFA67C6 /* InputComposerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B37053032877CB182134A869 /* InputComposerView.swift */; };
+		39BA738A247CAB3676A4C7C8 /* BalconyiOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0D9E9C67B880DC32F63487B /* BalconyiOSApp.swift */; };
+		52EA4D3614E7CD7C01FAFCEA /* BLECentral.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63C417099683EF822F4B30DF /* BLECentral.swift */; };
+		54B68596DB033B25770224FE /* BonjourBrowser.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7DE45B3FC97C8DC7FADEB16 /* BonjourBrowser.swift */; };
+		5EB7B1AA3CC285D6FEE45D2D /* SessionMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17CCC29BE78C5A1A4B508DED /* SessionMonitor.swift */; };
+		663D66965E45C127C3FF27DD /* TerminalContainerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AF99EBC38F153B19FDEB53A /* TerminalContainerView.swift */; };
+		6ADD5A55445484CB8EDF48B3 /* CryptoManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D952D21F5F35A1506E4A4D08 /* CryptoManagerTests.swift */; };
+		70F9D9C57ED6A8DEDB398CA6 /* BalconyShared in Frameworks */ = {isa = PBXBuildFile; productRef = 1288CDF4C3C16983C23C8679 /* BalconyShared */; };
+		76496F02ED2CF6CAC78633D8 /* ToolUseCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB54448DB8D9C402512B15F8 /* ToolUseCard.swift */; };
+		7D0244EC2C9842D09733E0E8 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 563031AC1EAF150E0A7AAF5B /* NotificationManager.swift */; };
+		7E67FA15078D40FD6AD5B461 /* PreferencesManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E5C4CCA055249D15C411831 /* PreferencesManager.swift */; };
+		7FFB88CAB72CEF70EEA6DB0B /* BalconyShared in Frameworks */ = {isa = PBXBuildFile; productRef = 2C1E9FE6B3F733D2560E28A3 /* BalconyShared */; };
+		867FFE6CCC71EB3F1101C9E8 /* PreferencesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14954C747CB9B37EFDCE1BEA /* PreferencesView.swift */; };
+		86DFC1B0DC3BB380FFC5E540 /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D75F5677A18F7C8240B9CD91 /* AVFoundation.framework */; };
+		884796C6E8749F597FDFC982 /* BLEPeripheral.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2567EAF959E0FF8C09874F18 /* BLEPeripheral.swift */; };
+		8ACEB2F730210C579A95CFEA /* SessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 160D61822B93FBE67A1C20C2 /* SessionManager.swift */; };
+		9117D5D329E9C5CB6A6E011A /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E860783542070F02AED00B7 /* SettingsView.swift */; };
+		96F2B3247DD15F44DDB1246D /* ConnectionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 783D378FB676157E04C99FC9 /* ConnectionManager.swift */; };
+		992E8F57143B3830BA04B39D /* MessageProtocolTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EAEA92A0B879C8CC2EF8F97 /* MessageProtocolTests.swift */; };
+		A6ED25F74BE246CE6D92EBF3 /* JSONLParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5DF9147479BDFB17C9B5133 /* JSONLParserTests.swift */; };
+		AB12D97B837548A8A8D6D4B5 /* BonjourAdvertiser.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEFB8FEA08F6458F0103A0F7 /* BonjourAdvertiser.swift */; };
+		AB6372C6227249554D45DCCC /* CoreBluetooth.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 883742321A0BF72D7D023889 /* CoreBluetooth.framework */; };
+		B098C729F8B817D207DB3AC2 /* BalconyMacApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 886E3C57A893FC1E5B991BA6 /* BalconyMacApp.swift */; };
+		B5332132DD670D9915D73222 /* ConnectionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAE1288EF0CA05A15B0E30FF /* ConnectionManager.swift */; };
+		B6798FB8D55B6691C4162C6D /* WebSocketServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F43204098DB6C4D61A3C700 /* WebSocketServer.swift */; };
+		BAC73425A4C54FCCD6036774 /* MenuBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 669BE9921928194372E5B944 /* MenuBarView.swift */; };
+		BDFFEF7010DECCDDE79DAAC6 /* SessionListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8781800E637EC256C88F313C /* SessionListView.swift */; };
+		DA500C499792EA420BE493FD /* QRCodeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72541086349D5C7FE7CA0C64 /* QRCodeView.swift */; };
+		DDDD84968B57343C7DBBE707 /* HookManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0EA137F1486263BA1334587B /* HookManager.swift */; };
+		DFFB8C76E4D453A641002387 /* StatusItemManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5BA326573C4E510CFC7C2A8 /* StatusItemManager.swift */; };
+		E988DDBE65BDB2A7E0BDBC34 /* QRScannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5330CC3525DAD310296E4BE /* QRScannerView.swift */; };
+		EE22BDDF9F8B09255D1A3B38 /* DiscoveryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0AA3AD6C3787879CAAB89F1 /* DiscoveryView.swift */; };
+		F7A6FDE9F0B65FDA8CA6EA1E /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29C23B5584D65228ECB8AF8D /* AppDelegate.swift */; };
+		F8CAE6DC6EB90AD2D7804B30 /* BalconyShared in Frameworks */ = {isa = PBXBuildFile; productRef = 79417DF319AEB98518662E44 /* BalconyShared */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		0C02C757F4FB8D345A6EFEF9 /* ModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelTests.swift; sourceTree = "<group>"; };
+		0EA137F1486263BA1334587B /* HookManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HookManager.swift; sourceTree = "<group>"; };
+		14954C747CB9B37EFDCE1BEA /* PreferencesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesView.swift; sourceTree = "<group>"; };
+		160D61822B93FBE67A1C20C2 /* SessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionManager.swift; sourceTree = "<group>"; };
+		17CCC29BE78C5A1A4B508DED /* SessionMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionMonitor.swift; sourceTree = "<group>"; };
+		1C4666F5F2F672B0D7E53B59 /* StatusBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusBadge.swift; sourceTree = "<group>"; };
+		2567EAF959E0FF8C09874F18 /* BLEPeripheral.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BLEPeripheral.swift; sourceTree = "<group>"; };
+		29C23B5584D65228ECB8AF8D /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		2E860783542070F02AED00B7 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		2EAEA92A0B879C8CC2EF8F97 /* MessageProtocolTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageProtocolTests.swift; sourceTree = "<group>"; };
+		30D8A1BC1C4516A364BFA87F /* WebSocketClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSocketClient.swift; sourceTree = "<group>"; };
+		4241CE63445459C9D9FD3C36 /* DeviceManagementView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceManagementView.swift; sourceTree = "<group>"; };
+		563031AC1EAF150E0A7AAF5B /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
+		63C417099683EF822F4B30DF /* BLECentral.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BLECentral.swift; sourceTree = "<group>"; };
+		6449B25645CA8534562C7068 /* BalconySharedTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BalconySharedTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		669BE9921928194372E5B944 /* MenuBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarView.swift; sourceTree = "<group>"; };
+		6F43204098DB6C4D61A3C700 /* WebSocketServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSocketServer.swift; sourceTree = "<group>"; };
+		72541086349D5C7FE7CA0C64 /* QRCodeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRCodeView.swift; sourceTree = "<group>"; };
+		783D378FB676157E04C99FC9 /* ConnectionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionManager.swift; sourceTree = "<group>"; };
+		7BEB54F3C74377613045762F /* AwayDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AwayDetector.swift; sourceTree = "<group>"; };
+		807317B17FA9F329C51AFD55 /* BalconyShared */ = {isa = PBXFileReference; lastKnownFileType = folder; name = BalconyShared; path = BalconyShared; sourceTree = SOURCE_ROOT; };
+		8781800E637EC256C88F313C /* SessionListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionListView.swift; sourceTree = "<group>"; };
+		883742321A0BF72D7D023889 /* CoreBluetooth.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreBluetooth.framework; path = System/Library/Frameworks/CoreBluetooth.framework; sourceTree = SDKROOT; };
+		886E3C57A893FC1E5B991BA6 /* BalconyMacApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BalconyMacApp.swift; sourceTree = "<group>"; };
+		8AF99EBC38F153B19FDEB53A /* TerminalContainerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalContainerView.swift; sourceTree = "<group>"; };
+		9E5C4CCA055249D15C411831 /* PreferencesManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesManager.swift; sourceTree = "<group>"; };
+		A153BA8C47D076D9BD988A08 /* SessionRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionRowView.swift; sourceTree = "<group>"; };
+		A2992E0888E0EBC79BA14280 /* BalconyMac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BalconyMac.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		AB54448DB8D9C402512B15F8 /* ToolUseCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolUseCard.swift; sourceTree = "<group>"; };
+		B0D9E9C67B880DC32F63487B /* BalconyiOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BalconyiOSApp.swift; sourceTree = "<group>"; };
+		B37053032877CB182134A869 /* InputComposerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputComposerView.swift; sourceTree = "<group>"; };
+		C7DE45B3FC97C8DC7FADEB16 /* BonjourBrowser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BonjourBrowser.swift; sourceTree = "<group>"; };
+		D75F5677A18F7C8240B9CD91 /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
+		D952D21F5F35A1506E4A4D08 /* CryptoManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CryptoManagerTests.swift; sourceTree = "<group>"; };
+		DAE1288EF0CA05A15B0E30FF /* ConnectionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionManager.swift; sourceTree = "<group>"; };
+		DEFB8FEA08F6458F0103A0F7 /* BonjourAdvertiser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BonjourAdvertiser.swift; sourceTree = "<group>"; };
+		E0A018E81D07F8F804A5CC03 /* BalconyiOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = BalconyiOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		E0AA3AD6C3787879CAAB89F1 /* DiscoveryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiscoveryView.swift; sourceTree = "<group>"; };
+		E5330CC3525DAD310296E4BE /* QRScannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRScannerView.swift; sourceTree = "<group>"; };
+		E5BA326573C4E510CFC7C2A8 /* StatusItemManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusItemManager.swift; sourceTree = "<group>"; };
+		E5DF9147479BDFB17C9B5133 /* JSONLParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSONLParserTests.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		040834E9A3FC5446204DD259 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7FFB88CAB72CEF70EEA6DB0B /* BalconyShared in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		44913453C2F95C866C140A20 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F8CAE6DC6EB90AD2D7804B30 /* BalconyShared in Frameworks */,
+				86DFC1B0DC3BB380FFC5E540 /* AVFoundation.framework in Frameworks */,
+				AB6372C6227249554D45DCCC /* CoreBluetooth.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F5C16D33AD9EC30B8BAB09A9 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				70F9D9C57ED6A8DEDB398CA6 /* BalconyShared in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		0188B2AD9F0591CCC18AC372 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				D75F5677A18F7C8240B9CD91 /* AVFoundation.framework */,
+				883742321A0BF72D7D023889 /* CoreBluetooth.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		0877E42291BF5A9127842C0A /* BalconyMac */ = {
+			isa = PBXGroup;
+			children = (
+				3168CDC5CFB545D47409C0F1 /* Sources */,
+			);
+			path = BalconyMac;
+			sourceTree = "<group>";
+		};
+		17F25A7EA717B5213A20D6C1 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				E0A018E81D07F8F804A5CC03 /* BalconyiOS.app */,
+				A2992E0888E0EBC79BA14280 /* BalconyMac.app */,
+				6449B25645CA8534562C7068 /* BalconySharedTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		25C849943CCC8DCD3361BFB0 /* Session */ = {
+			isa = PBXGroup;
+			children = (
+				160D61822B93FBE67A1C20C2 /* SessionManager.swift */,
+			);
+			path = Session;
+			sourceTree = "<group>";
+		};
+		29CC83942554DE7CE9CC9D89 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				360A9665CF8E9D3D2ED2749F /* App */,
+				E8C3BF787DFDC63397201A4A /* Connection */,
+				C79AC08F94025322B1AE2631 /* Notifications */,
+				25C849943CCC8DCD3361BFB0 /* Session */,
+				2A67A82424C4E1251B542757 /* Views */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+		2A67A82424C4E1251B542757 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				3B63B8294EF424C7B4609059 /* Components */,
+				9E38E5022BACD1B483200456 /* Discovery */,
+				A7EB17E3E1F4071A286FD5AC /* Sessions */,
+				AC0EDDEBBCEF21C15CA414E8 /* Settings */,
+				91C6B9F134F53A2255E0E64D /* Terminal */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		3168CDC5CFB545D47409C0F1 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				685FFEB8FA47012AB0CB4A2A /* App */,
+				94483755F349F8D7DE80B0E4 /* Away */,
+				C7C42304F6E889DC403FE84B /* Connection */,
+				667341FB33E407DEA858B135 /* MenuBar */,
+				F1425735D4B4B6D179915C5F /* Preferences */,
+				EE0209A0E21BBDEB46AE3FFE /* Session */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+		360A9665CF8E9D3D2ED2749F /* App */ = {
+			isa = PBXGroup;
+			children = (
+				B0D9E9C67B880DC32F63487B /* BalconyiOSApp.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		3B63B8294EF424C7B4609059 /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				1C4666F5F2F672B0D7E53B59 /* StatusBadge.swift */,
+				AB54448DB8D9C402512B15F8 /* ToolUseCard.swift */,
+			);
+			path = Components;
+			sourceTree = "<group>";
+		};
+		506E5A171C9E6F17609103DC = {
+			isa = PBXGroup;
+			children = (
+				84B7E10DE14DA989993CA5E4 /* BalconyiOS */,
+				0877E42291BF5A9127842C0A /* BalconyMac */,
+				D0871BA5E573A24711432930 /* BalconyShared */,
+				6AF0DE0F3E351285ACD48041 /* Packages */,
+				0188B2AD9F0591CCC18AC372 /* Frameworks */,
+				17F25A7EA717B5213A20D6C1 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		667341FB33E407DEA858B135 /* MenuBar */ = {
+			isa = PBXGroup;
+			children = (
+				669BE9921928194372E5B944 /* MenuBarView.swift */,
+				72541086349D5C7FE7CA0C64 /* QRCodeView.swift */,
+				E5BA326573C4E510CFC7C2A8 /* StatusItemManager.swift */,
+			);
+			path = MenuBar;
+			sourceTree = "<group>";
+		};
+		685FFEB8FA47012AB0CB4A2A /* App */ = {
+			isa = PBXGroup;
+			children = (
+				29C23B5584D65228ECB8AF8D /* AppDelegate.swift */,
+				886E3C57A893FC1E5B991BA6 /* BalconyMacApp.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		6AF0DE0F3E351285ACD48041 /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				807317B17FA9F329C51AFD55 /* BalconyShared */,
+			);
+			name = Packages;
+			sourceTree = "<group>";
+		};
+		84B7E10DE14DA989993CA5E4 /* BalconyiOS */ = {
+			isa = PBXGroup;
+			children = (
+				29CC83942554DE7CE9CC9D89 /* Sources */,
+			);
+			path = BalconyiOS;
+			sourceTree = "<group>";
+		};
+		91C6B9F134F53A2255E0E64D /* Terminal */ = {
+			isa = PBXGroup;
+			children = (
+				B37053032877CB182134A869 /* InputComposerView.swift */,
+				8AF99EBC38F153B19FDEB53A /* TerminalContainerView.swift */,
+			);
+			path = Terminal;
+			sourceTree = "<group>";
+		};
+		94483755F349F8D7DE80B0E4 /* Away */ = {
+			isa = PBXGroup;
+			children = (
+				7BEB54F3C74377613045762F /* AwayDetector.swift */,
+			);
+			path = Away;
+			sourceTree = "<group>";
+		};
+		995E7977762D4C8E83746C4B /* Tests */ = {
+			isa = PBXGroup;
+			children = (
+				A0E45CBFF23542CCF8238E03 /* BalconySharedTests */,
+			);
+			path = Tests;
+			sourceTree = "<group>";
+		};
+		9E38E5022BACD1B483200456 /* Discovery */ = {
+			isa = PBXGroup;
+			children = (
+				E0AA3AD6C3787879CAAB89F1 /* DiscoveryView.swift */,
+				E5330CC3525DAD310296E4BE /* QRScannerView.swift */,
+			);
+			path = Discovery;
+			sourceTree = "<group>";
+		};
+		A0E45CBFF23542CCF8238E03 /* BalconySharedTests */ = {
+			isa = PBXGroup;
+			children = (
+				D952D21F5F35A1506E4A4D08 /* CryptoManagerTests.swift */,
+				E5DF9147479BDFB17C9B5133 /* JSONLParserTests.swift */,
+				2EAEA92A0B879C8CC2EF8F97 /* MessageProtocolTests.swift */,
+				0C02C757F4FB8D345A6EFEF9 /* ModelTests.swift */,
+			);
+			path = BalconySharedTests;
+			sourceTree = "<group>";
+		};
+		A7EB17E3E1F4071A286FD5AC /* Sessions */ = {
+			isa = PBXGroup;
+			children = (
+				8781800E637EC256C88F313C /* SessionListView.swift */,
+				A153BA8C47D076D9BD988A08 /* SessionRowView.swift */,
+			);
+			path = Sessions;
+			sourceTree = "<group>";
+		};
+		AC0EDDEBBCEF21C15CA414E8 /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				4241CE63445459C9D9FD3C36 /* DeviceManagementView.swift */,
+				2E860783542070F02AED00B7 /* SettingsView.swift */,
+			);
+			path = Settings;
+			sourceTree = "<group>";
+		};
+		C79AC08F94025322B1AE2631 /* Notifications */ = {
+			isa = PBXGroup;
+			children = (
+				563031AC1EAF150E0A7AAF5B /* NotificationManager.swift */,
+			);
+			path = Notifications;
+			sourceTree = "<group>";
+		};
+		C7C42304F6E889DC403FE84B /* Connection */ = {
+			isa = PBXGroup;
+			children = (
+				2567EAF959E0FF8C09874F18 /* BLEPeripheral.swift */,
+				DEFB8FEA08F6458F0103A0F7 /* BonjourAdvertiser.swift */,
+				DAE1288EF0CA05A15B0E30FF /* ConnectionManager.swift */,
+				6F43204098DB6C4D61A3C700 /* WebSocketServer.swift */,
+			);
+			path = Connection;
+			sourceTree = "<group>";
+		};
+		D0871BA5E573A24711432930 /* BalconyShared */ = {
+			isa = PBXGroup;
+			children = (
+				995E7977762D4C8E83746C4B /* Tests */,
+			);
+			path = BalconyShared;
+			sourceTree = "<group>";
+		};
+		E8C3BF787DFDC63397201A4A /* Connection */ = {
+			isa = PBXGroup;
+			children = (
+				63C417099683EF822F4B30DF /* BLECentral.swift */,
+				C7DE45B3FC97C8DC7FADEB16 /* BonjourBrowser.swift */,
+				783D378FB676157E04C99FC9 /* ConnectionManager.swift */,
+				30D8A1BC1C4516A364BFA87F /* WebSocketClient.swift */,
+			);
+			path = Connection;
+			sourceTree = "<group>";
+		};
+		EE0209A0E21BBDEB46AE3FFE /* Session */ = {
+			isa = PBXGroup;
+			children = (
+				0EA137F1486263BA1334587B /* HookManager.swift */,
+				17CCC29BE78C5A1A4B508DED /* SessionMonitor.swift */,
+			);
+			path = Session;
+			sourceTree = "<group>";
+		};
+		F1425735D4B4B6D179915C5F /* Preferences */ = {
+			isa = PBXGroup;
+			children = (
+				9E5C4CCA055249D15C411831 /* PreferencesManager.swift */,
+				14954C747CB9B37EFDCE1BEA /* PreferencesView.swift */,
+			);
+			path = Preferences;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		03D0CAD8415E829E5988EBF7 /* BalconyMac */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 6473F2BDDA8F3C34E98D65C3 /* Build configuration list for PBXNativeTarget "BalconyMac" */;
+			buildPhases = (
+				C227C0CCD52BB66C26AD93B2 /* Sources */,
+				F5C16D33AD9EC30B8BAB09A9 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = BalconyMac;
+			packageProductDependencies = (
+				1288CDF4C3C16983C23C8679 /* BalconyShared */,
+			);
+			productName = BalconyMac;
+			productReference = A2992E0888E0EBC79BA14280 /* BalconyMac.app */;
+			productType = "com.apple.product-type.application";
+		};
+		28EDF2F1EEB7F9CAAE8BE0F5 /* BalconyiOS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 6944C21AEBCE49A69C780310 /* Build configuration list for PBXNativeTarget "BalconyiOS" */;
+			buildPhases = (
+				0A0DF275308BE1609707CA8B /* Sources */,
+				44913453C2F95C866C140A20 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = BalconyiOS;
+			packageProductDependencies = (
+				79417DF319AEB98518662E44 /* BalconyShared */,
+			);
+			productName = BalconyiOS;
+			productReference = E0A018E81D07F8F804A5CC03 /* BalconyiOS.app */;
+			productType = "com.apple.product-type.application";
+		};
+		B37488F2CC17C37E395BE6C9 /* BalconySharedTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 55906B1041CAF4EADAE32404 /* Build configuration list for PBXNativeTarget "BalconySharedTests" */;
+			buildPhases = (
+				E78BF88C65E15567BACF1829 /* Sources */,
+				040834E9A3FC5446204DD259 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = BalconySharedTests;
+			packageProductDependencies = (
+				2C1E9FE6B3F733D2560E28A3 /* BalconyShared */,
+			);
+			productName = BalconySharedTests;
+			productReference = 6449B25645CA8534562C7068 /* BalconySharedTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		F7ECBB149418AAFED95511E8 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1500;
+			};
+			buildConfigurationList = 643E3581ACCD6472E3C5A2DB /* Build configuration list for PBXProject "Balcony" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 506E5A171C9E6F17609103DC;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				E53AB105301D36E90158B6D5 /* XCLocalSwiftPackageReference "BalconyShared" */,
+			);
+			preferredProjectObjectVersion = 77;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				03D0CAD8415E829E5988EBF7 /* BalconyMac */,
+				B37488F2CC17C37E395BE6C9 /* BalconySharedTests */,
+				28EDF2F1EEB7F9CAAE8BE0F5 /* BalconyiOS */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		0A0DF275308BE1609707CA8B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				52EA4D3614E7CD7C01FAFCEA /* BLECentral.swift in Sources */,
+				39BA738A247CAB3676A4C7C8 /* BalconyiOSApp.swift in Sources */,
+				54B68596DB033B25770224FE /* BonjourBrowser.swift in Sources */,
+				96F2B3247DD15F44DDB1246D /* ConnectionManager.swift in Sources */,
+				1EE8C4879DF09145406EDB96 /* DeviceManagementView.swift in Sources */,
+				EE22BDDF9F8B09255D1A3B38 /* DiscoveryView.swift in Sources */,
+				37DAD914079DAE9B4CFA67C6 /* InputComposerView.swift in Sources */,
+				7D0244EC2C9842D09733E0E8 /* NotificationManager.swift in Sources */,
+				E988DDBE65BDB2A7E0BDBC34 /* QRScannerView.swift in Sources */,
+				BDFFEF7010DECCDDE79DAAC6 /* SessionListView.swift in Sources */,
+				8ACEB2F730210C579A95CFEA /* SessionManager.swift in Sources */,
+				0FE6915E324A2EA05EEEC639 /* SessionRowView.swift in Sources */,
+				9117D5D329E9C5CB6A6E011A /* SettingsView.swift in Sources */,
+				05F879B73DA8046A8D8E49A4 /* StatusBadge.swift in Sources */,
+				663D66965E45C127C3FF27DD /* TerminalContainerView.swift in Sources */,
+				76496F02ED2CF6CAC78633D8 /* ToolUseCard.swift in Sources */,
+				15A28C87E7BAC5940DF63E23 /* WebSocketClient.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C227C0CCD52BB66C26AD93B2 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F7A6FDE9F0B65FDA8CA6EA1E /* AppDelegate.swift in Sources */,
+				341C959AD5EDFD51716EB1D7 /* AwayDetector.swift in Sources */,
+				884796C6E8749F597FDFC982 /* BLEPeripheral.swift in Sources */,
+				B098C729F8B817D207DB3AC2 /* BalconyMacApp.swift in Sources */,
+				AB12D97B837548A8A8D6D4B5 /* BonjourAdvertiser.swift in Sources */,
+				B5332132DD670D9915D73222 /* ConnectionManager.swift in Sources */,
+				DDDD84968B57343C7DBBE707 /* HookManager.swift in Sources */,
+				BAC73425A4C54FCCD6036774 /* MenuBarView.swift in Sources */,
+				7E67FA15078D40FD6AD5B461 /* PreferencesManager.swift in Sources */,
+				867FFE6CCC71EB3F1101C9E8 /* PreferencesView.swift in Sources */,
+				DA500C499792EA420BE493FD /* QRCodeView.swift in Sources */,
+				5EB7B1AA3CC285D6FEE45D2D /* SessionMonitor.swift in Sources */,
+				DFFB8C76E4D453A641002387 /* StatusItemManager.swift in Sources */,
+				B6798FB8D55B6691C4162C6D /* WebSocketServer.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E78BF88C65E15567BACF1829 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6ADD5A55445484CB8EDF48B3 /* CryptoManagerTests.swift in Sources */,
+				A6ED25F74BE246CE6D92EBF3 /* JSONLParserTests.swift in Sources */,
+				992E8F57143B3830BA04B39D /* MessageProtocolTests.swift in Sources */,
+				2D59B119C66E821CA94AE3BC /* ModelTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		089320737E11ACD4A9BF1648 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.balcony.shared.tests;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		09EC0FAE34A4DEEF2CF50FAD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = BalconyiOS/Resources/BalconyiOS.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = BalconyiOS/Resources/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.balcony.ios;
+				PRODUCT_NAME = Balcony;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		0E6046F7E550223EA0BE0FA1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = BalconyMac/Resources/BalconyMac.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				INFOPLIST_FILE = BalconyMac/Resources/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.balcony.mac;
+				PRODUCT_NAME = Balcony;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		145A74F8AB2B9BD3BF4F552E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.9;
+			};
+			name = Debug;
+		};
+		43830139658B228C38874411 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.9;
+			};
+			name = Release;
+		};
+		A0C5660C386D349AC1DAE3FF /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = BalconyMac/Resources/BalconyMac.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				INFOPLIST_FILE = BalconyMac/Resources/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.balcony.mac;
+				PRODUCT_NAME = Balcony;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		A6821E7B207A3EFA63646E0F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = BalconyiOS/Resources/BalconyiOS.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = BalconyiOS/Resources/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.balcony.ios;
+				PRODUCT_NAME = Balcony;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		C7AEB89297154664D099E0F4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.balcony.shared.tests;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		55906B1041CAF4EADAE32404 /* Build configuration list for PBXNativeTarget "BalconySharedTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				089320737E11ACD4A9BF1648 /* Debug */,
+				C7AEB89297154664D099E0F4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		643E3581ACCD6472E3C5A2DB /* Build configuration list for PBXProject "Balcony" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				145A74F8AB2B9BD3BF4F552E /* Debug */,
+				43830139658B228C38874411 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		6473F2BDDA8F3C34E98D65C3 /* Build configuration list for PBXNativeTarget "BalconyMac" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0E6046F7E550223EA0BE0FA1 /* Debug */,
+				A0C5660C386D349AC1DAE3FF /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		6944C21AEBCE49A69C780310 /* Build configuration list for PBXNativeTarget "BalconyiOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				09EC0FAE34A4DEEF2CF50FAD /* Debug */,
+				A6821E7B207A3EFA63646E0F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		E53AB105301D36E90158B6D5 /* XCLocalSwiftPackageReference "BalconyShared" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = BalconyShared;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		1288CDF4C3C16983C23C8679 /* BalconyShared */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = BalconyShared;
+		};
+		2C1E9FE6B3F733D2560E28A3 /* BalconyShared */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = BalconyShared;
+		};
+		79417DF319AEB98518662E44 /* BalconyShared */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = BalconyShared;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = F7ECBB149418AAFED95511E8 /* Project object */;
+}

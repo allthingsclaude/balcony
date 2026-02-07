@@ -1,0 +1,75 @@
+name: Balcony
+options:
+  bundleIdPrefix: com.balcony
+  deploymentTarget:
+    macOS: "14.0"
+    iOS: "16.0"
+  xcodeVersion: "15.0"
+  createIntermediateGroups: true
+  generateEmptyDirectories: true
+  groupSortPosition: top
+
+packages:
+  BalconyShared:
+    path: BalconyShared
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+
+targets:
+  BalconyMac:
+    type: application
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - path: BalconyMac/Sources
+    resources:
+      - path: BalconyMac/Resources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.balcony.mac
+        INFOPLIST_FILE: BalconyMac/Resources/Info.plist
+        CODE_SIGN_ENTITLEMENTS: BalconyMac/Resources/BalconyMac.entitlements
+        PRODUCT_NAME: Balcony
+        MACOSX_DEPLOYMENT_TARGET: "14.0"
+        LD_RUNPATH_SEARCH_PATHS:
+          - $(inherited)
+          - "@executable_path/../Frameworks"
+    dependencies:
+      - package: BalconyShared
+
+  BalconyiOS:
+    type: application
+    platform: iOS
+    deploymentTarget: "16.0"
+    sources:
+      - path: BalconyiOS/Sources
+    resources:
+      - path: BalconyiOS/Resources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.balcony.ios
+        INFOPLIST_FILE: BalconyiOS/Resources/Info.plist
+        CODE_SIGN_ENTITLEMENTS: BalconyiOS/Resources/BalconyiOS.entitlements
+        PRODUCT_NAME: Balcony
+        IPHONEOS_DEPLOYMENT_TARGET: "16.0"
+        TARGETED_DEVICE_FAMILY: 1
+        LD_RUNPATH_SEARCH_PATHS:
+          - $(inherited)
+          - "@executable_path/Frameworks"
+    dependencies:
+      - package: BalconyShared
+      - sdk: AVFoundation.framework
+      - sdk: CoreBluetooth.framework
+
+  BalconySharedTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: BalconyShared/Tests/BalconySharedTests
+    dependencies:
+      - package: BalconyShared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.balcony.shared.tests

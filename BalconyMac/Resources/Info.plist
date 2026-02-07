@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleName</key>
+    <string>BalconyMac</string>
+    <key>CFBundleDisplayName</key>
+    <string>Balcony</string>
+    <key>CFBundleIdentifier</key>
+    <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+    <key>CFBundleVersion</key>
+    <string>1</string>
+    <key>CFBundleShortVersionString</key>
+    <string>0.1.0</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>14.0</string>
+    <key>LSUIElement</key>
+    <true/>
+    <key>NSBluetoothAlwaysUsageDescription</key>
+    <string>Balcony uses Bluetooth to detect when your iPhone is nearby for away detection.</string>
+    <key>NSLocalNetworkUsageDescription</key>
+    <string>Balcony uses the local network to connect to your iPhone.</string>
+    <key>NSBonjourServices</key>
+    <array>
+        <string>_balcony._tcp.</string>
+    </array>
+</dict>
+</plist>
