@@ -21,6 +21,9 @@ packages:
   swift-nio-transport-services:
     url: https://github.com/apple/swift-nio-transport-services.git
     from: "1.21.0"
+  SwiftTerm:
+    url: https://github.com/migueldeicaza/SwiftTerm.git
+    from: "1.10.0"
 
 settings:
   base:
@@ -80,6 +83,7 @@ targets:
           - "@executable_path/Frameworks"
     dependencies:
       - package: BalconyShared
+      - package: SwiftTerm
       - sdk: AVFoundation.framework
       - sdk: CoreBluetooth.framework
 

@@ -2,14 +2,19 @@ import SwiftUI
 
 struct InputComposerView: View {
     @Binding var text: String
+    var showQuickActions: Bool
+    var onApprove: () -> Void
+    var onDeny: () -> Void
     var onSend: () -> Void
 
     var body: some View {
         HStack(spacing: 8) {
-            // Quick actions
-            HStack(spacing: 4) {
-                QuickActionButton(title: "Approve", color: .green) { onSend() }
-                QuickActionButton(title: "Deny", color: .red) { onSend() }
+            // Quick actions — only shown when session is waiting for input
+            if showQuickActions {
+                HStack(spacing: 4) {
+                    QuickActionButton(title: "Approve", color: .green, action: onApprove)
+                    QuickActionButton(title: "Deny", color: .red, action: onDeny)
+                }
             }
 
             // Text input
@@ -18,9 +23,7 @@ struct InputComposerView: View {
                 .onSubmit { onSend() }
 
             // Send button
-            Button {
-                onSend()
-            } label: {
+            Button(action: onSend) {
                 Image(systemName: "arrow.up.circle.fill")
                     .font(.title2)
             }
@@ -31,6 +34,8 @@ struct InputComposerView: View {
         .background(.bar)
     }
 }
+
+// MARK: - QuickActionButton
 
 private struct QuickActionButton: View {
     let title: String

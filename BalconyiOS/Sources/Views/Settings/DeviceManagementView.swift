@@ -28,10 +28,18 @@ struct DeviceManagementView: View {
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
+                        Spacer()
+                        if connectionManager.connectedDevice?.id == device.id {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundStyle(.green)
+                        }
                     }
                 }
-                .onDelete { _ in
-                    // TODO: Unpair device
+                .onDelete { offsets in
+                    for index in offsets {
+                        let device = connectionManager.pairedDevices[index]
+                        connectionManager.removePairedDevice(device)
+                    }
                 }
             }
         }

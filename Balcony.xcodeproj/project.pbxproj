@@ -60,8 +60,10 @@
 		EE22BDDF9F8B09255D1A3B38 /* DiscoveryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0AA3AD6C3787879CAAB89F1 /* DiscoveryView.swift */; };
 		F7A6FDE9F0B65FDA8CA6EA1E /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29C23B5584D65228ECB8AF8D /* AppDelegate.swift */; };
 		F8CAE6DC6EB90AD2D7804B30 /* BalconyShared in Frameworks */ = {isa = PBXBuildFile; productRef = 79417DF319AEB98518662E44 /* BalconyShared */; };
+		FA08BD1DC31042CE542E3791 /* SwiftTerm in Frameworks */ = {isa = PBXBuildFile; productRef = E17B7059A73D41936CD7D713 /* SwiftTerm */; };
 		FA21E15455103252F1C0C876 /* QRCodePairingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4C999A09628EB4D18E4FB4E /* QRCodePairingView.swift */; };
 		FAC6E749BD4E9CF503A5BC98 /* HookManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 186211D726AF2CED62EF9BD9 /* HookManagerTests.swift */; };
+		FECDEEE2B39232DA44E03C7B /* TerminalViewRepresentable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4BA1B40B0B2FEF2473433C8A /* TerminalViewRepresentable.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -80,6 +82,7 @@
 		30D8A1BC1C4516A364BFA87F /* WebSocketClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSocketClient.swift; sourceTree = "<group>"; };
 		4241CE63445459C9D9FD3C36 /* DeviceManagementView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceManagementView.swift; sourceTree = "<group>"; };
 		49449E8E646DB0F7693BF3F0 /* WebSocketClientHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSocketClientHandler.swift; sourceTree = "<group>"; };
+		4BA1B40B0B2FEF2473433C8A /* TerminalViewRepresentable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalViewRepresentable.swift; sourceTree = "<group>"; };
 		563031AC1EAF150E0A7AAF5B /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
 		63C417099683EF822F4B30DF /* BLECentral.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BLECentral.swift; sourceTree = "<group>"; };
 		6449B25645CA8534562C7068 /* BalconySharedTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BalconySharedTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -129,6 +132,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				F8CAE6DC6EB90AD2D7804B30 /* BalconyShared in Frameworks */,
+				FA08BD1DC31042CE542E3791 /* SwiftTerm in Frameworks */,
 				86DFC1B0DC3BB380FFC5E540 /* AVFoundation.framework in Frameworks */,
 				AB6372C6227249554D45DCCC /* CoreBluetooth.framework in Frameworks */,
 			);
@@ -313,6 +317,7 @@
 			children = (
 				B37053032877CB182134A869 /* InputComposerView.swift */,
 				8AF99EBC38F153B19FDEB53A /* TerminalContainerView.swift */,
+				4BA1B40B0B2FEF2473433C8A /* TerminalViewRepresentable.swift */,
 			);
 			path = Terminal;
 			sourceTree = "<group>";
@@ -470,6 +475,7 @@
 			name = BalconyiOS;
 			packageProductDependencies = (
 				79417DF319AEB98518662E44 /* BalconyShared */,
+				E17B7059A73D41936CD7D713 /* SwiftTerm */,
 			);
 			productName = BalconyiOS;
 			productReference = E0A018E81D07F8F804A5CC03 /* BalconyiOS.app */;
@@ -533,6 +539,7 @@
 			mainGroup = 506E5A171C9E6F17609103DC;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+				3D30A12B8C804AAC736C39EA /* XCRemoteSwiftPackageReference "SwiftTerm" */,
 				D125E1B764D3A72CC0C29450 /* XCRemoteSwiftPackageReference "swift-nio" */,
 				A1DAC1B605F89BAF640B003F /* XCRemoteSwiftPackageReference "swift-nio-ssl" */,
 				0B2C0820A65E78C7CF28A757 /* XCRemoteSwiftPackageReference "swift-nio-transport-services" */,
@@ -570,6 +577,7 @@
 				9117D5D329E9C5CB6A6E011A /* SettingsView.swift in Sources */,
 				05F879B73DA8046A8D8E49A4 /* StatusBadge.swift in Sources */,
 				663D66965E45C127C3FF27DD /* TerminalContainerView.swift in Sources */,
+				FECDEEE2B39232DA44E03C7B /* TerminalViewRepresentable.swift in Sources */,
 				76496F02ED2CF6CAC78633D8 /* ToolUseCard.swift in Sources */,
 				15A28C87E7BAC5940DF63E23 /* WebSocketClient.swift in Sources */,
 			);
@@ -946,6 +954,14 @@
 				minimumVersion = 1.21.0;
 			};
 		};
+		3D30A12B8C804AAC736C39EA /* XCRemoteSwiftPackageReference "SwiftTerm" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/migueldeicaza/SwiftTerm.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.10.0;
+			};
+		};
 		A1DAC1B605F89BAF640B003F /* XCRemoteSwiftPackageReference "swift-nio-ssl" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/apple/swift-nio-ssl.git";
@@ -995,6 +1011,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = A1DAC1B605F89BAF640B003F /* XCRemoteSwiftPackageReference "swift-nio-ssl" */;
 			productName = NIOSSL;
+		};
+		E17B7059A73D41936CD7D713 /* SwiftTerm */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 3D30A12B8C804AAC736C39EA /* XCRemoteSwiftPackageReference "SwiftTerm" */;
+			productName = SwiftTerm;
 		};
 		E76BB04E002C60E874E1993D /* NIO */ = {
 			isa = XCSwiftPackageProductDependency;

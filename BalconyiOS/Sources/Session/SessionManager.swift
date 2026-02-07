@@ -11,6 +11,15 @@ final class SessionManager: ObservableObject {
     @Published var activeSession: Session?
     @Published var terminalMessages: [SessionMessage] = []
 
+    /// Raw text chunks for feeding the terminal view. Each entry is fed sequentially.
+    @Published var terminalFeed: [String] = []
+
+    /// The most recent pending/running tool use for overlay display.
+    @Published var pendingToolUse: ToolUse?
+
+    /// All tool use events for the active session.
+    @Published var toolUses: [ToolUse] = []
+
     private weak var connectionManager: ConnectionManager?
 
     // MARK: - Configuration
@@ -33,7 +42,6 @@ final class SessionManager: ObservableObject {
             return
         }
         do {
-            // Send an empty sessionList request — Mac responds with the full list
             let msg = try BalconyMessage.create(type: .sessionList, payload: EmptyPayload())
             try await connectionManager.send(msg)
         } catch {
@@ -46,6 +54,9 @@ final class SessionManager: ObservableObject {
         logger.info("Subscribing to session: \(session.id)")
         activeSession = session
         terminalMessages = []
+        terminalFeed = []
+        pendingToolUse = nil
+        toolUses = []
 
         guard let connectionManager else { return }
         do {
@@ -63,6 +74,9 @@ final class SessionManager: ObservableObject {
         if activeSession?.id == session.id {
             activeSession = nil
             terminalMessages = []
+            terminalFeed = []
+            pendingToolUse = nil
+            toolUses = []
         }
 
         guard let connectionManager else { return }
@@ -98,8 +112,10 @@ final class SessionManager: ObservableObject {
             handleSessionUpdate(message)
         case .terminalOutput:
             handleTerminalOutput(message)
-        case .toolUseStart, .toolUseEnd:
-            handleToolUseEvent(message)
+        case .toolUseStart:
+            handleToolUseStart(message)
+        case .toolUseEnd:
+            handleToolUseEnd(message)
         default:
             break
         }
@@ -123,7 +139,6 @@ final class SessionManager: ObservableObject {
             } else {
                 sessions.append(payload.session)
             }
-            // Update activeSession if it's the one being viewed
             if activeSession?.id == payload.session.id {
                 activeSession = payload.session
             }
@@ -138,57 +153,97 @@ final class SessionManager: ObservableObject {
             let payload = try message.decodePayload(TerminalOutputPayload.self)
             guard payload.sessionId == activeSession?.id else { return }
             terminalMessages.append(payload.message)
+            // Feed the raw content to the terminal view
+            terminalFeed.append(payload.message.content)
             logger.debug("Terminal output for \(payload.sessionId)")
         } catch {
             logger.error("Failed to decode terminal output: \(error.localizedDescription)")
         }
     }
 
-    private func handleToolUseEvent(_ message: BalconyMessage) {
+    private func handleToolUseStart(_ message: BalconyMessage) {
         do {
-            let payload = try message.decodePayload(ToolUseEventPayload.self)
-            logger.debug("Tool use event: \(payload.toolName) for \(payload.sessionId)")
+            let payload = try message.decodePayload(ToolUseStartPayload.self)
+            guard payload.sessionId == activeSession?.id else { return }
+            let toolUse = ToolUse(
+                id: payload.toolUseId,
+                toolName: payload.toolName,
+                input: payload.input,
+                output: nil,
+                status: .running,
+                startedAt: message.timestamp,
+                completedAt: nil
+            )
+            toolUses.append(toolUse)
+            pendingToolUse = toolUse
+            logger.debug("Tool use started: \(payload.toolName)")
         } catch {
-            logger.error("Failed to decode tool use event: \(error.localizedDescription)")
+            logger.error("Failed to decode tool use start: \(error.localizedDescription)")
+        }
+    }
+
+    private func handleToolUseEnd(_ message: BalconyMessage) {
+        do {
+            let payload = try message.decodePayload(ToolUseEndPayload.self)
+            guard payload.sessionId == activeSession?.id else { return }
+            if let index = toolUses.firstIndex(where: { $0.id == payload.toolUseId }) {
+                toolUses[index] = ToolUse(
+                    id: payload.toolUseId,
+                    toolName: toolUses[index].toolName,
+                    input: toolUses[index].input,
+                    output: payload.output,
+                    status: payload.status,
+                    startedAt: toolUses[index].startedAt,
+                    completedAt: message.timestamp
+                )
+                // Clear pending if this was the pending one
+                if pendingToolUse?.id == payload.toolUseId {
+                    pendingToolUse = nil
+                }
+            }
+            logger.debug("Tool use ended: \(payload.toolUseId)")
+        } catch {
+            logger.error("Failed to decode tool use end: \(error.localizedDescription)")
         }
     }
 }
 
-// MARK: - Message Payloads (must match Mac-side definitions)
+// MARK: - Message Payloads
 
-/// Empty payload for request-style messages.
 struct EmptyPayload: Codable, Sendable {}
 
-/// Payload for session list responses from Mac.
 struct SessionListPayload: Codable, Sendable {
     let sessions: [Session]
 }
 
-/// Payload for session update messages from Mac.
 struct SessionUpdatePayload: Codable, Sendable {
     let session: Session
 }
 
-/// Payload for terminal output messages from Mac.
 struct TerminalOutputPayload: Codable, Sendable {
     let sessionId: String
     let message: SessionMessage
 }
 
-/// Payload for tool use event messages from Mac.
-struct ToolUseEventPayload: Codable, Sendable {
-    let sessionId: String
-    let toolName: String
-    let content: String
-}
-
-/// Payload for session subscribe/unsubscribe messages to Mac.
 struct SessionSubscribePayload: Codable, Sendable {
     let sessionId: String
 }
 
-/// Payload for user input messages to Mac.
 struct UserInputPayload: Codable, Sendable {
     let sessionId: String
     let text: String
+}
+
+struct ToolUseStartPayload: Codable, Sendable {
+    let sessionId: String
+    let toolUseId: UUID
+    let toolName: String
+    let input: String
+}
+
+struct ToolUseEndPayload: Codable, Sendable {
+    let sessionId: String
+    let toolUseId: UUID
+    let output: String?
+    let status: ToolUseStatus
 }
