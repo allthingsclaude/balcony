@@ -12,6 +12,15 @@ options:
 packages:
   BalconyShared:
     path: BalconyShared
+  swift-nio:
+    url: https://github.com/apple/swift-nio.git
+    from: "2.65.0"
+  swift-nio-ssl:
+    url: https://github.com/apple/swift-nio-ssl.git
+    from: "2.27.0"
+  swift-nio-transport-services:
+    url: https://github.com/apple/swift-nio-transport-services.git
+    from: "1.21.0"
 
 settings:
   base:
@@ -38,6 +47,17 @@ targets:
           - "@executable_path/../Frameworks"
     dependencies:
       - package: BalconyShared
+      - product: NIO
+        package: swift-nio
+      - product: NIOHTTP1
+        package: swift-nio
+      - product: NIOWebSocket
+        package: swift-nio
+      - product: NIOSSL
+        package: swift-nio-ssl
+      - product: NIOTransportServices
+        package: swift-nio-transport-services
+      - sdk: IOKit.framework
 
   BalconyiOS:
     type: application

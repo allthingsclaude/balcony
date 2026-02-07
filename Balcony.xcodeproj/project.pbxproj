@@ -10,19 +10,23 @@
 		05F879B73DA8046A8D8E49A4 /* StatusBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C4666F5F2F672B0D7E53B59 /* StatusBadge.swift */; };
 		0FE6915E324A2EA05EEEC639 /* SessionRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A153BA8C47D076D9BD988A08 /* SessionRowView.swift */; };
 		15A28C87E7BAC5940DF63E23 /* WebSocketClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30D8A1BC1C4516A364BFA87F /* WebSocketClient.swift */; };
+		1E628833070E34E4A040D51C /* NIOWebSocket in Frameworks */ = {isa = PBXBuildFile; productRef = 6ED48EC9E94F4FC97A96DE5A /* NIOWebSocket */; };
 		1EE8C4879DF09145406EDB96 /* DeviceManagementView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4241CE63445459C9D9FD3C36 /* DeviceManagementView.swift */; };
+		2496CBE03C1E577AD24E7496 /* NIO in Frameworks */ = {isa = PBXBuildFile; productRef = E76BB04E002C60E874E1993D /* NIO */; };
 		2D59B119C66E821CA94AE3BC /* ModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C02C757F4FB8D345A6EFEF9 /* ModelTests.swift */; };
 		341C959AD5EDFD51716EB1D7 /* AwayDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BEB54F3C74377613045762F /* AwayDetector.swift */; };
 		34E6882C0FD1B6C0D3615B5D /* HookManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0EA137F1486263BA1334587B /* HookManager.swift */; };
 		37DAD914079DAE9B4CFA67C6 /* InputComposerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B37053032877CB182134A869 /* InputComposerView.swift */; };
 		39BA738A247CAB3676A4C7C8 /* BalconyiOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0D9E9C67B880DC32F63487B /* BalconyiOSApp.swift */; };
 		3C69830B0DE4EE6A3B2948D1 /* BalconyShared in Frameworks */ = {isa = PBXBuildFile; productRef = C7CC0869B5A8DE52E3A8DF71 /* BalconyShared */; };
+		421C8CC638EF49CDCB2C843F /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FF246A4A3131A5AB9E40961A /* IOKit.framework */; };
 		50FE19E8865DE14C1871C378 /* SessionMonitorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC67AD3AD939E21BB96C33F9 /* SessionMonitorTests.swift */; };
 		52EA4D3614E7CD7C01FAFCEA /* BLECentral.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63C417099683EF822F4B30DF /* BLECentral.swift */; };
 		54B68596DB033B25770224FE /* BonjourBrowser.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7DE45B3FC97C8DC7FADEB16 /* BonjourBrowser.swift */; };
 		5EB7B1AA3CC285D6FEE45D2D /* SessionMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17CCC29BE78C5A1A4B508DED /* SessionMonitor.swift */; };
 		663D66965E45C127C3FF27DD /* TerminalContainerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AF99EBC38F153B19FDEB53A /* TerminalContainerView.swift */; };
 		6ADD5A55445484CB8EDF48B3 /* CryptoManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D952D21F5F35A1506E4A4D08 /* CryptoManagerTests.swift */; };
+		6B4353EBEE2E8A5A6B8E1AFF /* NIOHTTP1 in Frameworks */ = {isa = PBXBuildFile; productRef = D5859053BEF37E29C28D0EF6 /* NIOHTTP1 */; };
 		70F9D9C57ED6A8DEDB398CA6 /* BalconyShared in Frameworks */ = {isa = PBXBuildFile; productRef = 1288CDF4C3C16983C23C8679 /* BalconyShared */; };
 		76496F02ED2CF6CAC78633D8 /* ToolUseCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB54448DB8D9C402512B15F8 /* ToolUseCard.swift */; };
 		7D0244EC2C9842D09733E0E8 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 563031AC1EAF150E0A7AAF5B /* NotificationManager.swift */; };
@@ -39,6 +43,8 @@
 		A6ED25F74BE246CE6D92EBF3 /* JSONLParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5DF9147479BDFB17C9B5133 /* JSONLParserTests.swift */; };
 		AB12D97B837548A8A8D6D4B5 /* BonjourAdvertiser.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEFB8FEA08F6458F0103A0F7 /* BonjourAdvertiser.swift */; };
 		AB6372C6227249554D45DCCC /* CoreBluetooth.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 883742321A0BF72D7D023889 /* CoreBluetooth.framework */; };
+		AB80212ED780C5118B5682C5 /* NIOSSL in Frameworks */ = {isa = PBXBuildFile; productRef = D9B0C7A19BA675671F251FBE /* NIOSSL */; };
+		ABED7ACDE162DA6ED5ED1DB1 /* NIOTransportServices in Frameworks */ = {isa = PBXBuildFile; productRef = F37EA6D4A2F37910EE004F34 /* NIOTransportServices */; };
 		B098C729F8B817D207DB3AC2 /* BalconyMacApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 886E3C57A893FC1E5B991BA6 /* BalconyMacApp.swift */; };
 		B5332132DD670D9915D73222 /* ConnectionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAE1288EF0CA05A15B0E30FF /* ConnectionManager.swift */; };
 		B6798FB8D55B6691C4162C6D /* WebSocketServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F43204098DB6C4D61A3C700 /* WebSocketServer.swift */; };
@@ -47,6 +53,7 @@
 		DA500C499792EA420BE493FD /* QRCodeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72541086349D5C7FE7CA0C64 /* QRCodeView.swift */; };
 		DDDD84968B57343C7DBBE707 /* HookManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0EA137F1486263BA1334587B /* HookManager.swift */; };
 		DFFB8C76E4D453A641002387 /* StatusItemManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5BA326573C4E510CFC7C2A8 /* StatusItemManager.swift */; };
+		E50D03AEEA94650D2FA831C6 /* WebSocketClientHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49449E8E646DB0F7693BF3F0 /* WebSocketClientHandler.swift */; };
 		E988DDBE65BDB2A7E0BDBC34 /* QRScannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5330CC3525DAD310296E4BE /* QRScannerView.swift */; };
 		EE22BDDF9F8B09255D1A3B38 /* DiscoveryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0AA3AD6C3787879CAAB89F1 /* DiscoveryView.swift */; };
 		F7A6FDE9F0B65FDA8CA6EA1E /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29C23B5584D65228ECB8AF8D /* AppDelegate.swift */; };
@@ -69,6 +76,7 @@
 		2EAEA92A0B879C8CC2EF8F97 /* MessageProtocolTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageProtocolTests.swift; sourceTree = "<group>"; };
 		30D8A1BC1C4516A364BFA87F /* WebSocketClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSocketClient.swift; sourceTree = "<group>"; };
 		4241CE63445459C9D9FD3C36 /* DeviceManagementView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceManagementView.swift; sourceTree = "<group>"; };
+		49449E8E646DB0F7693BF3F0 /* WebSocketClientHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSocketClientHandler.swift; sourceTree = "<group>"; };
 		563031AC1EAF150E0A7AAF5B /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
 		63C417099683EF822F4B30DF /* BLECentral.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BLECentral.swift; sourceTree = "<group>"; };
 		6449B25645CA8534562C7068 /* BalconySharedTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BalconySharedTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -99,6 +107,7 @@
 		E5BA326573C4E510CFC7C2A8 /* StatusItemManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusItemManager.swift; sourceTree = "<group>"; };
 		E5DF9147479BDFB17C9B5133 /* JSONLParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSONLParserTests.swift; sourceTree = "<group>"; };
 		FC67AD3AD939E21BB96C33F9 /* SessionMonitorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionMonitorTests.swift; sourceTree = "<group>"; };
+		FF246A4A3131A5AB9E40961A /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = System/Library/Frameworks/IOKit.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -133,6 +142,12 @@
 			buildActionMask = 2147483647;
 			files = (
 				70F9D9C57ED6A8DEDB398CA6 /* BalconyShared in Frameworks */,
+				2496CBE03C1E577AD24E7496 /* NIO in Frameworks */,
+				6B4353EBEE2E8A5A6B8E1AFF /* NIOHTTP1 in Frameworks */,
+				1E628833070E34E4A040D51C /* NIOWebSocket in Frameworks */,
+				AB80212ED780C5118B5682C5 /* NIOSSL in Frameworks */,
+				ABED7ACDE162DA6ED5ED1DB1 /* NIOTransportServices in Frameworks */,
+				421C8CC638EF49CDCB2C843F /* IOKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -144,6 +159,7 @@
 			children = (
 				D75F5677A18F7C8240B9CD91 /* AVFoundation.framework */,
 				883742321A0BF72D7D023889 /* CoreBluetooth.framework */,
+				FF246A4A3131A5AB9E40961A /* IOKit.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -363,6 +379,7 @@
 				2567EAF959E0FF8C09874F18 /* BLEPeripheral.swift */,
 				DEFB8FEA08F6458F0103A0F7 /* BonjourAdvertiser.swift */,
 				DAE1288EF0CA05A15B0E30FF /* ConnectionManager.swift */,
+				49449E8E646DB0F7693BF3F0 /* WebSocketClientHandler.swift */,
 				6F43204098DB6C4D61A3C700 /* WebSocketServer.swift */,
 			);
 			path = Connection;
@@ -422,6 +439,11 @@
 			name = BalconyMac;
 			packageProductDependencies = (
 				1288CDF4C3C16983C23C8679 /* BalconyShared */,
+				E76BB04E002C60E874E1993D /* NIO */,
+				D5859053BEF37E29C28D0EF6 /* NIOHTTP1 */,
+				6ED48EC9E94F4FC97A96DE5A /* NIOWebSocket */,
+				D9B0C7A19BA675671F251FBE /* NIOSSL */,
+				F37EA6D4A2F37910EE004F34 /* NIOTransportServices */,
 			);
 			productName = BalconyMac;
 			productReference = A2992E0888E0EBC79BA14280 /* BalconyMac.app */;
@@ -504,6 +526,9 @@
 			mainGroup = 506E5A171C9E6F17609103DC;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+				D125E1B764D3A72CC0C29450 /* XCRemoteSwiftPackageReference "swift-nio" */,
+				A1DAC1B605F89BAF640B003F /* XCRemoteSwiftPackageReference "swift-nio-ssl" */,
+				0B2C0820A65E78C7CF28A757 /* XCRemoteSwiftPackageReference "swift-nio-transport-services" */,
 				E53AB105301D36E90158B6D5 /* XCLocalSwiftPackageReference "BalconyShared" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -571,6 +596,7 @@
 				DA500C499792EA420BE493FD /* QRCodeView.swift in Sources */,
 				5EB7B1AA3CC285D6FEE45D2D /* SessionMonitor.swift in Sources */,
 				DFFB8C76E4D453A641002387 /* StatusItemManager.swift in Sources */,
+				E50D03AEEA94650D2FA831C6 /* WebSocketClientHandler.swift in Sources */,
 				B6798FB8D55B6691C4162C6D /* WebSocketServer.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -901,6 +927,33 @@
 		};
 /* End XCLocalSwiftPackageReference section */
 
+/* Begin XCRemoteSwiftPackageReference section */
+		0B2C0820A65E78C7CF28A757 /* XCRemoteSwiftPackageReference "swift-nio-transport-services" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/apple/swift-nio-transport-services.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.21.0;
+			};
+		};
+		A1DAC1B605F89BAF640B003F /* XCRemoteSwiftPackageReference "swift-nio-ssl" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/apple/swift-nio-ssl.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.27.0;
+			};
+		};
+		D125E1B764D3A72CC0C29450 /* XCRemoteSwiftPackageReference "swift-nio" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/apple/swift-nio.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.65.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
 /* Begin XCSwiftPackageProductDependency section */
 		1288CDF4C3C16983C23C8679 /* BalconyShared */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -910,6 +963,11 @@
 			isa = XCSwiftPackageProductDependency;
 			productName = BalconyShared;
 		};
+		6ED48EC9E94F4FC97A96DE5A /* NIOWebSocket */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D125E1B764D3A72CC0C29450 /* XCRemoteSwiftPackageReference "swift-nio" */;
+			productName = NIOWebSocket;
+		};
 		79417DF319AEB98518662E44 /* BalconyShared */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = BalconyShared;
@@ -917,6 +975,26 @@
 		C7CC0869B5A8DE52E3A8DF71 /* BalconyShared */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = BalconyShared;
+		};
+		D5859053BEF37E29C28D0EF6 /* NIOHTTP1 */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D125E1B764D3A72CC0C29450 /* XCRemoteSwiftPackageReference "swift-nio" */;
+			productName = NIOHTTP1;
+		};
+		D9B0C7A19BA675671F251FBE /* NIOSSL */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A1DAC1B605F89BAF640B003F /* XCRemoteSwiftPackageReference "swift-nio-ssl" */;
+			productName = NIOSSL;
+		};
+		E76BB04E002C60E874E1993D /* NIO */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D125E1B764D3A72CC0C29450 /* XCRemoteSwiftPackageReference "swift-nio" */;
+			productName = NIO;
+		};
+		F37EA6D4A2F37910EE004F34 /* NIOTransportServices */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 0B2C0820A65E78C7CF28A757 /* XCRemoteSwiftPackageReference "swift-nio-transport-services" */;
+			productName = NIOTransportServices;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

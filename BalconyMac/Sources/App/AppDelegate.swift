@@ -1,16 +1,26 @@
 import AppKit
+import BalconyShared
 import os
 
+@MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let logger = Logger(subsystem: "com.balcony.mac", category: "AppDelegate")
 
     private let sessionMonitor = SessionMonitor()
     private let hookManager = HookManager()
+    private lazy var connectionManager = ConnectionManager(sessionMonitor: sessionMonitor)
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         logger.info("BalconyMac launched")
 
         Task {
+            // Start connection services (WebSocket server, Bonjour, BLE)
+            do {
+                try await connectionManager.start()
+            } catch {
+                logger.error("Failed to start connection services: \(error.localizedDescription)")
+            }
+
             // Start session file monitoring
             let sessionEvents = await sessionMonitor.startMonitoring()
 
@@ -22,14 +32,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             let hookEvents = await hookManager.startListening()
 
-            // Process session events
+            // Process session events -> forward to connected iOS clients
             Task {
                 for await event in sessionEvents {
                     await handleSessionEvent(event)
                 }
             }
 
-            // Process hook events
+            // Process hook events -> forward to connected iOS clients
             Task {
                 for await event in hookEvents {
                     await handleHookEvent(event)
@@ -42,6 +52,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         logger.info("BalconyMac terminating")
 
         Task {
+            try? await connectionManager.stop()
             await sessionMonitor.stopMonitoring()
             await hookManager.stopListening()
             try? await hookManager.removeHooks()
@@ -51,35 +62,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Event Routing
 
     @MainActor
-    private func handleSessionEvent(_ event: SessionEvent) {
+    private func handleSessionEvent(_ event: SessionEvent) async {
         switch event {
         case .sessionDiscovered(let session):
             logger.info("Session discovered: \(session.id)")
-            // TODO: Forward to ConnectionManager for broadcast to iOS clients
         case .sessionUpdated(let session, let messages):
             logger.debug("Session \(session.id) updated with \(messages.count) new messages")
-            // TODO: Forward to ConnectionManager
         case .sessionEnded(let sessionId):
             logger.info("Session ended: \(sessionId)")
-            // TODO: Forward to ConnectionManager
         }
+
+        // Forward all session events to connected iOS clients
+        await connectionManager.forwardSessionEvent(event)
     }
 
     @MainActor
-    private func handleHookEvent(_ event: HookEvent) {
+    private func handleHookEvent(_ event: HookEvent) async {
         switch event {
         case .preToolUse(let sessionId, let toolName, _):
             logger.debug("Pre-tool: \(toolName) in \(sessionId)")
-            // TODO: Forward to ConnectionManager
         case .postToolUse(let sessionId, let toolName, _):
             logger.debug("Post-tool: \(toolName) in \(sessionId)")
-            // TODO: Forward to ConnectionManager
         case .notification(let sessionId, let message):
             logger.info("Notification for \(sessionId): \(message)")
-            // TODO: Forward to ConnectionManager
         case .sessionStop(let sessionId):
             logger.info("Hook: session stopped \(sessionId)")
             Task { await sessionMonitor.endSession(id: sessionId) }
         }
+
+        // Forward all hook events to connected iOS clients
+        await connectionManager.forwardHookEvent(event)
     }
 }
