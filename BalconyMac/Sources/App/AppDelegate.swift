@@ -6,9 +6,10 @@ import os
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let logger = Logger(subsystem: "com.balcony.mac", category: "AppDelegate")
 
-    private let sessionMonitor = SessionMonitor()
+    let sessionMonitor = SessionMonitor()
     private let hookManager = HookManager()
-    private lazy var connectionManager = ConnectionManager(sessionMonitor: sessionMonitor)
+    lazy var connectionManager = ConnectionManager(sessionMonitor: sessionMonitor)
+    let sessionListModel = SessionListModel()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         logger.info("BalconyMac launched")
@@ -23,6 +24,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
             // Start session file monitoring
             let sessionEvents = await sessionMonitor.startMonitoring()
+
+            // Populate initial session list for UI
+            let initialSessions = await sessionMonitor.getSessions()
+            sessionListModel.sessions = initialSessions
 
             // Install hooks and start listening
             do {
@@ -71,6 +76,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case .sessionEnded(let sessionId):
             logger.info("Session ended: \(sessionId)")
         }
+
+        // Update UI model
+        let sessions = await sessionMonitor.getSessions()
+        sessionListModel.sessions = sessions
 
         // Forward all session events to connected iOS clients
         await connectionManager.forwardSessionEvent(event)

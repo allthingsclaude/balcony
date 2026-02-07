@@ -6,8 +6,13 @@ struct BalconyMacApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     var body: some Scene {
-        MenuBarExtra("Balcony", systemImage: "antenna.radiowaves.left.and.right") {
+        MenuBarExtra {
             MenuBarView()
+                .environmentObject(appDelegate.connectionManager)
+                .environmentObject(appDelegate.sessionListModel)
+        } label: {
+            let iconName = appDelegate.connectionManager.statusIconName
+            Image(systemName: iconName)
         }
         .menuBarExtraStyle(.window)
 

@@ -11,11 +11,25 @@ final class ConnectionManager: ObservableObject {
     @Published var connectedDevices: [DeviceInfo] = []
     @Published var isServerRunning = false
 
+    /// Icon name reflecting current connection state for the menu bar.
+    var statusIconName: String {
+        if !isServerRunning {
+            return "antenna.radiowaves.left.and.right.slash"
+        } else if !connectedDevices.isEmpty {
+            return "antenna.radiowaves.left.and.right.circle.fill"
+        } else {
+            return "antenna.radiowaves.left.and.right"
+        }
+    }
+
     private let webSocketServer: WebSocketServer
     private let bonjourAdvertiser: BonjourAdvertiser
     private let blePeripheral: BLEPeripheral
     private let sessionMonitor: SessionMonitor
 
+    /// Server identity crypto manager used for QR code pairing.
+    let serverCrypto = CryptoManager()
+    private let port: Int
     private let encoder = MessageEncoder()
     private var serverEventTask: Task<Void, Never>?
 
@@ -23,10 +37,22 @@ final class ConnectionManager: ObservableObject {
         port: Int = 29170,
         sessionMonitor: SessionMonitor
     ) {
+        self.port = port
         self.webSocketServer = WebSocketServer(port: port)
         self.bonjourAdvertiser = BonjourAdvertiser(port: UInt16(port))
         self.blePeripheral = BLEPeripheral()
         self.sessionMonitor = sessionMonitor
+    }
+
+    /// Generate the pairing URL containing host, port, and public key.
+    func generatePairingURL() async throws -> String {
+        // Ensure we have a key pair
+        _ = try await serverCrypto.generateKeyPair()
+        let publicKeyBase64 = try await serverCrypto.publicKeyBase64()
+        let host = Host.current().localizedName ?? "Mac"
+        let encodedHost = host.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? host
+        let encodedPK = publicKeyBase64.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? publicKeyBase64
+        return "balcony://pair?host=\(encodedHost)&port=\(port)&pk=\(encodedPK)"
     }
 
     // MARK: - Lifecycle
@@ -43,8 +69,11 @@ final class ConnectionManager: ObservableObject {
             }
         }
 
-        // Start Bonjour advertising
-        try await bonjourAdvertiser.startAdvertising(publicKeyFingerprint: "")
+        // Generate server key pair for pairing
+        let keyPair = try await serverCrypto.generateKeyPair()
+
+        // Start Bonjour advertising with real key fingerprint
+        try await bonjourAdvertiser.startAdvertising(publicKeyFingerprint: keyPair.fingerprint)
 
         // Start BLE peripheral
         blePeripheral.startAdvertising(deviceName: Host.current().localizedName ?? "Mac")

@@ -19,6 +19,7 @@
 		37DAD914079DAE9B4CFA67C6 /* InputComposerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B37053032877CB182134A869 /* InputComposerView.swift */; };
 		39BA738A247CAB3676A4C7C8 /* BalconyiOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0D9E9C67B880DC32F63487B /* BalconyiOSApp.swift */; };
 		3C69830B0DE4EE6A3B2948D1 /* BalconyShared in Frameworks */ = {isa = PBXBuildFile; productRef = C7CC0869B5A8DE52E3A8DF71 /* BalconyShared */; };
+		3D79F3D2AC1738237F5FF7CB /* SessionListModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD4F94005F234CC1764797BF /* SessionListModel.swift */; };
 		421C8CC638EF49CDCB2C843F /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FF246A4A3131A5AB9E40961A /* IOKit.framework */; };
 		50FE19E8865DE14C1871C378 /* SessionMonitorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC67AD3AD939E21BB96C33F9 /* SessionMonitorTests.swift */; };
 		52EA4D3614E7CD7C01FAFCEA /* BLECentral.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63C417099683EF822F4B30DF /* BLECentral.swift */; };
@@ -50,6 +51,7 @@
 		B6798FB8D55B6691C4162C6D /* WebSocketServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F43204098DB6C4D61A3C700 /* WebSocketServer.swift */; };
 		BAC73425A4C54FCCD6036774 /* MenuBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 669BE9921928194372E5B944 /* MenuBarView.swift */; };
 		BDFFEF7010DECCDDE79DAAC6 /* SessionListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8781800E637EC256C88F313C /* SessionListView.swift */; };
+		D3DE442878C7BC38468448CC /* SessionListModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD4F94005F234CC1764797BF /* SessionListModel.swift */; };
 		DA500C499792EA420BE493FD /* QRCodeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72541086349D5C7FE7CA0C64 /* QRCodeView.swift */; };
 		DDDD84968B57343C7DBBE707 /* HookManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0EA137F1486263BA1334587B /* HookManager.swift */; };
 		DFFB8C76E4D453A641002387 /* StatusItemManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5BA326573C4E510CFC7C2A8 /* StatusItemManager.swift */; };
@@ -58,6 +60,7 @@
 		EE22BDDF9F8B09255D1A3B38 /* DiscoveryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0AA3AD6C3787879CAAB89F1 /* DiscoveryView.swift */; };
 		F7A6FDE9F0B65FDA8CA6EA1E /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29C23B5584D65228ECB8AF8D /* AppDelegate.swift */; };
 		F8CAE6DC6EB90AD2D7804B30 /* BalconyShared in Frameworks */ = {isa = PBXBuildFile; productRef = 79417DF319AEB98518662E44 /* BalconyShared */; };
+		FA21E15455103252F1C0C876 /* QRCodePairingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4C999A09628EB4D18E4FB4E /* QRCodePairingView.swift */; };
 		FAC6E749BD4E9CF503A5BC98 /* HookManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 186211D726AF2CED62EF9BD9 /* HookManagerTests.swift */; };
 /* End PBXBuildFile section */
 
@@ -96,6 +99,8 @@
 		AB54448DB8D9C402512B15F8 /* ToolUseCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolUseCard.swift; sourceTree = "<group>"; };
 		B0D9E9C67B880DC32F63487B /* BalconyiOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BalconyiOSApp.swift; sourceTree = "<group>"; };
 		B37053032877CB182134A869 /* InputComposerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputComposerView.swift; sourceTree = "<group>"; };
+		BD4F94005F234CC1764797BF /* SessionListModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionListModel.swift; sourceTree = "<group>"; };
+		C4C999A09628EB4D18E4FB4E /* QRCodePairingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRCodePairingView.swift; sourceTree = "<group>"; };
 		C7DE45B3FC97C8DC7FADEB16 /* BonjourBrowser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BonjourBrowser.swift; sourceTree = "<group>"; };
 		D75F5677A18F7C8240B9CD91 /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
 		D952D21F5F35A1506E4A4D08 /* CryptoManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CryptoManagerTests.swift; sourceTree = "<group>"; };
@@ -271,6 +276,7 @@
 			isa = PBXGroup;
 			children = (
 				669BE9921928194372E5B944 /* MenuBarView.swift */,
+				C4C999A09628EB4D18E4FB4E /* QRCodePairingView.swift */,
 				72541086349D5C7FE7CA0C64 /* QRCodeView.swift */,
 				E5BA326573C4E510CFC7C2A8 /* StatusItemManager.swift */,
 			);
@@ -408,6 +414,7 @@
 			isa = PBXGroup;
 			children = (
 				0EA137F1486263BA1334587B /* HookManager.swift */,
+				BD4F94005F234CC1764797BF /* SessionListModel.swift */,
 				17CCC29BE78C5A1A4B508DED /* SessionMonitor.swift */,
 			);
 			path = Session;
@@ -574,6 +581,7 @@
 			files = (
 				34E6882C0FD1B6C0D3615B5D /* HookManager.swift in Sources */,
 				FAC6E749BD4E9CF503A5BC98 /* HookManagerTests.swift in Sources */,
+				D3DE442878C7BC38468448CC /* SessionListModel.swift in Sources */,
 				95DC5B754E71B08F31921FAF /* SessionMonitor.swift in Sources */,
 				50FE19E8865DE14C1871C378 /* SessionMonitorTests.swift in Sources */,
 			);
@@ -593,7 +601,9 @@
 				BAC73425A4C54FCCD6036774 /* MenuBarView.swift in Sources */,
 				7E67FA15078D40FD6AD5B461 /* PreferencesManager.swift in Sources */,
 				867FFE6CCC71EB3F1101C9E8 /* PreferencesView.swift in Sources */,
+				FA21E15455103252F1C0C876 /* QRCodePairingView.swift in Sources */,
 				DA500C499792EA420BE493FD /* QRCodeView.swift in Sources */,
+				3D79F3D2AC1738237F5FF7CB /* SessionListModel.swift in Sources */,
 				5EB7B1AA3CC285D6FEE45D2D /* SessionMonitor.swift in Sources */,
 				DFFB8C76E4D453A641002387 /* StatusItemManager.swift in Sources */,
 				E50D03AEEA94650D2FA831C6 /* WebSocketClientHandler.swift in Sources */,
