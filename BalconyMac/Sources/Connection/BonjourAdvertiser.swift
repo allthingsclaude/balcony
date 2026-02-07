@@ -18,12 +18,15 @@ actor BonjourAdvertiser {
     func startAdvertising(publicKeyFingerprint: String) throws {
         let listener = try NWListener(using: .tcp, on: NWEndpoint.Port(rawValue: port)!)
 
-        let txtRecord = NWTXTRecord()
-        // TODO: Set TXT record fields: v, name, pk
+        var txtRecord = NWTXTRecord()
+        txtRecord["v"] = "1"
+        txtRecord["name"] = deviceName
+        txtRecord["pk"] = publicKeyFingerprint
 
         listener.service = NWListener.Service(
             name: deviceName,
-            type: "_balcony._tcp."
+            type: "_balcony._tcp.",
+            txtRecord: txtRecord
         )
 
         listener.stateUpdateHandler = { [weak self] state in

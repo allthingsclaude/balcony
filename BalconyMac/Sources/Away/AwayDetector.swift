@@ -1,4 +1,5 @@
 import Foundation
+import CoreGraphics
 import BalconyShared
 import os
 
@@ -11,9 +12,19 @@ final class AwayDetector: ObservableObject {
     @Published var currentSignals = AwaySignals()
 
     private var pollTimer: Timer?
+    private var screenLocked = false
+    private var lockObservers: [NSObjectProtocol] = []
+
+    /// External signal providers. Set these before calling startDetecting.
+    var bleRSSIProvider: (() -> Int?)?
+    var networkPresenceProvider: (() -> Bool)?
+
+    // MARK: - Lifecycle
 
     /// Start polling for away signals.
     func startDetecting(interval: TimeInterval = 10.0) {
+        registerScreenLockObservers()
+
         pollTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in
                 self?.updateSignals()
@@ -26,21 +37,22 @@ final class AwayDetector: ObservableObject {
     func stopDetecting() {
         pollTimer?.invalidate()
         pollTimer = nil
+        removeScreenLockObservers()
         logger.info("Away detection stopped")
     }
 
-    private func updateSignals() {
-        // TODO: Read system idle time from CGEventSource
-        // TODO: Check screen lock state via DistributedNotificationCenter
-        // TODO: Get BLE RSSI from connected iOS device
-        // TODO: Check if iOS device is on local network
+    // MARK: - Signal Collection
 
-        // Placeholder values
+    private func updateSignals() {
+        let idleSeconds = readSystemIdleTime()
+        let bleRSSI = bleRSSIProvider?()
+        let onLocalNetwork = networkPresenceProvider?() ?? false
+
         currentSignals = AwaySignals(
-            bleRSSI: nil,
-            idleSeconds: 0,
-            screenLocked: false,
-            onLocalNetwork: true
+            bleRSSI: bleRSSI,
+            idleSeconds: idleSeconds,
+            screenLocked: screenLocked,
+            onLocalNetwork: onLocalNetwork
         )
 
         let newStatus = currentSignals.computeStatus()
@@ -48,5 +60,52 @@ final class AwayDetector: ObservableObject {
             logger.info("Away status changed: \(String(describing: self.currentStatus)) -> \(String(describing: newStatus))")
             currentStatus = newStatus
         }
+    }
+
+    // MARK: - System Idle Time
+
+    /// Read seconds since last keyboard/mouse event via CGEventSource.
+    private func readSystemIdleTime() -> Int {
+        let idleTime = CGEventSource.secondsSinceLastEventType(
+            .hidSystemState,
+            eventType: CGEventType(rawValue: ~0)!
+        )
+        return Int(idleTime)
+    }
+
+    // MARK: - Screen Lock Detection
+
+    private func registerScreenLockObservers() {
+        let center = DistributedNotificationCenter.default()
+
+        let lockObserver = center.addObserver(
+            forName: NSNotification.Name("com.apple.screenIsLocked"),
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.screenLocked = true
+            self?.updateSignals()
+        }
+        lockObservers.append(lockObserver)
+
+        let unlockObserver = center.addObserver(
+            forName: NSNotification.Name("com.apple.screenIsUnlocked"),
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.screenLocked = false
+            self?.updateSignals()
+        }
+        lockObservers.append(unlockObserver)
+
+        logger.info("Screen lock observers registered")
+    }
+
+    private func removeScreenLockObservers() {
+        let center = DistributedNotificationCenter.default()
+        for observer in lockObservers {
+            center.removeObserver(observer)
+        }
+        lockObservers.removeAll()
     }
 }

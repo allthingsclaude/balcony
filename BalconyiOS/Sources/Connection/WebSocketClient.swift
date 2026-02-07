@@ -10,7 +10,12 @@ actor WebSocketClient {
     private var isConnected = false
 
     /// Message receive callback.
-    var onMessage: ((BalconyMessage) -> Void)?
+    private var onMessage: (@Sendable (BalconyMessage) -> Void)?
+
+    /// Set the callback for received messages.
+    func setOnMessage(_ handler: @escaping @Sendable (BalconyMessage) -> Void) {
+        onMessage = handler
+    }
 
     /// Connect to a BalconyMac WebSocket server.
     func connect(host: String, port: Int) async throws {

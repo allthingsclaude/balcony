@@ -7,11 +7,16 @@ struct SessionListView: View {
     var body: some View {
         List {
             if sessionManager.sessions.isEmpty {
-                ContentUnavailableView(
-                    "No Active Sessions",
-                    systemImage: "terminal",
-                    description: Text("Start a Claude Code session on your Mac to see it here.")
-                )
+                if #available(iOS 17.0, *) {
+                    ContentUnavailableView(
+                        "No Active Sessions",
+                        systemImage: "terminal",
+                        description: Text("Start a Claude Code session on your Mac to see it here.")
+                    )
+                } else {
+                    Text("No Active Sessions")
+                        .foregroundStyle(.secondary)
+                }
             } else {
                 ForEach(sessionManager.sessions) { session in
                     NavigationLink(value: session) {
