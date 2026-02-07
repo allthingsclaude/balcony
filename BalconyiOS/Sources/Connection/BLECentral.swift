@@ -57,9 +57,14 @@ extension BLECentral: CBCentralManagerDelegate {
         advertisementData: [String: Any],
         rssi RSSI: NSNumber
     ) {
+        let value = RSSI.intValue
+        let previousRSSI = rssi
         DispatchQueue.main.async {
-            self.rssi = RSSI.intValue
+            self.rssi = value
         }
-        logger.debug("Discovered peripheral RSSI: \(RSSI.intValue)")
+        // Only log significant RSSI changes to avoid console spam
+        if previousRSSI == nil || abs(value - (previousRSSI ?? 0)) >= 10 {
+            logger.debug("BLE RSSI: \(value)")
+        }
     }
 }

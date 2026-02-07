@@ -128,12 +128,12 @@ final class WebSocketFrameHandler: ChannelInboundHandler {
 // MARK: - Sending Helpers
 
 extension ConnectedClient {
-    /// Send a WebSocket text frame to this client.
+    /// Send a WebSocket binary frame to this client.
     func send(_ data: Data) {
         guard channel.isActive else { return }
         var buffer = channel.allocator.buffer(capacity: data.count)
         buffer.writeBytes(data)
-        let frame = WebSocketFrame(fin: true, opcode: .text, data: buffer)
+        let frame = WebSocketFrame(fin: true, opcode: .binary, data: buffer)
         channel.writeAndFlush(frame, promise: nil)
     }
 

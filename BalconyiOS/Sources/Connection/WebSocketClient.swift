@@ -104,7 +104,16 @@ actor WebSocketClient {
         webSocketTask?.cancel(with: .normalClosure, reason: nil)
         session?.invalidateAndCancel()
 
-        let url = URL(string: "wss://\(host):\(port)/ws")!
+        // Use plain ws:// for local network — E2E encryption is handled at the app layer
+        // via XChaCha20-Poly1305, so TLS is not needed.
+        var components = URLComponents()
+        components.scheme = "ws"
+        components.host = host
+        components.port = port
+        components.path = "/ws"
+        guard let url = components.url else {
+            throw BalconyError.connectionFailed("Invalid URL for host: \(host):\(port)")
+        }
         let config = URLSessionConfiguration.default
         let urlSession = URLSession(configuration: config, delegate: tlsDelegate, delegateQueue: nil)
         let task = urlSession.webSocketTask(with: url)

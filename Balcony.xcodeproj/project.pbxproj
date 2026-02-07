@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 77;
+	objectVersion = 63;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -91,14 +91,14 @@
 		72541086349D5C7FE7CA0C64 /* QRCodeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRCodeView.swift; sourceTree = "<group>"; };
 		783D378FB676157E04C99FC9 /* ConnectionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionManager.swift; sourceTree = "<group>"; };
 		7BEB54F3C74377613045762F /* AwayDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AwayDetector.swift; sourceTree = "<group>"; };
-		807317B17FA9F329C51AFD55 /* BalconyShared */ = {isa = PBXFileReference; lastKnownFileType = folder; name = BalconyShared; path = BalconyShared; sourceTree = SOURCE_ROOT; };
+		807317B17FA9F329C51AFD55 /* BalconyShared */ = {isa = PBXFileReference; lastKnownFileType = folder; path = BalconyShared; sourceTree = SOURCE_ROOT; };
 		8781800E637EC256C88F313C /* SessionListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionListView.swift; sourceTree = "<group>"; };
 		883742321A0BF72D7D023889 /* CoreBluetooth.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreBluetooth.framework; path = System/Library/Frameworks/CoreBluetooth.framework; sourceTree = SDKROOT; };
 		886E3C57A893FC1E5B991BA6 /* BalconyMacApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BalconyMacApp.swift; sourceTree = "<group>"; };
 		8AF99EBC38F153B19FDEB53A /* TerminalContainerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalContainerView.swift; sourceTree = "<group>"; };
 		9E5C4CCA055249D15C411831 /* PreferencesManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesManager.swift; sourceTree = "<group>"; };
 		A153BA8C47D076D9BD988A08 /* SessionRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionRowView.swift; sourceTree = "<group>"; };
-		A2992E0888E0EBC79BA14280 /* BalconyMac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BalconyMac.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A2992E0888E0EBC79BA14280 /* BalconyMac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; name = BalconyMac.app; path = Balcony.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AB54448DB8D9C402512B15F8 /* ToolUseCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolUseCard.swift; sourceTree = "<group>"; };
 		B0D9E9C67B880DC32F63487B /* BalconyiOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BalconyiOSApp.swift; sourceTree = "<group>"; };
 		B37053032877CB182134A869 /* InputComposerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputComposerView.swift; sourceTree = "<group>"; };
@@ -109,7 +109,7 @@
 		D952D21F5F35A1506E4A4D08 /* CryptoManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CryptoManagerTests.swift; sourceTree = "<group>"; };
 		DAE1288EF0CA05A15B0E30FF /* ConnectionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionManager.swift; sourceTree = "<group>"; };
 		DEFB8FEA08F6458F0103A0F7 /* BonjourAdvertiser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BonjourAdvertiser.swift; sourceTree = "<group>"; };
-		E0A018E81D07F8F804A5CC03 /* BalconyiOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = BalconyiOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		E0A018E81D07F8F804A5CC03 /* Balcony.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Balcony.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E0AA3AD6C3787879CAAB89F1 /* DiscoveryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiscoveryView.swift; sourceTree = "<group>"; };
 		E5330CC3525DAD310296E4BE /* QRScannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRScannerView.swift; sourceTree = "<group>"; };
 		E5BA326573C4E510CFC7C2A8 /* StatusItemManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusItemManager.swift; sourceTree = "<group>"; };
@@ -185,7 +185,7 @@
 		17F25A7EA717B5213A20D6C1 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				E0A018E81D07F8F804A5CC03 /* BalconyiOS.app */,
+				E0A018E81D07F8F804A5CC03 /* Balcony.app */,
 				A2992E0888E0EBC79BA14280 /* BalconyMac.app */,
 				27F22EB81F74AB7C86C12467 /* BalconyMacTests.xctest */,
 				6449B25645CA8534562C7068 /* BalconySharedTests.xctest */,
@@ -478,7 +478,7 @@
 				E17B7059A73D41936CD7D713 /* SwiftTerm */,
 			);
 			productName = BalconyiOS;
-			productReference = E0A018E81D07F8F804A5CC03 /* BalconyiOS.app */;
+			productReference = E0A018E81D07F8F804A5CC03 /* Balcony.app */;
 			productType = "com.apple.product-type.application";
 		};
 		31236DEC08BC80E82A8A8DE7 /* BalconyMacTests */ = {
@@ -545,7 +545,6 @@
 				0B2C0820A65E78C7CF28A757 /* XCRemoteSwiftPackageReference "swift-nio-transport-services" */,
 				E53AB105301D36E90158B6D5 /* XCLocalSwiftPackageReference "BalconyShared" */,
 			);
-			preferredProjectObjectVersion = 77;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -654,6 +653,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = BalconyiOS/Resources/BalconyiOS.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = 746889X99S;
 				INFOPLIST_FILE = BalconyiOS/Resources/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -860,6 +860,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = BalconyiOS/Resources/BalconyiOS.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = 746889X99S;
 				INFOPLIST_FILE = BalconyiOS/Resources/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (

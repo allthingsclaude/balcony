@@ -49,10 +49,19 @@ final class ConnectionManager: ObservableObject {
         // Ensure we have a key pair
         _ = try await serverCrypto.generateKeyPair()
         let publicKeyBase64 = try await serverCrypto.publicKeyBase64()
-        let host = Host.current().localizedName ?? "Mac"
-        let encodedHost = host.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? host
-        let encodedPK = publicKeyBase64.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? publicKeyBase64
-        return "balcony://pair?host=\(encodedHost)&port=\(port)&pk=\(encodedPK)"
+        // Use the actual network hostname (e.g. "Markos-MacBook-Pro.local"), not the
+        // display name ("Marko's MacBook Pro") which contains invalid URL characters.
+        let host = ProcessInfo.processInfo.hostName
+        // Use URLComponents to build a properly encoded URL
+        var components = URLComponents()
+        components.scheme = "balcony"
+        components.host = "pair"
+        components.queryItems = [
+            URLQueryItem(name: "host", value: host),
+            URLQueryItem(name: "port", value: String(port)),
+            URLQueryItem(name: "pk", value: publicKeyBase64),
+        ]
+        return components.string ?? "balcony://pair?host=\(host)&port=\(port)&pk=\(publicKeyBase64)"
     }
 
     // MARK: - Lifecycle
