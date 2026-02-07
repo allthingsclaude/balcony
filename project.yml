@@ -73,3 +73,16 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.balcony.shared.tests
+
+  BalconyMacTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: BalconyMac/Tests
+      - path: BalconyMac/Sources/Session
+    dependencies:
+      - package: BalconyShared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.balcony.mac.tests
+        GENERATE_INFOPLIST_FILE: YES

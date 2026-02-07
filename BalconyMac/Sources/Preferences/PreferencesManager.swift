@@ -16,8 +16,8 @@ final class PreferencesManager: ObservableObject {
     }
 
     private init() {
-        self.wsPort = UserDefaults.standard.integer(forKey: "wsPort")
-        if self.wsPort == 0 { self.wsPort = 29170 }
+        let port = UserDefaults.standard.integer(forKey: "wsPort")
+        self.wsPort = port != 0 ? port : 29170
         self.autoStart = UserDefaults.standard.bool(forKey: "autoStart")
     }
 }

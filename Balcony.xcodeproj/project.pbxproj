@@ -13,8 +13,11 @@
 		1EE8C4879DF09145406EDB96 /* DeviceManagementView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4241CE63445459C9D9FD3C36 /* DeviceManagementView.swift */; };
 		2D59B119C66E821CA94AE3BC /* ModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C02C757F4FB8D345A6EFEF9 /* ModelTests.swift */; };
 		341C959AD5EDFD51716EB1D7 /* AwayDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BEB54F3C74377613045762F /* AwayDetector.swift */; };
+		34E6882C0FD1B6C0D3615B5D /* HookManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0EA137F1486263BA1334587B /* HookManager.swift */; };
 		37DAD914079DAE9B4CFA67C6 /* InputComposerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B37053032877CB182134A869 /* InputComposerView.swift */; };
 		39BA738A247CAB3676A4C7C8 /* BalconyiOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0D9E9C67B880DC32F63487B /* BalconyiOSApp.swift */; };
+		3C69830B0DE4EE6A3B2948D1 /* BalconyShared in Frameworks */ = {isa = PBXBuildFile; productRef = C7CC0869B5A8DE52E3A8DF71 /* BalconyShared */; };
+		50FE19E8865DE14C1871C378 /* SessionMonitorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC67AD3AD939E21BB96C33F9 /* SessionMonitorTests.swift */; };
 		52EA4D3614E7CD7C01FAFCEA /* BLECentral.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63C417099683EF822F4B30DF /* BLECentral.swift */; };
 		54B68596DB033B25770224FE /* BonjourBrowser.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7DE45B3FC97C8DC7FADEB16 /* BonjourBrowser.swift */; };
 		5EB7B1AA3CC285D6FEE45D2D /* SessionMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17CCC29BE78C5A1A4B508DED /* SessionMonitor.swift */; };
@@ -30,6 +33,7 @@
 		884796C6E8749F597FDFC982 /* BLEPeripheral.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2567EAF959E0FF8C09874F18 /* BLEPeripheral.swift */; };
 		8ACEB2F730210C579A95CFEA /* SessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 160D61822B93FBE67A1C20C2 /* SessionManager.swift */; };
 		9117D5D329E9C5CB6A6E011A /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E860783542070F02AED00B7 /* SettingsView.swift */; };
+		95DC5B754E71B08F31921FAF /* SessionMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17CCC29BE78C5A1A4B508DED /* SessionMonitor.swift */; };
 		96F2B3247DD15F44DDB1246D /* ConnectionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 783D378FB676157E04C99FC9 /* ConnectionManager.swift */; };
 		992E8F57143B3830BA04B39D /* MessageProtocolTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EAEA92A0B879C8CC2EF8F97 /* MessageProtocolTests.swift */; };
 		A6ED25F74BE246CE6D92EBF3 /* JSONLParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5DF9147479BDFB17C9B5133 /* JSONLParserTests.swift */; };
@@ -47,6 +51,7 @@
 		EE22BDDF9F8B09255D1A3B38 /* DiscoveryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0AA3AD6C3787879CAAB89F1 /* DiscoveryView.swift */; };
 		F7A6FDE9F0B65FDA8CA6EA1E /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29C23B5584D65228ECB8AF8D /* AppDelegate.swift */; };
 		F8CAE6DC6EB90AD2D7804B30 /* BalconyShared in Frameworks */ = {isa = PBXBuildFile; productRef = 79417DF319AEB98518662E44 /* BalconyShared */; };
+		FAC6E749BD4E9CF503A5BC98 /* HookManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 186211D726AF2CED62EF9BD9 /* HookManagerTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -55,8 +60,10 @@
 		14954C747CB9B37EFDCE1BEA /* PreferencesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesView.swift; sourceTree = "<group>"; };
 		160D61822B93FBE67A1C20C2 /* SessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionManager.swift; sourceTree = "<group>"; };
 		17CCC29BE78C5A1A4B508DED /* SessionMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionMonitor.swift; sourceTree = "<group>"; };
+		186211D726AF2CED62EF9BD9 /* HookManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HookManagerTests.swift; sourceTree = "<group>"; };
 		1C4666F5F2F672B0D7E53B59 /* StatusBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusBadge.swift; sourceTree = "<group>"; };
 		2567EAF959E0FF8C09874F18 /* BLEPeripheral.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BLEPeripheral.swift; sourceTree = "<group>"; };
+		27F22EB81F74AB7C86C12467 /* BalconyMacTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BalconyMacTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		29C23B5584D65228ECB8AF8D /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		2E860783542070F02AED00B7 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		2EAEA92A0B879C8CC2EF8F97 /* MessageProtocolTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageProtocolTests.swift; sourceTree = "<group>"; };
@@ -91,6 +98,7 @@
 		E5330CC3525DAD310296E4BE /* QRScannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRScannerView.swift; sourceTree = "<group>"; };
 		E5BA326573C4E510CFC7C2A8 /* StatusItemManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusItemManager.swift; sourceTree = "<group>"; };
 		E5DF9147479BDFB17C9B5133 /* JSONLParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSONLParserTests.swift; sourceTree = "<group>"; };
+		FC67AD3AD939E21BB96C33F9 /* SessionMonitorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionMonitorTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -109,6 +117,14 @@
 				F8CAE6DC6EB90AD2D7804B30 /* BalconyShared in Frameworks */,
 				86DFC1B0DC3BB380FFC5E540 /* AVFoundation.framework in Frameworks */,
 				AB6372C6227249554D45DCCC /* CoreBluetooth.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7617377A8DF1E30EB4BD6986 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3C69830B0DE4EE6A3B2948D1 /* BalconyShared in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -136,6 +152,7 @@
 			isa = PBXGroup;
 			children = (
 				3168CDC5CFB545D47409C0F1 /* Sources */,
+				3488446FE2AC7D4DE248D827 /* Tests */,
 			);
 			path = BalconyMac;
 			sourceTree = "<group>";
@@ -145,6 +162,7 @@
 			children = (
 				E0A018E81D07F8F804A5CC03 /* BalconyiOS.app */,
 				A2992E0888E0EBC79BA14280 /* BalconyMac.app */,
+				27F22EB81F74AB7C86C12467 /* BalconyMacTests.xctest */,
 				6449B25645CA8534562C7068 /* BalconySharedTests.xctest */,
 			);
 			name = Products;
@@ -193,6 +211,15 @@
 				EE0209A0E21BBDEB46AE3FFE /* Session */,
 			);
 			path = Sources;
+			sourceTree = "<group>";
+		};
+		3488446FE2AC7D4DE248D827 /* Tests */ = {
+			isa = PBXGroup;
+			children = (
+				186211D726AF2CED62EF9BD9 /* HookManagerTests.swift */,
+				FC67AD3AD939E21BB96C33F9 /* SessionMonitorTests.swift */,
+			);
+			path = Tests;
 			sourceTree = "<group>";
 		};
 		360A9665CF8E9D3D2ED2749F /* App */ = {
@@ -419,6 +446,25 @@
 			productReference = E0A018E81D07F8F804A5CC03 /* BalconyiOS.app */;
 			productType = "com.apple.product-type.application";
 		};
+		31236DEC08BC80E82A8A8DE7 /* BalconyMacTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FEC596AAE1BBBC939301A047 /* Build configuration list for PBXNativeTarget "BalconyMacTests" */;
+			buildPhases = (
+				3B0540498465FA75B40A6C88 /* Sources */,
+				7617377A8DF1E30EB4BD6986 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = BalconyMacTests;
+			packageProductDependencies = (
+				C7CC0869B5A8DE52E3A8DF71 /* BalconyShared */,
+			);
+			productName = BalconyMacTests;
+			productReference = 27F22EB81F74AB7C86C12467 /* BalconyMacTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 		B37488F2CC17C37E395BE6C9 /* BalconySharedTests */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 55906B1041CAF4EADAE32404 /* Build configuration list for PBXNativeTarget "BalconySharedTests" */;
@@ -465,6 +511,7 @@
 			projectRoot = "";
 			targets = (
 				03D0CAD8415E829E5988EBF7 /* BalconyMac */,
+				31236DEC08BC80E82A8A8DE7 /* BalconyMacTests */,
 				B37488F2CC17C37E395BE6C9 /* BalconySharedTests */,
 				28EDF2F1EEB7F9CAAE8BE0F5 /* BalconyiOS */,
 			);
@@ -493,6 +540,17 @@
 				663D66965E45C127C3FF27DD /* TerminalContainerView.swift in Sources */,
 				76496F02ED2CF6CAC78633D8 /* ToolUseCard.swift in Sources */,
 				15A28C87E7BAC5940DF63E23 /* WebSocketClient.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		3B0540498465FA75B40A6C88 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				34E6882C0FD1B6C0D3615B5D /* HookManager.swift in Sources */,
+				FAC6E749BD4E9CF503A5BC98 /* HookManagerTests.swift in Sources */,
+				95DC5B754E71B08F31921FAF /* SessionMonitor.swift in Sources */,
+				50FE19E8865DE14C1871C378 /* SessionMonitorTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -646,6 +704,22 @@
 			};
 			name = Debug;
 		};
+		35B1AAFE895D06A44E441078 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.balcony.mac.tests;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
 		43830139658B228C38874411 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -720,6 +794,22 @@
 			};
 			name = Release;
 		};
+		A3A436753B600A0E62AA64F3 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.balcony.mac.tests;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
 		A6821E7B207A3EFA63646E0F /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -793,6 +883,15 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
 		};
+		FEC596AAE1BBBC939301A047 /* Build configuration list for PBXNativeTarget "BalconyMacTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A3A436753B600A0E62AA64F3 /* Debug */,
+				35B1AAFE895D06A44E441078 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
@@ -812,6 +911,10 @@
 			productName = BalconyShared;
 		};
 		79417DF319AEB98518662E44 /* BalconyShared */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = BalconyShared;
+		};
+		C7CC0869B5A8DE52E3A8DF71 /* BalconyShared */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = BalconyShared;
 		};
