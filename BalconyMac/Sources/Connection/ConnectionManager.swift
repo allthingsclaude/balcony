@@ -82,7 +82,7 @@ final class ConnectionManager: ObservableObject {
         let keyPair = try await serverCrypto.generateKeyPair()
 
         // Start Bonjour advertising with real key fingerprint
-        try await bonjourAdvertiser.startAdvertising(publicKeyFingerprint: keyPair.fingerprint)
+        bonjourAdvertiser.startAdvertising(publicKeyFingerprint: keyPair.fingerprint)
 
         // Start BLE peripheral
         blePeripheral.startAdvertising(deviceName: Host.current().localizedName ?? "Mac")
@@ -96,7 +96,7 @@ final class ConnectionManager: ObservableObject {
         serverEventTask?.cancel()
         serverEventTask = nil
         try await webSocketServer.stop()
-        await bonjourAdvertiser.stopAdvertising()
+        bonjourAdvertiser.stopAdvertising()
         blePeripheral.stopAdvertising()
         connectedDevices = []
         isServerRunning = false
@@ -210,6 +210,10 @@ final class ConnectionManager: ObservableObject {
 
     private func handleClientMessage(from client: ConnectedClient, message: BalconyMessage) async {
         switch message.type {
+        case .sessionList:
+            // iOS client requesting the session list (e.g. after handshake)
+            await sendSessionList(to: client)
+
         case .userInput:
             // Forward user input to the appropriate session
             do {

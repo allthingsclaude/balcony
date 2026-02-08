@@ -188,30 +188,37 @@ final class ConnectionManager: ObservableObject {
     private func resolveEndpoint(_ endpoint: NWEndpoint) async -> (String, Int)? {
         await withCheckedContinuation { continuation in
             let connection = NWConnection(to: endpoint, using: .tcp)
-            connection.stateUpdateHandler = { state in
+            connection.stateUpdateHandler = { [weak connection] state in
                 switch state {
                 case .ready:
                     // Extract the resolved host and port from the current path
-                    if let innerEndpoint = connection.currentPath?.remoteEndpoint,
+                    if let innerEndpoint = connection?.currentPath?.remoteEndpoint,
                        case .hostPort(let host, let port) = innerEndpoint {
-                        let hostString: String
+                        let rawHost: String
                         switch host {
                         case .ipv4(let addr):
-                            hostString = "\(addr)"
+                            rawHost = "\(addr)"
                         case .ipv6(let addr):
-                            hostString = "\(addr)"
+                            rawHost = "\(addr)"
                         case .name(let name, _):
-                            hostString = name
+                            rawHost = name
                         @unknown default:
-                            hostString = "\(host)"
+                            rawHost = "\(host)"
                         }
-                        connection.cancel()
+                        // Strip interface scope suffix (e.g. "%en0") that breaks URLs
+                        let hostString = String(rawHost.prefix(while: { $0 != "%" }))
+                        // Prevent .cancelled from resuming again
+                        connection?.stateUpdateHandler = nil
+                        connection?.cancel()
                         continuation.resume(returning: (hostString, Int(port.rawValue)))
                     } else {
-                        connection.cancel()
+                        connection?.stateUpdateHandler = nil
+                        connection?.cancel()
                         continuation.resume(returning: nil)
                     }
-                case .failed, .cancelled:
+                case .failed:
+                    connection?.stateUpdateHandler = nil
+                    connection?.cancel()
                     continuation.resume(returning: nil)
                 default:
                     break
@@ -251,7 +258,16 @@ final class ConnectionManager: ObservableObject {
         // Derive shared secret from server's public key
         try await cryptoManager.deriveSharedSecret(theirPublicKey: ack.publicKey)
 
+        // Enable encryption on the WebSocket transport
+        await webSocketClient.setCrypto(cryptoManager)
+
         logger.info("Handshake complete with \(ack.deviceInfo.name)")
+
+        // Request session list now that crypto is ready (the initial list
+        // sent by the Mac during authentication arrives before setCrypto
+        // and gets dropped, so we re-request here)
+        let requestMsg = try BalconyMessage.create(type: .sessionList, payload: EmptyPayload())
+        try await webSocketClient.send(requestMsg)
     }
 
     /// Wait for a specific message type with timeout.

@@ -28,6 +28,17 @@ actor WebSocketClient {
     private var session: URLSession?
     private(set) var isConnected = false
 
+    // MARK: - Encryption
+
+    /// Crypto manager for E2E encryption. Set after handshake completes.
+    private var cryptoManager: CryptoManager?
+
+    /// Enable encryption for all subsequent send/receive operations.
+    func setCrypto(_ crypto: CryptoManager) {
+        self.cryptoManager = crypto
+        logger.info("Crypto enabled for WebSocket")
+    }
+
     // MARK: - Reconnection State
 
     private var currentHost: String?
@@ -78,6 +89,7 @@ actor WebSocketClient {
         reconnectAttempt = 0
         currentHost = nil
         currentPort = nil
+        cryptoManager = nil
 
         webSocketTask?.cancel(with: .normalClosure, reason: nil)
         webSocketTask = nil
@@ -93,7 +105,13 @@ actor WebSocketClient {
             throw BalconyError.connectionFailed("Not connected")
         }
         let encoder = MessageEncoder()
-        let data = try encoder.encode(message)
+        var data = try encoder.encode(message)
+
+        // Encrypt if crypto is set up (post-handshake)
+        if let crypto = cryptoManager {
+            data = try await crypto.encrypt(data)
+        }
+
         try await task.send(.data(data))
     }
 
@@ -134,23 +152,40 @@ actor WebSocketClient {
 
     private func receiveLoop() async {
         guard let task = webSocketTask else { return }
+        let decoder = MessageDecoder()
 
         do {
             while isConnected {
                 let message = try await task.receive()
+                let rawData: Data
+
                 switch message {
                 case .data(let data):
-                    let decoder = MessageDecoder()
-                    if let decoded = try? decoder.decode(data) {
-                        onMessage?(decoded)
-                    }
+                    rawData = data
                 case .string(let string):
-                    let decoder = MessageDecoder()
-                    if let decoded = try? decoder.decode(string) {
-                        onMessage?(decoded)
-                    }
+                    guard let data = string.data(using: .utf8) else { continue }
+                    rawData = data
                 @unknown default:
-                    break
+                    continue
+                }
+
+                // Decrypt if crypto is set up, otherwise decode plaintext
+                let messageData: Data
+                if let crypto = cryptoManager {
+                    do {
+                        messageData = try await crypto.decrypt(rawData)
+                    } catch {
+                        // May be a plaintext message during handshake transition
+                        messageData = rawData
+                    }
+                } else {
+                    messageData = rawData
+                }
+
+                if let decoded = try? decoder.decode(messageData) {
+                    onMessage?(decoded)
+                } else {
+                    logger.warning("Failed to decode message (\(messageData.count) bytes)")
                 }
             }
         } catch {
