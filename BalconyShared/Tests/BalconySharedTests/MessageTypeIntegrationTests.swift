@@ -29,7 +29,7 @@ final class MessageTypeIntegrationTests: XCTestCase {
         let session = Session(
             id: "sess-99",
             projectPath: "/Users/dev/big-project",
-            status: .waitingForInput,
+            status: .active,
             messageCount: 15
         )
         let msg = try BalconyMessage.create(type: .sessionUpdate, payload: session)
@@ -37,7 +37,7 @@ final class MessageTypeIntegrationTests: XCTestCase {
 
         XCTAssertEqual(decoded.type, .sessionUpdate)
         let result = try decoded.decodePayload(Session.self)
-        XCTAssertEqual(result.status, .waitingForInput)
+        XCTAssertEqual(result.status, .active)
         XCTAssertEqual(result.projectName, "big-project")
     }
 
@@ -61,15 +61,6 @@ final class MessageTypeIntegrationTests: XCTestCase {
 
     // MARK: - Content Messages
 
-    func testTerminalOutputMessage() throws {
-        let output = "\u{1B}[32m✓\u{1B}[0m All tests passed (42 assertions)\n"
-        let msg = try BalconyMessage.create(type: .terminalOutput, payload: output)
-        let decoded = try decoder.decode(try encoder.encode(msg))
-
-        XCTAssertEqual(decoded.type, .terminalOutput)
-        XCTAssertEqual(try decoded.decodePayload(String.self), output)
-    }
-
     func testUserInputMessage() throws {
         let input = "yes, go ahead and commit"
         let msg = try BalconyMessage.create(type: .userInput, payload: input)
@@ -79,41 +70,26 @@ final class MessageTypeIntegrationTests: XCTestCase {
         XCTAssertEqual(try decoded.decodePayload(String.self), input)
     }
 
-    // MARK: - Tool Use Messages
-
-    func testToolUseStartMessage() throws {
-        let toolUse = ToolUse(
-            toolName: "Edit",
-            input: "{\"file\": \"src/main.swift\", \"changes\": \"...\"}",
-            status: .running
-        )
-        let msg = try BalconyMessage.create(type: .toolUseStart, payload: toolUse)
+    func testTerminalDataMessage() throws {
+        let payload = TerminalDataPayload(sessionId: "sess-1", data: Data([0x1B, 0x5B, 0x33, 0x32, 0x6D]))
+        let msg = try BalconyMessage.create(type: .terminalData, payload: payload)
         let decoded = try decoder.decode(try encoder.encode(msg))
 
-        XCTAssertEqual(decoded.type, .toolUseStart)
-        let result = try decoded.decodePayload(ToolUse.self)
-        XCTAssertEqual(result.toolName, "Edit")
-        XCTAssertEqual(result.status, .running)
-        XCTAssertNil(result.output)
+        XCTAssertEqual(decoded.type, .terminalData)
+        let result = try decoded.decodePayload(TerminalDataPayload.self)
+        XCTAssertEqual(result.sessionId, "sess-1")
+        XCTAssertEqual(result.data.count, 5)
     }
 
-    func testToolUseEndMessage() throws {
-        let toolUse = ToolUse(
-            toolName: "Bash",
-            input: "swift build",
-            output: "Build complete! (0.42s)",
-            status: .completed,
-            completedAt: Date()
-        )
-        let msg = try BalconyMessage.create(type: .toolUseEnd, payload: toolUse)
+    func testTerminalResizeMessage() throws {
+        let payload = TerminalResizePayload(sessionId: "sess-1", cols: 120, rows: 40)
+        let msg = try BalconyMessage.create(type: .terminalResize, payload: payload)
         let decoded = try decoder.decode(try encoder.encode(msg))
 
-        XCTAssertEqual(decoded.type, .toolUseEnd)
-        let result = try decoded.decodePayload(ToolUse.self)
-        XCTAssertEqual(result.toolName, "Bash")
-        XCTAssertEqual(result.output, "Build complete! (0.42s)")
-        XCTAssertEqual(result.status, .completed)
-        XCTAssertNotNil(result.completedAt)
+        XCTAssertEqual(decoded.type, .terminalResize)
+        let result = try decoded.decodePayload(TerminalResizePayload.self)
+        XCTAssertEqual(result.cols, 120)
+        XCTAssertEqual(result.rows, 40)
     }
 
     // MARK: - Presence Messages
@@ -198,8 +174,7 @@ final class MessageTypeIntegrationTests: XCTestCase {
         let allTypes: [MessageType] = [
             .handshake, .handshakeAck, .ping, .pong, .error,
             .sessionList, .sessionUpdate, .sessionSubscribe, .sessionUnsubscribe,
-            .terminalOutput, .userInput,
-            .toolUseStart, .toolUseEnd,
+            .terminalData, .terminalResize, .userInput,
             .awayStatusUpdate,
         ]
 
@@ -217,8 +192,7 @@ final class MessageTypeIntegrationTests: XCTestCase {
         let allTypes: [MessageType] = [
             .handshake, .handshakeAck, .ping, .pong, .error,
             .sessionList, .sessionUpdate, .sessionSubscribe, .sessionUnsubscribe,
-            .terminalOutput, .userInput,
-            .toolUseStart, .toolUseEnd,
+            .terminalData, .terminalResize, .userInput,
             .awayStatusUpdate,
         ]
 

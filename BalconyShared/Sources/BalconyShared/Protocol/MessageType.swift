@@ -15,13 +15,10 @@ public enum MessageType: String, Codable, Sendable {
     case sessionSubscribe
     case sessionUnsubscribe
 
-    // Content streaming
-    case terminalOutput
+    // PTY terminal streaming
+    case terminalData
+    case terminalResize
     case userInput
-
-    // Tool use events
-    case toolUseStart
-    case toolUseEnd
 
     // Presence
     case awayStatusUpdate

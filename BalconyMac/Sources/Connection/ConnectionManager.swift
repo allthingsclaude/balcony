@@ -3,7 +3,7 @@ import BalconyShared
 import os
 
 /// Coordinates all connection components (WebSocket, Bonjour, BLE)
-/// and bridges SessionMonitor/HookManager events to connected iOS clients.
+/// and bridges PTY session data to connected iOS clients.
 @MainActor
 final class ConnectionManager: ObservableObject {
     private let logger = Logger(subsystem: "com.balcony.mac", category: "ConnectionManager")
@@ -25,8 +25,7 @@ final class ConnectionManager: ObservableObject {
     private let webSocketServer: WebSocketServer
     private let bonjourAdvertiser: BonjourAdvertiser
     private let blePeripheral: BLEPeripheral
-    private let sessionMonitor: SessionMonitor
-    private let ttyWriter = TTYWriter()
+    private let ptySessionManager: PTYSessionManager
 
     /// Server identity crypto manager used for QR code pairing.
     let serverCrypto = CryptoManager()
@@ -36,24 +35,20 @@ final class ConnectionManager: ObservableObject {
 
     init(
         port: Int = 29170,
-        sessionMonitor: SessionMonitor
+        ptySessionManager: PTYSessionManager
     ) {
         self.port = port
         self.webSocketServer = WebSocketServer(port: port)
         self.bonjourAdvertiser = BonjourAdvertiser(port: UInt16(port))
         self.blePeripheral = BLEPeripheral()
-        self.sessionMonitor = sessionMonitor
+        self.ptySessionManager = ptySessionManager
     }
 
     /// Generate the pairing URL containing host, port, and public key.
     func generatePairingURL() async throws -> String {
-        // Ensure we have a key pair
         _ = try await serverCrypto.generateKeyPair()
         let publicKeyBase64 = try await serverCrypto.publicKeyBase64()
-        // Use the actual network hostname (e.g. "Markos-MacBook-Pro.local"), not the
-        // display name ("Marko's MacBook Pro") which contains invalid URL characters.
         let host = ProcessInfo.processInfo.hostName
-        // Use URLComponents to build a properly encoded URL
         var components = URLComponents()
         components.scheme = "balcony"
         components.host = "pair"
@@ -67,11 +62,9 @@ final class ConnectionManager: ObservableObject {
 
     // MARK: - Lifecycle
 
-    /// Start all connection services.
     func start() async throws {
         logger.info("Starting connection services")
 
-        // Start WebSocket server and consume its event stream
         let serverEvents = try await webSocketServer.start()
         serverEventTask = Task { [weak self] in
             for await event in serverEvents {
@@ -79,20 +72,14 @@ final class ConnectionManager: ObservableObject {
             }
         }
 
-        // Generate server key pair for pairing
         let keyPair = try await serverCrypto.generateKeyPair()
-
-        // Start Bonjour advertising with real key fingerprint
         bonjourAdvertiser.startAdvertising(publicKeyFingerprint: keyPair.fingerprint)
-
-        // Start BLE peripheral
         blePeripheral.startAdvertising(deviceName: Host.current().localizedName ?? "Mac")
 
         isServerRunning = true
         logger.info("All connection services started")
     }
 
-    /// Stop all connection services.
     func stop() async throws {
         serverEventTask?.cancel()
         serverEventTask = nil
@@ -104,83 +91,28 @@ final class ConnectionManager: ObservableObject {
         logger.info("All connection services stopped")
     }
 
-    // MARK: - Session Event Forwarding
+    // MARK: - PTY Data Forwarding
 
-    /// Forward a session event from SessionMonitor to connected iOS clients.
-    func forwardSessionEvent(_ event: SessionEvent) async {
-        switch event {
-        case .sessionDiscovered(let session):
-            // Broadcast updated session list to all authenticated clients
-            await broadcastSessionList()
-            logger.info("Forwarded session discovered: \(session.id)")
-
-        case .sessionUpdated(let session, let newMessages):
-            // Send terminal output to subscribers of this session
-            for message in newMessages {
-                do {
-                    let outputPayload = TerminalOutputPayload(
-                        sessionId: session.id,
-                        message: message
-                    )
-                    let msg = try BalconyMessage.create(type: .terminalOutput, payload: outputPayload)
-                    await webSocketServer.sendToSubscribers(of: session.id, message: msg)
-                } catch {
-                    logger.error("Failed to create terminal output message: \(error.localizedDescription)")
-                }
-            }
-
-            // Broadcast session update to all clients
-            do {
-                let updatePayload = SessionUpdatePayload(session: session)
-                let msg = try BalconyMessage.create(type: .sessionUpdate, payload: updatePayload)
-                await webSocketServer.broadcast(msg)
-            } catch {
-                logger.error("Failed to create session update message: \(error.localizedDescription)")
-            }
-
-        case .sessionEnded(let sessionId):
-            await broadcastSessionList()
-            logger.info("Forwarded session ended: \(sessionId)")
+    /// Forward raw PTY output from a CLI session to WebSocket subscribers.
+    func forwardPTYOutput(sessionId: String, data: Data) async {
+        do {
+            let payload = TerminalDataPayload(sessionId: sessionId, data: data)
+            let msg = try BalconyMessage.create(type: .terminalData, payload: payload)
+            await webSocketServer.sendToSubscribers(of: sessionId, message: msg)
+        } catch {
+            logger.error("Failed to forward PTY output: \(error.localizedDescription)")
         }
     }
 
-    // MARK: - Hook Event Forwarding
+    // MARK: - Session Event Forwarding
 
-    /// Forward a hook event from HookManager to connected iOS clients.
-    func forwardHookEvent(_ event: HookEvent) async {
+    /// Forward a PTY session event to connected iOS clients.
+    func forwardSessionEvent(_ event: SessionEvent) async {
         switch event {
-        case .preToolUse(let sessionId, let toolName, let input):
-            do {
-                let payload = ToolUseEventPayload(
-                    sessionId: sessionId,
-                    toolName: toolName,
-                    content: input
-                )
-                let msg = try BalconyMessage.create(type: .toolUseStart, payload: payload)
-                await webSocketServer.sendToSubscribers(of: sessionId, message: msg)
-            } catch {
-                logger.error("Failed to forward preToolUse: \(error.localizedDescription)")
-            }
-
-        case .postToolUse(let sessionId, let toolName, let output):
-            do {
-                let payload = ToolUseEventPayload(
-                    sessionId: sessionId,
-                    toolName: toolName,
-                    content: output
-                )
-                let msg = try BalconyMessage.create(type: .toolUseEnd, payload: payload)
-                await webSocketServer.sendToSubscribers(of: sessionId, message: msg)
-            } catch {
-                logger.error("Failed to forward postToolUse: \(error.localizedDescription)")
-            }
-
-        case .notification(let sessionId, let message):
-            logger.info("Hook notification for \(sessionId): \(message)")
-
-        case .sessionStop(let sessionId):
+        case .sessionDiscovered:
             await broadcastSessionList()
-            logger.info("Hook: session stopped \(sessionId)")
+        case .sessionEnded:
+            await broadcastSessionList()
         }
     }
 
@@ -194,8 +126,6 @@ final class ConnectionManager: ObservableObject {
         case .clientAuthenticated(let client, let deviceInfo):
             connectedDevices.append(deviceInfo)
             logger.info("Client authenticated: \(deviceInfo.name)")
-
-            // Send session list to newly authenticated client
             await sendSessionList(to: client)
 
         case .clientDisconnected(let client):
@@ -212,33 +142,38 @@ final class ConnectionManager: ObservableObject {
     private func handleClientMessage(from client: ConnectedClient, message: BalconyMessage) async {
         switch message.type {
         case .sessionList:
-            // iOS client requesting the session list (e.g. after handshake)
             await sendSessionList(to: client)
 
         case .sessionSubscribe:
-            // Send session history to the newly subscribing client
+            // PTY sessions have no history to replay — just start streaming
             do {
                 let payload = try message.decodePayload(SessionSubscribePayload.self)
-                await sendSessionHistory(sessionId: payload.sessionId, to: client)
+                logger.info("Client subscribed to PTY session \(payload.sessionId)")
             } catch {
                 logger.error("Failed to decode session subscribe: \(error.localizedDescription)")
             }
 
         case .userInput:
-            // Forward user input to the Claude process TTY
             do {
                 let input = try message.decodePayload(UserInputPayload.self)
-                logger.info("User input for session \(input.sessionId): \(input.text.prefix(50))")
-
-                guard let cwd = await sessionMonitor.getCWD(forSession: input.sessionId) else {
-                    logger.warning("No CWD found for session \(input.sessionId), cannot write to TTY")
-                    return
+                if let data = input.text.data(using: .utf8) {
+                    await ptySessionManager.sendInput(sessionId: input.sessionId, data: data)
                 }
-
-                try await ttyWriter.write(input.text, toCWD: cwd)
-                logger.info("Delivered input to TTY for session \(input.sessionId)")
+                logger.info("Delivered input to PTY for session \(input.sessionId)")
             } catch {
                 logger.error("Failed to deliver user input: \(error.localizedDescription)")
+            }
+
+        case .terminalResize:
+            do {
+                let payload = try message.decodePayload(TerminalResizePayload.self)
+                await ptySessionManager.sendResize(
+                    sessionId: payload.sessionId,
+                    cols: payload.cols,
+                    rows: payload.rows
+                )
+            } catch {
+                logger.error("Failed to forward terminal resize: \(error.localizedDescription)")
             }
 
         default:
@@ -246,36 +181,10 @@ final class ConnectionManager: ObservableObject {
         }
     }
 
-    // MARK: - Session History
-
-    /// Send all existing messages for a session to a client.
-    private func sendSessionHistory(sessionId: String, to client: ConnectedClient) async {
-        let messages = await sessionMonitor.getSessionHistory(id: sessionId)
-        guard !messages.isEmpty else {
-            logger.info("No history for session \(sessionId)")
-            return
-        }
-
-        logger.info("Sending \(messages.count) history messages for session \(sessionId)")
-
-        for message in messages {
-            do {
-                let outputPayload = TerminalOutputPayload(
-                    sessionId: sessionId,
-                    message: message
-                )
-                let msg = try BalconyMessage.create(type: .terminalOutput, payload: outputPayload)
-                await webSocketServer.send(msg, to: client)
-            } catch {
-                logger.error("Failed to send history message: \(error.localizedDescription)")
-            }
-        }
-    }
-
     // MARK: - Session List
 
     private func broadcastSessionList() async {
-        let sessions = await sessionMonitor.getSessions().filter { $0.status == .active }
+        let sessions = await ptySessionManager.getActiveSessions()
         do {
             let payload = SessionListPayload(sessions: sessions)
             let msg = try BalconyMessage.create(type: .sessionList, payload: payload)
@@ -286,7 +195,7 @@ final class ConnectionManager: ObservableObject {
     }
 
     private func sendSessionList(to client: ConnectedClient) async {
-        let sessions = await sessionMonitor.getSessions().filter { $0.status == .active }
+        let sessions = await ptySessionManager.getActiveSessions()
         do {
             let payload = SessionListPayload(sessions: sessions)
             let msg = try BalconyMessage.create(type: .sessionList, payload: payload)
@@ -299,30 +208,18 @@ final class ConnectionManager: ObservableObject {
 
 // MARK: - Message Payloads
 
-/// Payload for session list messages.
 struct SessionListPayload: Codable, Sendable {
     let sessions: [Session]
 }
 
-/// Payload for session update messages.
 struct SessionUpdatePayload: Codable, Sendable {
     let session: Session
 }
 
-/// Payload for terminal output messages.
-struct TerminalOutputPayload: Codable, Sendable {
+struct SessionSubscribePayload: Codable, Sendable {
     let sessionId: String
-    let message: SessionMessage
 }
 
-/// Payload for tool use event messages.
-struct ToolUseEventPayload: Codable, Sendable {
-    let sessionId: String
-    let toolName: String
-    let content: String
-}
-
-/// Payload for user input messages from iOS.
 struct UserInputPayload: Codable, Sendable {
     let sessionId: String
     let text: String

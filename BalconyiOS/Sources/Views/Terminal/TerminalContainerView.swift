@@ -4,56 +4,40 @@ import BalconyShared
 struct TerminalContainerView: View {
     let session: Session
     @EnvironmentObject var sessionManager: SessionManager
-    @State private var inputText = ""
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Terminal output area with tool use cards overlay
-            ZStack(alignment: .bottom) {
-                TerminalViewRepresentable(
-                    feedContent: sessionManager.terminalFeed
-                ) { userInput in
-                    Task {
-                        await sessionManager.sendInput(userInput, to: session)
-                    }
+        TerminalViewRepresentable(
+            rawFeedContent: sessionManager.terminalRawFeed,
+            onInput: { userInput in
+                Task {
+                    await sessionManager.sendInput(userInput, to: session)
                 }
-                .ignoresSafeArea(.container, edges: .bottom)
-
-                // Pending tool use card shown as an overlay at bottom
-                if let pendingTool = sessionManager.pendingToolUse {
-                    ToolUseCard(toolUse: pendingTool)
-                        .padding(.horizontal)
-                        .padding(.bottom, 4)
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
+            },
+            onResize: { cols, rows in
+                Task {
+                    await sessionManager.sendResize(
+                        cols: UInt16(cols),
+                        rows: UInt16(rows),
+                        to: session
+                    )
                 }
             }
-
-            Divider()
-
-            // Input composer
-            InputComposerView(
-                text: $inputText,
-                showQuickActions: sessionManager.activeSession?.status == .waitingForInput,
-                onApprove: {
-                    Task { await sessionManager.sendInput("y", to: session) }
-                },
-                onDeny: {
-                    Task { await sessionManager.sendInput("n", to: session) }
-                },
-                onSend: {
-                    guard !inputText.isEmpty else { return }
-                    Task {
-                        await sessionManager.sendInput(inputText, to: session)
-                        inputText = ""
-                    }
-                }
-            )
-        }
+        )
+        .ignoresSafeArea(.container, edges: .bottom)
         .navigationTitle(session.projectName)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                StatusBadge(status: sessionManager.activeSession?.status ?? session.status)
+                HStack(spacing: 6) {
+                    Text("LIVE")
+                        .font(.caption2)
+                        .fontWeight(.bold)
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(.green, in: Capsule())
+                    StatusBadge(status: sessionManager.activeSession?.status ?? session.status)
+                }
             }
         }
         .onAppear {

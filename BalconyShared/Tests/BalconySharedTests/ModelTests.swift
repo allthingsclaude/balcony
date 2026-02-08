@@ -24,25 +24,6 @@ final class ModelTests: XCTestCase {
         XCTAssertEqual(decoded.status, .active)
     }
 
-    func testSessionMessageEncoding() throws {
-        let message = SessionMessage(
-            sessionId: "test-123",
-            role: .assistant,
-            content: "Hello, world!"
-        )
-
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-        let data = try encoder.encode(message)
-
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        let decoded = try decoder.decode(SessionMessage.self, from: data)
-
-        XCTAssertEqual(decoded.role, .assistant)
-        XCTAssertEqual(decoded.content, "Hello, world!")
-    }
-
     func testAwaySignalsComputation() {
         // Present
         var signals = AwaySignals(bleRSSI: -40, idleSeconds: 10, screenLocked: false, onLocalNetwork: true)

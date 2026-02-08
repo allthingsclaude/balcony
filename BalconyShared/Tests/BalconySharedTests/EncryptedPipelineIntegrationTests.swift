@@ -88,10 +88,12 @@ final class EncryptedPipelineIntegrationTests: XCTestCase {
 
         for i in 0..<20 {
             let text = "Terminal output line \(i)\n"
-            let msg = try BalconyMessage.create(type: .terminalOutput, payload: text)
+            let payload = TerminalDataPayload(sessionId: "sess-001", data: text.data(using: .utf8)!)
+            let msg = try BalconyMessage.create(type: .terminalData, payload: payload)
             let encrypted = try await mac.encrypt(try encoder.encode(msg))
             let received = try decoder.decode(try await ios.decrypt(encrypted))
-            XCTAssertEqual(try received.decodePayload(String.self), text)
+            let result = try received.decodePayload(TerminalDataPayload.self)
+            XCTAssertEqual(String(data: result.data, encoding: .utf8), text)
         }
     }
 
@@ -150,10 +152,12 @@ final class EncryptedPipelineIntegrationTests: XCTestCase {
             "drwxr-xr-x  5 user staff  160 Jan  1 00:00 file_\($0).swift"
         }.joined(separator: "\n")
 
-        let msg = try BalconyMessage.create(type: .terminalOutput, payload: largeOutput)
+        let payload = TerminalDataPayload(sessionId: "sess-001", data: largeOutput.data(using: .utf8)!)
+        let msg = try BalconyMessage.create(type: .terminalData, payload: payload)
         let encrypted = try await mac.encrypt(try encoder.encode(msg))
         let received = try decoder.decode(try await ios.decrypt(encrypted))
-        XCTAssertEqual(try received.decodePayload(String.self), largeOutput)
+        let result = try received.decodePayload(TerminalDataPayload.self)
+        XCTAssertEqual(String(data: result.data, encoding: .utf8), largeOutput)
     }
 
     // MARK: - Reconnection

@@ -9,16 +9,9 @@ final class SessionManager: ObservableObject {
 
     @Published var sessions: [Session] = []
     @Published var activeSession: Session?
-    @Published var terminalMessages: [SessionMessage] = []
 
-    /// Raw text chunks for feeding the terminal view. Each entry is fed sequentially.
-    @Published var terminalFeed: [String] = []
-
-    /// The most recent pending/running tool use for overlay display.
-    @Published var pendingToolUse: ToolUse?
-
-    /// All tool use events for the active session.
-    @Published var toolUses: [ToolUse] = []
+    /// Raw PTY byte chunks for feeding the terminal view.
+    @Published var terminalRawFeed: [[UInt8]] = []
 
     private weak var connectionManager: ConnectionManager?
 
@@ -53,10 +46,7 @@ final class SessionManager: ObservableObject {
     func subscribe(to session: Session) async {
         logger.info("Subscribing to session: \(session.id)")
         activeSession = session
-        terminalMessages = []
-        terminalFeed = []
-        pendingToolUse = nil
-        toolUses = []
+        terminalRawFeed = []
 
         guard let connectionManager else { return }
         do {
@@ -73,10 +63,7 @@ final class SessionManager: ObservableObject {
         logger.info("Unsubscribing from session: \(session.id)")
         if activeSession?.id == session.id {
             activeSession = nil
-            terminalMessages = []
-            terminalFeed = []
-            pendingToolUse = nil
-            toolUses = []
+            terminalRawFeed = []
         }
 
         guard let connectionManager else { return }
@@ -102,6 +89,18 @@ final class SessionManager: ObservableObject {
         }
     }
 
+    /// Send a terminal resize event to the Mac.
+    func sendResize(cols: UInt16, rows: UInt16, to session: Session) async {
+        guard let connectionManager else { return }
+        do {
+            let payload = TerminalResizePayload(sessionId: session.id, cols: cols, rows: rows)
+            let msg = try BalconyMessage.create(type: .terminalResize, payload: payload)
+            try await connectionManager.send(msg)
+        } catch {
+            logger.error("Failed to send resize: \(error.localizedDescription)")
+        }
+    }
+
     // MARK: - Message Handling
 
     private func handleMessage(_ message: BalconyMessage) {
@@ -110,12 +109,8 @@ final class SessionManager: ObservableObject {
             handleSessionList(message)
         case .sessionUpdate:
             handleSessionUpdate(message)
-        case .terminalOutput:
-            handleTerminalOutput(message)
-        case .toolUseStart:
-            handleToolUseStart(message)
-        case .toolUseEnd:
-            handleToolUseEnd(message)
+        case .terminalData:
+            handleTerminalData(message)
         default:
             break
         }
@@ -148,62 +143,14 @@ final class SessionManager: ObservableObject {
         }
     }
 
-    private func handleTerminalOutput(_ message: BalconyMessage) {
+    private func handleTerminalData(_ message: BalconyMessage) {
         do {
-            let payload = try message.decodePayload(TerminalOutputPayload.self)
+            let payload = try message.decodePayload(TerminalDataPayload.self)
             guard payload.sessionId == activeSession?.id else { return }
-            terminalMessages.append(payload.message)
-            // Feed the raw content to the terminal view
-            terminalFeed.append(payload.message.content)
-            logger.debug("Terminal output for \(payload.sessionId)")
+            terminalRawFeed.append(Array(payload.data))
+            logger.debug("Terminal data for \(payload.sessionId): \(payload.data.count) bytes")
         } catch {
-            logger.error("Failed to decode terminal output: \(error.localizedDescription)")
-        }
-    }
-
-    private func handleToolUseStart(_ message: BalconyMessage) {
-        do {
-            let payload = try message.decodePayload(ToolUseStartPayload.self)
-            guard payload.sessionId == activeSession?.id else { return }
-            let toolUse = ToolUse(
-                id: payload.toolUseId,
-                toolName: payload.toolName,
-                input: payload.input,
-                output: nil,
-                status: .running,
-                startedAt: message.timestamp,
-                completedAt: nil
-            )
-            toolUses.append(toolUse)
-            pendingToolUse = toolUse
-            logger.debug("Tool use started: \(payload.toolName)")
-        } catch {
-            logger.error("Failed to decode tool use start: \(error.localizedDescription)")
-        }
-    }
-
-    private func handleToolUseEnd(_ message: BalconyMessage) {
-        do {
-            let payload = try message.decodePayload(ToolUseEndPayload.self)
-            guard payload.sessionId == activeSession?.id else { return }
-            if let index = toolUses.firstIndex(where: { $0.id == payload.toolUseId }) {
-                toolUses[index] = ToolUse(
-                    id: payload.toolUseId,
-                    toolName: toolUses[index].toolName,
-                    input: toolUses[index].input,
-                    output: payload.output,
-                    status: payload.status,
-                    startedAt: toolUses[index].startedAt,
-                    completedAt: message.timestamp
-                )
-                // Clear pending if this was the pending one
-                if pendingToolUse?.id == payload.toolUseId {
-                    pendingToolUse = nil
-                }
-            }
-            logger.debug("Tool use ended: \(payload.toolUseId)")
-        } catch {
-            logger.error("Failed to decode tool use end: \(error.localizedDescription)")
+            logger.error("Failed to decode terminal data: \(error.localizedDescription)")
         }
     }
 }
@@ -220,11 +167,6 @@ struct SessionUpdatePayload: Codable, Sendable {
     let session: Session
 }
 
-struct TerminalOutputPayload: Codable, Sendable {
-    let sessionId: String
-    let message: SessionMessage
-}
-
 struct SessionSubscribePayload: Codable, Sendable {
     let sessionId: String
 }
@@ -232,18 +174,4 @@ struct SessionSubscribePayload: Codable, Sendable {
 struct UserInputPayload: Codable, Sendable {
     let sessionId: String
     let text: String
-}
-
-struct ToolUseStartPayload: Codable, Sendable {
-    let sessionId: String
-    let toolUseId: UUID
-    let toolName: String
-    let input: String
-}
-
-struct ToolUseEndPayload: Codable, Sendable {
-    let sessionId: String
-    let toolUseId: UUID
-    let output: String?
-    let status: ToolUseStatus
 }

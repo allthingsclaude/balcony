@@ -30,6 +30,18 @@ settings:
     SWIFT_VERSION: "5.9"
 
 targets:
+  BalconyCLI:
+    type: tool
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - path: BalconyCLI/Sources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.balcony.cli
+        PRODUCT_NAME: balcony
+        SWIFT_VERSION: "5.9"
+
   BalconyMac:
     type: application
     platform: macOS
@@ -98,15 +110,3 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.balcony.shared.tests
 
-  BalconyMacTests:
-    type: bundle.unit-test
-    platform: macOS
-    sources:
-      - path: BalconyMac/Tests
-      - path: BalconyMac/Sources/Session
-    dependencies:
-      - package: BalconyShared
-    settings:
-      base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.balcony.mac.tests
-        GENERATE_INFOPLIST_FILE: YES

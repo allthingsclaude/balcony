@@ -37,7 +37,6 @@ public struct Session: Codable, Identifiable, Hashable, Sendable {
 public enum SessionStatus: String, Codable, Sendable {
     case active
     case idle
-    case waitingForInput
     case completed
     case error
 }

@@ -132,7 +132,6 @@ struct MenuBarView: View {
         switch status {
         case .active: return .green
         case .idle: return .yellow
-        case .waitingForInput: return .orange
         case .completed: return .gray
         case .error: return .red
         }

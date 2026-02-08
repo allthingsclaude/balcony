@@ -423,11 +423,6 @@ struct HandshakeAckPayload: Codable, Sendable {
     let publicKey: [UInt8]
 }
 
-/// Session subscribe/unsubscribe payload.
-struct SessionSubscribePayload: Codable, Sendable {
-    let sessionId: String
-}
-
 /// Error payload.
 struct ErrorPayload: Codable, Sendable {
     let message: String

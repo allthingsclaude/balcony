@@ -14,37 +14,31 @@
 		1EE8C4879DF09145406EDB96 /* DeviceManagementView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4241CE63445459C9D9FD3C36 /* DeviceManagementView.swift */; };
 		2496CBE03C1E577AD24E7496 /* NIO in Frameworks */ = {isa = PBXBuildFile; productRef = E76BB04E002C60E874E1993D /* NIO */; };
 		2D59B119C66E821CA94AE3BC /* ModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C02C757F4FB8D345A6EFEF9 /* ModelTests.swift */; };
-		33FA6F83E8116C54886B0C9A /* SessionParserIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C1C296562D484AEF1EE2C6C /* SessionParserIntegrationTests.swift */; };
 		341C959AD5EDFD51716EB1D7 /* AwayDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BEB54F3C74377613045762F /* AwayDetector.swift */; };
-		34E6882C0FD1B6C0D3615B5D /* HookManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0EA137F1486263BA1334587B /* HookManager.swift */; };
-		37DAD914079DAE9B4CFA67C6 /* InputComposerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B37053032877CB182134A869 /* InputComposerView.swift */; };
 		39BA738A247CAB3676A4C7C8 /* BalconyiOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0D9E9C67B880DC32F63487B /* BalconyiOSApp.swift */; };
-		3C69830B0DE4EE6A3B2948D1 /* BalconyShared in Frameworks */ = {isa = PBXBuildFile; productRef = C7CC0869B5A8DE52E3A8DF71 /* BalconyShared */; };
 		3D79F3D2AC1738237F5FF7CB /* SessionListModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD4F94005F234CC1764797BF /* SessionListModel.swift */; };
 		421C8CC638EF49CDCB2C843F /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FF246A4A3131A5AB9E40961A /* IOKit.framework */; };
-		50FE19E8865DE14C1871C378 /* SessionMonitorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC67AD3AD939E21BB96C33F9 /* SessionMonitorTests.swift */; };
 		52EA4D3614E7CD7C01FAFCEA /* BLECentral.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63C417099683EF822F4B30DF /* BLECentral.swift */; };
 		54B68596DB033B25770224FE /* BonjourBrowser.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7DE45B3FC97C8DC7FADEB16 /* BonjourBrowser.swift */; };
-		5EB7B1AA3CC285D6FEE45D2D /* SessionMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17CCC29BE78C5A1A4B508DED /* SessionMonitor.swift */; };
 		663D66965E45C127C3FF27DD /* TerminalContainerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AF99EBC38F153B19FDEB53A /* TerminalContainerView.swift */; };
 		6ADD5A55445484CB8EDF48B3 /* CryptoManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D952D21F5F35A1506E4A4D08 /* CryptoManagerTests.swift */; };
 		6B4353EBEE2E8A5A6B8E1AFF /* NIOHTTP1 in Frameworks */ = {isa = PBXBuildFile; productRef = D5859053BEF37E29C28D0EF6 /* NIOHTTP1 */; };
 		70F9D9C57ED6A8DEDB398CA6 /* BalconyShared in Frameworks */ = {isa = PBXBuildFile; productRef = 1288CDF4C3C16983C23C8679 /* BalconyShared */; };
-		76496F02ED2CF6CAC78633D8 /* ToolUseCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB54448DB8D9C402512B15F8 /* ToolUseCard.swift */; };
 		7D0244EC2C9842D09733E0E8 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 563031AC1EAF150E0A7AAF5B /* NotificationManager.swift */; };
 		7D0C3EACF2BF192ECEC1D05B /* MessageTypeIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F777879D3E4F998951042E36 /* MessageTypeIntegrationTests.swift */; };
 		7E67FA15078D40FD6AD5B461 /* PreferencesManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E5C4CCA055249D15C411831 /* PreferencesManager.swift */; };
+		7F0ABD25389E6F652DC4A47A /* SocketClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50CDFFCE4495E7D88AFCF8C4 /* SocketClient.swift */; };
 		7FFB88CAB72CEF70EEA6DB0B /* BalconyShared in Frameworks */ = {isa = PBXBuildFile; productRef = 2C1E9FE6B3F733D2560E28A3 /* BalconyShared */; };
 		867FFE6CCC71EB3F1101C9E8 /* PreferencesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14954C747CB9B37EFDCE1BEA /* PreferencesView.swift */; };
 		86DFC1B0DC3BB380FFC5E540 /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D75F5677A18F7C8240B9CD91 /* AVFoundation.framework */; };
 		884796C6E8749F597FDFC982 /* BLEPeripheral.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2567EAF959E0FF8C09874F18 /* BLEPeripheral.swift */; };
 		8ACEB2F730210C579A95CFEA /* SessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 160D61822B93FBE67A1C20C2 /* SessionManager.swift */; };
 		9117D5D329E9C5CB6A6E011A /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E860783542070F02AED00B7 /* SettingsView.swift */; };
-		95DC5B754E71B08F31921FAF /* SessionMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17CCC29BE78C5A1A4B508DED /* SessionMonitor.swift */; };
 		96F2B3247DD15F44DDB1246D /* ConnectionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 783D378FB676157E04C99FC9 /* ConnectionManager.swift */; };
 		992E8F57143B3830BA04B39D /* MessageProtocolTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EAEA92A0B879C8CC2EF8F97 /* MessageProtocolTests.swift */; };
+		9D859BDA07E92C27020D71C8 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33367B0D382AADED54836B8B /* main.swift */; };
 		A2C5F308DF137DEC43893871 /* EncryptedPipelineIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA00F9F09E1361C6366E02A8 /* EncryptedPipelineIntegrationTests.swift */; };
-		A6ED25F74BE246CE6D92EBF3 /* JSONLParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5DF9147479BDFB17C9B5133 /* JSONLParserTests.swift */; };
+		A3F3119F2BC407CF8E28230A /* IOBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6084BF828A4001E3731C509 /* IOBridge.swift */; };
 		AB12D97B837548A8A8D6D4B5 /* BonjourAdvertiser.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEFB8FEA08F6458F0103A0F7 /* BonjourAdvertiser.swift */; };
 		AB6372C6227249554D45DCCC /* CoreBluetooth.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 883742321A0BF72D7D023889 /* CoreBluetooth.framework */; };
 		AB80212ED780C5118B5682C5 /* NIOSSL in Frameworks */ = {isa = PBXBuildFile; productRef = D9B0C7A19BA675671F251FBE /* NIOSSL */; };
@@ -54,43 +48,37 @@
 		B6798FB8D55B6691C4162C6D /* WebSocketServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F43204098DB6C4D61A3C700 /* WebSocketServer.swift */; };
 		BAC73425A4C54FCCD6036774 /* MenuBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 669BE9921928194372E5B944 /* MenuBarView.swift */; };
 		BDFFEF7010DECCDDE79DAAC6 /* SessionListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8781800E637EC256C88F313C /* SessionListView.swift */; };
-		D3B8268BBCAF7434098A2196 /* TTYWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D4BF0C4D339BB7B6171D111 /* TTYWriter.swift */; };
-		D3DE442878C7BC38468448CC /* SessionListModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD4F94005F234CC1764797BF /* SessionListModel.swift */; };
+		C1FF8F6B9C14B58D1ABC9B8B /* PTYSessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A876093B09C95BC6B439A4EC /* PTYSessionManager.swift */; };
+		D73A8B9E38E6442C5AA69AC0 /* PTYManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F196F43A38F455DCA8EE5982 /* PTYManager.swift */; };
 		DA500C499792EA420BE493FD /* QRCodeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72541086349D5C7FE7CA0C64 /* QRCodeView.swift */; };
-		DDDD84968B57343C7DBBE707 /* HookManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0EA137F1486263BA1334587B /* HookManager.swift */; };
 		DFFB8C76E4D453A641002387 /* StatusItemManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5BA326573C4E510CFC7C2A8 /* StatusItemManager.swift */; };
 		E50D03AEEA94650D2FA831C6 /* WebSocketClientHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49449E8E646DB0F7693BF3F0 /* WebSocketClientHandler.swift */; };
-		E8A10762186666F3069605D3 /* TTYWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D4BF0C4D339BB7B6171D111 /* TTYWriter.swift */; };
 		E988DDBE65BDB2A7E0BDBC34 /* QRScannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5330CC3525DAD310296E4BE /* QRScannerView.swift */; };
 		EE22BDDF9F8B09255D1A3B38 /* DiscoveryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0AA3AD6C3787879CAAB89F1 /* DiscoveryView.swift */; };
 		F7A6FDE9F0B65FDA8CA6EA1E /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29C23B5584D65228ECB8AF8D /* AppDelegate.swift */; };
 		F8CAE6DC6EB90AD2D7804B30 /* BalconyShared in Frameworks */ = {isa = PBXBuildFile; productRef = 79417DF319AEB98518662E44 /* BalconyShared */; };
 		FA08BD1DC31042CE542E3791 /* SwiftTerm in Frameworks */ = {isa = PBXBuildFile; productRef = E17B7059A73D41936CD7D713 /* SwiftTerm */; };
 		FA21E15455103252F1C0C876 /* QRCodePairingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4C999A09628EB4D18E4FB4E /* QRCodePairingView.swift */; };
-		FAC6E749BD4E9CF503A5BC98 /* HookManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 186211D726AF2CED62EF9BD9 /* HookManagerTests.swift */; };
 		FECDEEE2B39232DA44E03C7B /* TerminalViewRepresentable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4BA1B40B0B2FEF2473433C8A /* TerminalViewRepresentable.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		0C02C757F4FB8D345A6EFEF9 /* ModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelTests.swift; sourceTree = "<group>"; };
-		0D4BF0C4D339BB7B6171D111 /* TTYWriter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TTYWriter.swift; sourceTree = "<group>"; };
-		0EA137F1486263BA1334587B /* HookManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HookManager.swift; sourceTree = "<group>"; };
 		14954C747CB9B37EFDCE1BEA /* PreferencesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesView.swift; sourceTree = "<group>"; };
 		160D61822B93FBE67A1C20C2 /* SessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionManager.swift; sourceTree = "<group>"; };
-		17CCC29BE78C5A1A4B508DED /* SessionMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionMonitor.swift; sourceTree = "<group>"; };
-		186211D726AF2CED62EF9BD9 /* HookManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HookManagerTests.swift; sourceTree = "<group>"; };
 		1C4666F5F2F672B0D7E53B59 /* StatusBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusBadge.swift; sourceTree = "<group>"; };
 		2567EAF959E0FF8C09874F18 /* BLEPeripheral.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BLEPeripheral.swift; sourceTree = "<group>"; };
-		27F22EB81F74AB7C86C12467 /* BalconyMacTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BalconyMacTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		29C23B5584D65228ECB8AF8D /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		2E860783542070F02AED00B7 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		2EAEA92A0B879C8CC2EF8F97 /* MessageProtocolTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageProtocolTests.swift; sourceTree = "<group>"; };
 		30D8A1BC1C4516A364BFA87F /* WebSocketClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSocketClient.swift; sourceTree = "<group>"; };
-		3C1C296562D484AEF1EE2C6C /* SessionParserIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionParserIntegrationTests.swift; sourceTree = "<group>"; };
+		33367B0D382AADED54836B8B /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		4241CE63445459C9D9FD3C36 /* DeviceManagementView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceManagementView.swift; sourceTree = "<group>"; };
 		49449E8E646DB0F7693BF3F0 /* WebSocketClientHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSocketClientHandler.swift; sourceTree = "<group>"; };
 		4BA1B40B0B2FEF2473433C8A /* TerminalViewRepresentable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalViewRepresentable.swift; sourceTree = "<group>"; };
+		50CDFFCE4495E7D88AFCF8C4 /* SocketClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocketClient.swift; sourceTree = "<group>"; };
 		563031AC1EAF150E0A7AAF5B /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
+		575956E033E5EF90DEBBE923 /* BalconyCLI */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = text; name = BalconyCLI; path = balcony; sourceTree = BUILT_PRODUCTS_DIR; };
 		63C417099683EF822F4B30DF /* BLECentral.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BLECentral.swift; sourceTree = "<group>"; };
 		6449B25645CA8534562C7068 /* BalconySharedTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BalconySharedTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		669BE9921928194372E5B944 /* MenuBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarView.swift; sourceTree = "<group>"; };
@@ -106,9 +94,9 @@
 		9E5C4CCA055249D15C411831 /* PreferencesManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesManager.swift; sourceTree = "<group>"; };
 		A153BA8C47D076D9BD988A08 /* SessionRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionRowView.swift; sourceTree = "<group>"; };
 		A2992E0888E0EBC79BA14280 /* BalconyMac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; name = BalconyMac.app; path = Balcony.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		AB54448DB8D9C402512B15F8 /* ToolUseCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolUseCard.swift; sourceTree = "<group>"; };
+		A6084BF828A4001E3731C509 /* IOBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IOBridge.swift; sourceTree = "<group>"; };
+		A876093B09C95BC6B439A4EC /* PTYSessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PTYSessionManager.swift; sourceTree = "<group>"; };
 		B0D9E9C67B880DC32F63487B /* BalconyiOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BalconyiOSApp.swift; sourceTree = "<group>"; };
-		B37053032877CB182134A869 /* InputComposerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputComposerView.swift; sourceTree = "<group>"; };
 		BD4F94005F234CC1764797BF /* SessionListModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionListModel.swift; sourceTree = "<group>"; };
 		C4C999A09628EB4D18E4FB4E /* QRCodePairingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRCodePairingView.swift; sourceTree = "<group>"; };
 		C7DE45B3FC97C8DC7FADEB16 /* BonjourBrowser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BonjourBrowser.swift; sourceTree = "<group>"; };
@@ -120,10 +108,9 @@
 		E0AA3AD6C3787879CAAB89F1 /* DiscoveryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiscoveryView.swift; sourceTree = "<group>"; };
 		E5330CC3525DAD310296E4BE /* QRScannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRScannerView.swift; sourceTree = "<group>"; };
 		E5BA326573C4E510CFC7C2A8 /* StatusItemManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusItemManager.swift; sourceTree = "<group>"; };
-		E5DF9147479BDFB17C9B5133 /* JSONLParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JSONLParserTests.swift; sourceTree = "<group>"; };
 		EA00F9F09E1361C6366E02A8 /* EncryptedPipelineIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EncryptedPipelineIntegrationTests.swift; sourceTree = "<group>"; };
+		F196F43A38F455DCA8EE5982 /* PTYManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PTYManager.swift; sourceTree = "<group>"; };
 		F777879D3E4F998951042E36 /* MessageTypeIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageTypeIntegrationTests.swift; sourceTree = "<group>"; };
-		FC67AD3AD939E21BB96C33F9 /* SessionMonitorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionMonitorTests.swift; sourceTree = "<group>"; };
 		FF246A4A3131A5AB9E40961A /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = System/Library/Frameworks/IOKit.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
@@ -144,14 +131,6 @@
 				FA08BD1DC31042CE542E3791 /* SwiftTerm in Frameworks */,
 				86DFC1B0DC3BB380FFC5E540 /* AVFoundation.framework in Frameworks */,
 				AB6372C6227249554D45DCCC /* CoreBluetooth.framework in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		7617377A8DF1E30EB4BD6986 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				3C69830B0DE4EE6A3B2948D1 /* BalconyShared in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -186,7 +165,6 @@
 			isa = PBXGroup;
 			children = (
 				3168CDC5CFB545D47409C0F1 /* Sources */,
-				3488446FE2AC7D4DE248D827 /* Tests */,
 			);
 			path = BalconyMac;
 			sourceTree = "<group>";
@@ -194,9 +172,9 @@
 		17F25A7EA717B5213A20D6C1 /* Products */ = {
 			isa = PBXGroup;
 			children = (
+				575956E033E5EF90DEBBE923 /* BalconyCLI */,
 				E0A018E81D07F8F804A5CC03 /* Balcony.app */,
 				A2992E0888E0EBC79BA14280 /* BalconyMac.app */,
-				27F22EB81F74AB7C86C12467 /* BalconyMacTests.xctest */,
 				6449B25645CA8534562C7068 /* BalconySharedTests.xctest */,
 			);
 			name = Products;
@@ -247,15 +225,6 @@
 			path = Sources;
 			sourceTree = "<group>";
 		};
-		3488446FE2AC7D4DE248D827 /* Tests */ = {
-			isa = PBXGroup;
-			children = (
-				186211D726AF2CED62EF9BD9 /* HookManagerTests.swift */,
-				FC67AD3AD939E21BB96C33F9 /* SessionMonitorTests.swift */,
-			);
-			path = Tests;
-			sourceTree = "<group>";
-		};
 		360A9665CF8E9D3D2ED2749F /* App */ = {
 			isa = PBXGroup;
 			children = (
@@ -268,7 +237,6 @@
 			isa = PBXGroup;
 			children = (
 				1C4666F5F2F672B0D7E53B59 /* StatusBadge.swift */,
-				AB54448DB8D9C402512B15F8 /* ToolUseCard.swift */,
 			);
 			path = Components;
 			sourceTree = "<group>";
@@ -276,6 +244,7 @@
 		506E5A171C9E6F17609103DC = {
 			isa = PBXGroup;
 			children = (
+				742537B0492B576AE5C449C8 /* BalconyCLI */,
 				84B7E10DE14DA989993CA5E4 /* BalconyiOS */,
 				0877E42291BF5A9127842C0A /* BalconyMac */,
 				D0871BA5E573A24711432930 /* BalconyShared */,
@@ -313,6 +282,14 @@
 			name = Packages;
 			sourceTree = "<group>";
 		};
+		742537B0492B576AE5C449C8 /* BalconyCLI */ = {
+			isa = PBXGroup;
+			children = (
+				9175D55D1E6F233B3622E477 /* Sources */,
+			);
+			path = BalconyCLI;
+			sourceTree = "<group>";
+		};
 		84B7E10DE14DA989993CA5E4 /* BalconyiOS */ = {
 			isa = PBXGroup;
 			children = (
@@ -321,10 +298,20 @@
 			path = BalconyiOS;
 			sourceTree = "<group>";
 		};
+		9175D55D1E6F233B3622E477 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				A6084BF828A4001E3731C509 /* IOBridge.swift */,
+				33367B0D382AADED54836B8B /* main.swift */,
+				F196F43A38F455DCA8EE5982 /* PTYManager.swift */,
+				50CDFFCE4495E7D88AFCF8C4 /* SocketClient.swift */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
 		91C6B9F134F53A2255E0E64D /* Terminal */ = {
 			isa = PBXGroup;
 			children = (
-				B37053032877CB182134A869 /* InputComposerView.swift */,
 				8AF99EBC38F153B19FDEB53A /* TerminalContainerView.swift */,
 				4BA1B40B0B2FEF2473433C8A /* TerminalViewRepresentable.swift */,
 			);
@@ -361,11 +348,9 @@
 			children = (
 				D952D21F5F35A1506E4A4D08 /* CryptoManagerTests.swift */,
 				EA00F9F09E1361C6366E02A8 /* EncryptedPipelineIntegrationTests.swift */,
-				E5DF9147479BDFB17C9B5133 /* JSONLParserTests.swift */,
 				2EAEA92A0B879C8CC2EF8F97 /* MessageProtocolTests.swift */,
 				F777879D3E4F998951042E36 /* MessageTypeIntegrationTests.swift */,
 				0C02C757F4FB8D345A6EFEF9 /* ModelTests.swift */,
-				3C1C296562D484AEF1EE2C6C /* SessionParserIntegrationTests.swift */,
 			);
 			path = BalconySharedTests;
 			sourceTree = "<group>";
@@ -430,10 +415,8 @@
 		EE0209A0E21BBDEB46AE3FFE /* Session */ = {
 			isa = PBXGroup;
 			children = (
-				0EA137F1486263BA1334587B /* HookManager.swift */,
+				A876093B09C95BC6B439A4EC /* PTYSessionManager.swift */,
 				BD4F94005F234CC1764797BF /* SessionListModel.swift */,
-				17CCC29BE78C5A1A4B508DED /* SessionMonitor.swift */,
-				0D4BF0C4D339BB7B6171D111 /* TTYWriter.swift */,
 			);
 			path = Session;
 			sourceTree = "<group>";
@@ -494,25 +477,6 @@
 			productReference = E0A018E81D07F8F804A5CC03 /* Balcony.app */;
 			productType = "com.apple.product-type.application";
 		};
-		31236DEC08BC80E82A8A8DE7 /* BalconyMacTests */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = FEC596AAE1BBBC939301A047 /* Build configuration list for PBXNativeTarget "BalconyMacTests" */;
-			buildPhases = (
-				3B0540498465FA75B40A6C88 /* Sources */,
-				7617377A8DF1E30EB4BD6986 /* Frameworks */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = BalconyMacTests;
-			packageProductDependencies = (
-				C7CC0869B5A8DE52E3A8DF71 /* BalconyShared */,
-			);
-			productName = BalconyMacTests;
-			productReference = 27F22EB81F74AB7C86C12467 /* BalconyMacTests.xctest */;
-			productType = "com.apple.product-type.bundle.unit-test";
-		};
 		B37488F2CC17C37E395BE6C9 /* BalconySharedTests */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 55906B1041CAF4EADAE32404 /* Build configuration list for PBXNativeTarget "BalconySharedTests" */;
@@ -531,6 +495,23 @@
 			productName = BalconySharedTests;
 			productReference = 6449B25645CA8534562C7068 /* BalconySharedTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		F9977008AA49E8E96D6CCF49 /* BalconyCLI */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 0896958B674FA851EE81A9DF /* Build configuration list for PBXNativeTarget "BalconyCLI" */;
+			buildPhases = (
+				23B434D3F008AE864589D7AB /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = BalconyCLI;
+			packageProductDependencies = (
+			);
+			productName = BalconyCLI;
+			productReference = 575956E033E5EF90DEBBE923 /* BalconyCLI */;
+			productType = "com.apple.product-type.tool";
 		};
 /* End PBXNativeTarget section */
 
@@ -561,8 +542,8 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
+				F9977008AA49E8E96D6CCF49 /* BalconyCLI */,
 				03D0CAD8415E829E5988EBF7 /* BalconyMac */,
-				31236DEC08BC80E82A8A8DE7 /* BalconyMacTests */,
 				B37488F2CC17C37E395BE6C9 /* BalconySharedTests */,
 				28EDF2F1EEB7F9CAAE8BE0F5 /* BalconyiOS */,
 			);
@@ -580,7 +561,6 @@
 				96F2B3247DD15F44DDB1246D /* ConnectionManager.swift in Sources */,
 				1EE8C4879DF09145406EDB96 /* DeviceManagementView.swift in Sources */,
 				EE22BDDF9F8B09255D1A3B38 /* DiscoveryView.swift in Sources */,
-				37DAD914079DAE9B4CFA67C6 /* InputComposerView.swift in Sources */,
 				7D0244EC2C9842D09733E0E8 /* NotificationManager.swift in Sources */,
 				E988DDBE65BDB2A7E0BDBC34 /* QRScannerView.swift in Sources */,
 				BDFFEF7010DECCDDE79DAAC6 /* SessionListView.swift in Sources */,
@@ -590,21 +570,18 @@
 				05F879B73DA8046A8D8E49A4 /* StatusBadge.swift in Sources */,
 				663D66965E45C127C3FF27DD /* TerminalContainerView.swift in Sources */,
 				FECDEEE2B39232DA44E03C7B /* TerminalViewRepresentable.swift in Sources */,
-				76496F02ED2CF6CAC78633D8 /* ToolUseCard.swift in Sources */,
 				15A28C87E7BAC5940DF63E23 /* WebSocketClient.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		3B0540498465FA75B40A6C88 /* Sources */ = {
+		23B434D3F008AE864589D7AB /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				34E6882C0FD1B6C0D3615B5D /* HookManager.swift in Sources */,
-				FAC6E749BD4E9CF503A5BC98 /* HookManagerTests.swift in Sources */,
-				D3DE442878C7BC38468448CC /* SessionListModel.swift in Sources */,
-				95DC5B754E71B08F31921FAF /* SessionMonitor.swift in Sources */,
-				50FE19E8865DE14C1871C378 /* SessionMonitorTests.swift in Sources */,
-				D3B8268BBCAF7434098A2196 /* TTYWriter.swift in Sources */,
+				A3F3119F2BC407CF8E28230A /* IOBridge.swift in Sources */,
+				D73A8B9E38E6442C5AA69AC0 /* PTYManager.swift in Sources */,
+				7F0ABD25389E6F652DC4A47A /* SocketClient.swift in Sources */,
+				9D859BDA07E92C27020D71C8 /* main.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -618,16 +595,14 @@
 				B098C729F8B817D207DB3AC2 /* BalconyMacApp.swift in Sources */,
 				AB12D97B837548A8A8D6D4B5 /* BonjourAdvertiser.swift in Sources */,
 				B5332132DD670D9915D73222 /* ConnectionManager.swift in Sources */,
-				DDDD84968B57343C7DBBE707 /* HookManager.swift in Sources */,
 				BAC73425A4C54FCCD6036774 /* MenuBarView.swift in Sources */,
+				C1FF8F6B9C14B58D1ABC9B8B /* PTYSessionManager.swift in Sources */,
 				7E67FA15078D40FD6AD5B461 /* PreferencesManager.swift in Sources */,
 				867FFE6CCC71EB3F1101C9E8 /* PreferencesView.swift in Sources */,
 				FA21E15455103252F1C0C876 /* QRCodePairingView.swift in Sources */,
 				DA500C499792EA420BE493FD /* QRCodeView.swift in Sources */,
 				3D79F3D2AC1738237F5FF7CB /* SessionListModel.swift in Sources */,
-				5EB7B1AA3CC285D6FEE45D2D /* SessionMonitor.swift in Sources */,
 				DFFB8C76E4D453A641002387 /* StatusItemManager.swift in Sources */,
-				E8A10762186666F3069605D3 /* TTYWriter.swift in Sources */,
 				E50D03AEEA94650D2FA831C6 /* WebSocketClientHandler.swift in Sources */,
 				B6798FB8D55B6691C4162C6D /* WebSocketServer.swift in Sources */,
 			);
@@ -639,11 +614,9 @@
 			files = (
 				6ADD5A55445484CB8EDF48B3 /* CryptoManagerTests.swift in Sources */,
 				A2C5F308DF137DEC43893871 /* EncryptedPipelineIntegrationTests.swift in Sources */,
-				A6ED25F74BE246CE6D92EBF3 /* JSONLParserTests.swift in Sources */,
 				992E8F57143B3830BA04B39D /* MessageProtocolTests.swift in Sources */,
 				7D0C3EACF2BF192ECEC1D05B /* MessageTypeIntegrationTests.swift in Sources */,
 				2D59B119C66E821CA94AE3BC /* ModelTests.swift in Sources */,
-				33FA6F83E8116C54886B0C9A /* SessionParserIntegrationTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -766,19 +739,19 @@
 			};
 			name = Debug;
 		};
-		35B1AAFE895D06A44E441078 /* Release */ = {
+		3B82C0AE9C90C5FE101F1379 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				BUNDLE_LOADER = "$(TEST_HOST)";
 				COMBINE_HIDPI_IMAGES = YES;
-				GENERATE_INFOPLIST_FILE = YES;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
-					"@loader_path/../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.balcony.mac.tests;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.balcony.cli;
+				PRODUCT_NAME = balcony;
 				SDKROOT = macosx;
+				SWIFT_VERSION = 5.9;
 			};
 			name = Release;
 		};
@@ -838,6 +811,22 @@
 			};
 			name = Release;
 		};
+		A02668BB19B25CC2F0F5E9DB /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.balcony.cli;
+				PRODUCT_NAME = balcony;
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.9;
+			};
+			name = Debug;
+		};
 		A0C5660C386D349AC1DAE3FF /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -855,22 +844,6 @@
 				SDKROOT = macosx;
 			};
 			name = Release;
-		};
-		A3A436753B600A0E62AA64F3 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUNDLE_LOADER = "$(TEST_HOST)";
-				COMBINE_HIDPI_IMAGES = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/../Frameworks",
-					"@loader_path/../Frameworks",
-				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.balcony.mac.tests;
-				SDKROOT = macosx;
-			};
-			name = Debug;
 		};
 		A6821E7B207A3EFA63646E0F /* Release */ = {
 			isa = XCBuildConfiguration;
@@ -910,6 +883,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		0896958B674FA851EE81A9DF /* Build configuration list for PBXNativeTarget "BalconyCLI" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A02668BB19B25CC2F0F5E9DB /* Debug */,
+				3B82C0AE9C90C5FE101F1379 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 		55906B1041CAF4EADAE32404 /* Build configuration list for PBXNativeTarget "BalconySharedTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -942,15 +924,6 @@
 			buildConfigurations = (
 				09EC0FAE34A4DEEF2CF50FAD /* Debug */,
 				A6821E7B207A3EFA63646E0F /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Debug;
-		};
-		FEC596AAE1BBBC939301A047 /* Build configuration list for PBXNativeTarget "BalconyMacTests" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				A3A436753B600A0E62AA64F3 /* Debug */,
-				35B1AAFE895D06A44E441078 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
@@ -1014,10 +987,6 @@
 			productName = NIOWebSocket;
 		};
 		79417DF319AEB98518662E44 /* BalconyShared */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = BalconyShared;
-		};
-		C7CC0869B5A8DE52E3A8DF71 /* BalconyShared */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = BalconyShared;
 		};
