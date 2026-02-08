@@ -76,4 +76,4 @@ xcodebuild -project Balcony.xcodeproj -scheme BalconyiOS -configuration Debug -d
 - Bonjour service type: _balcony._tcp.
 - BLE service UUID: B41C0000-0001-0001-0001-000000000001
 - Store encryption keys in Keychain, never log them
-- Claude Code session files: ~/.claude/projects/{hash}/sessions/{id}.jsonl
+- Claude Code session files: ~/.claude/projects/{hash}/{id}.jsonl

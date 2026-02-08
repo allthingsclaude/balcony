@@ -80,9 +80,10 @@ actor SessionMonitor {
         logger.info("Stopped monitoring")
     }
 
-    /// Get all known sessions sorted by last activity.
+    /// Get all known sessions with refreshed statuses, sorted by last activity.
     func getSessions() -> [Session] {
-        Array(sessions.values).sorted { $0.lastActivityAt > $1.lastActivityAt }
+        refreshSessionStatuses()
+        return Array(sessions.values).sorted { $0.lastActivityAt > $1.lastActivityAt }
     }
 
     /// Get a specific session by ID.
@@ -106,12 +107,14 @@ actor SessionMonitor {
         guard let projectDirs = try? fm.contentsOfDirectory(atPath: projectsDir) else { return }
 
         for projectHash in projectDirs {
-            let sessionsDir = "\(projectsDir)/\(projectHash)/sessions"
-            guard let sessionFiles = try? fm.contentsOfDirectory(atPath: sessionsDir) else { continue }
+            // Session JSONL files live directly inside the project hash directory:
+            // ~/.claude/projects/{hash}/{session-id}.jsonl
+            let projectDir = "\(projectsDir)/\(projectHash)"
+            guard let files = try? fm.contentsOfDirectory(atPath: projectDir) else { continue }
 
-            for file in sessionFiles where file.hasSuffix(".jsonl") {
+            for file in files where file.hasSuffix(".jsonl") {
                 let sessionId = String(file.dropLast(6))
-                let filePath = "\(sessionsDir)/\(file)"
+                let filePath = "\(projectDir)/\(file)"
                 processSessionFile(sessionId: sessionId, projectPath: projectHash, filePath: filePath)
             }
         }
@@ -124,16 +127,48 @@ actor SessionMonitor {
             guard path.hasSuffix(".jsonl") else { continue }
 
             // Extract session ID and project hash from path
-            // Format: .../projects/{hash}/sessions/{id}.jsonl
+            // Format: .../projects/{hash}/{id}.jsonl
             let components = path.components(separatedBy: "/")
-            guard let sessionsIdx = components.lastIndex(of: "sessions"),
-                  sessionsIdx > 0,
+            guard let projectsIdx = components.lastIndex(of: "projects"),
+                  components.count > projectsIdx + 2,
                   let fileName = components.last else { continue }
 
+            let projectHash = components[projectsIdx + 1]
             let sessionId = String(fileName.dropLast(6))
-            let projectHash = components[sessionsIdx - 1]
 
             processSessionFile(sessionId: sessionId, projectPath: projectHash, filePath: path)
+        }
+    }
+
+    // MARK: - Status Detection
+
+    /// How recently a file must be modified to be considered active.
+    private let activeThreshold: TimeInterval = 120 // 2 minutes
+
+    /// Infer session status from its JSONL file modification time.
+    private func inferStatus(filePath: String) -> SessionStatus {
+        guard let modDate = fileModificationDate(filePath) else { return .completed }
+        let age = Date().timeIntervalSince(modDate)
+        if age < activeThreshold {
+            return .active
+        } else {
+            return .completed
+        }
+    }
+
+    /// Refresh statuses for all tracked sessions based on file modification times.
+    private func refreshSessionStatuses() {
+        for (sessionId, filePath) in filePaths {
+            guard var session = sessions[sessionId] else { continue }
+            let newStatus = inferStatus(filePath: filePath)
+            if session.status != newStatus {
+                session.status = newStatus
+                // Update lastActivityAt from file modification time
+                if let modDate = fileModificationDate(filePath) {
+                    session.lastActivityAt = modDate
+                }
+                sessions[sessionId] = session
+            }
         }
     }
 
@@ -141,18 +176,21 @@ actor SessionMonitor {
 
     private func processSessionFile(sessionId: String, projectPath: String, filePath: String) {
         let isNew = sessions[sessionId] == nil
+        let status = inferStatus(filePath: filePath)
+        let modDate = fileModificationDate(filePath)
 
         if isNew {
             let session = Session(
                 id: sessionId,
                 projectPath: projectPath,
-                status: .active,
-                createdAt: fileCreationDate(filePath) ?? Date()
+                status: status,
+                createdAt: fileCreationDate(filePath) ?? Date(),
+                lastActivityAt: modDate ?? Date()
             )
             sessions[sessionId] = session
             filePaths[sessionId] = filePath
             continuation?.yield(.sessionDiscovered(session))
-            logger.info("Discovered session: \(sessionId)")
+            logger.info("Discovered session: \(sessionId) (status: \(status.rawValue))")
         }
 
         // Read new content since last offset
@@ -160,23 +198,7 @@ actor SessionMonitor {
         if !messages.isEmpty, var session = sessions[sessionId] {
             session.lastActivityAt = messages.last?.timestamp ?? Date()
             session.messageCount += messages.count
-
-            // Infer status from latest message
-            if let last = messages.last {
-                switch last.role {
-                case .human:
-                    session.status = .active
-                case .assistant:
-                    session.status = .active
-                case .toolUse:
-                    session.status = .active
-                case .toolResult:
-                    session.status = .active
-                case .system:
-                    session.status = .active
-                }
-            }
-
+            session.status = .active // file is being written to right now
             sessions[sessionId] = session
             continuation?.yield(.sessionUpdated(session, newMessages: messages))
         }
@@ -198,6 +220,10 @@ actor SessionMonitor {
 
     private func fileCreationDate(_ path: String) -> Date? {
         try? FileManager.default.attributesOfItem(atPath: path)[.creationDate] as? Date
+    }
+
+    private func fileModificationDate(_ path: String) -> Date? {
+        try? FileManager.default.attributesOfItem(atPath: path)[.modificationDate] as? Date
     }
 }
 

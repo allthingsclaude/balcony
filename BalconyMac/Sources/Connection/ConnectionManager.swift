@@ -232,7 +232,7 @@ final class ConnectionManager: ObservableObject {
     // MARK: - Session List
 
     private func broadcastSessionList() async {
-        let sessions = await sessionMonitor.getSessions()
+        let sessions = await sessionMonitor.getSessions().filter { $0.status == .active }
         do {
             let payload = SessionListPayload(sessions: sessions)
             let msg = try BalconyMessage.create(type: .sessionList, payload: payload)
@@ -243,7 +243,7 @@ final class ConnectionManager: ObservableObject {
     }
 
     private func sendSessionList(to client: ConnectedClient) async {
-        let sessions = await sessionMonitor.getSessions()
+        let sessions = await sessionMonitor.getSessions().filter { $0.status == .active }
         do {
             let payload = SessionListPayload(sessions: sessions)
             let msg = try BalconyMessage.create(type: .sessionList, payload: payload)
