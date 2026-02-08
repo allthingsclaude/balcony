@@ -24,6 +24,10 @@ struct TerminalViewRepresentable: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: TerminalView, context: Context) {
+        // Keep coordinator closures current across SwiftUI view updates
+        context.coordinator.onInput = onInput
+        context.coordinator.onResize = onResize
+
         let alreadyFed = context.coordinator.rawFedCount
         if rawFeedContent.count > alreadyFed {
             for bytes in rawFeedContent[alreadyFed...] {

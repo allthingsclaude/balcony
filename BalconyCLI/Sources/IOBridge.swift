@@ -9,6 +9,7 @@ import Foundation
 /// 4. Local stdin → PTY master (local keyboard still works)
 final class IOBridge {
     private let masterFD: Int32
+    private let childPID: pid_t
     private let socketClient: SocketClient?
 
     // Separate queues to prevent one blocking the other
@@ -22,8 +23,9 @@ final class IOBridge {
     /// Saved terminal attributes for restoring on exit.
     private var savedTermios: termios?
 
-    init(masterFD: Int32, socketClient: SocketClient?) {
+    init(masterFD: Int32, childPID: pid_t, socketClient: SocketClient?) {
         self.masterFD = masterFD
+        self.childPID = childPID
         self.socketClient = socketClient
     }
 
@@ -51,7 +53,11 @@ final class IOBridge {
                 if data.count >= 4 {
                     let cols = data.withUnsafeBytes { $0.load(fromByteOffset: 0, as: UInt16.self).bigEndian }
                     let rows = data.withUnsafeBytes { $0.load(fromByteOffset: 2, as: UInt16.self).bigEndian }
+                    fputs("[balcony] Resize from iOS: \(cols)x\(rows)\n", stderr)
+                    // iOS now owns the PTY size — suppress local SIGWINCH resizes
+                    remoteControlsResize = true
                     PTYManager.setWindowSize(masterFD: self.masterFD, cols: cols, rows: rows)
+                    kill(self.childPID, SIGWINCH)
                 }
             default:
                 break

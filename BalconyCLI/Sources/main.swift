@@ -78,10 +78,6 @@ do {
     exit(1)
 }
 
-// Match the PTY size to the current terminal
-let (cols, rows) = PTYManager.getWindowSize(fd: STDOUT_FILENO)
-PTYManager.setWindowSize(masterFD: pty.masterFD, cols: cols, rows: rows)
-
 // Connect to Mac agent socket (optional — works without it)
 let socketClient = SocketClient()
 let socketConnected = socketClient.connect()
@@ -90,6 +86,15 @@ if socketConnected {
 } else {
     fputs("[balcony] Mac agent not running (no socket at ~/.balcony/pty.sock)\n", stderr)
 }
+
+// Set initial PTY size to match the local Mac terminal.
+// When iOS connects it will send its own size, which takes priority.
+let (cols, rows) = PTYManager.getWindowSize(fd: STDOUT_FILENO)
+PTYManager.setWindowSize(masterFD: pty.masterFD, cols: cols, rows: rows)
+
+/// Once iOS sends a resize, it owns the PTY size — local SIGWINCH is ignored
+/// so that resizing the Mac terminal window doesn't break the iOS display.
+var remoteControlsResize = false
 
 // Generate a session ID
 let sessionId = UUID().uuidString
@@ -130,10 +135,12 @@ if socketConnected {
 }
 
 // Set up the I/O bridge
-let bridge = IOBridge(masterFD: pty.masterFD, socketClient: socketConnected ? socketClient : nil)
+let bridge = IOBridge(masterFD: pty.masterFD, childPID: childPID, socketClient: socketConnected ? socketClient : nil)
 
-// Handle SIGWINCH — forward terminal resize to PTY and child
+// Handle SIGWINCH — forward terminal resize to PTY and child,
+// but only if iOS hasn't taken control of the PTY size.
 signal(SIGWINCH) { _ in
+    guard !remoteControlsResize else { return }
     let (newCols, newRows) = PTYManager.getWindowSize(fd: STDOUT_FILENO)
     PTYManager.setWindowSize(masterFD: pty.masterFD, cols: newCols, rows: newRows)
     kill(childPID, SIGWINCH)
