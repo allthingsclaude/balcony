@@ -69,11 +69,32 @@ final class HeadlessTerminalParser: ObservableObject {
 
         var lines: [TerminalLine] = []
         var lineId = 0
+        let cols = terminal.cols
 
         for i in headerEnd..<chromeStart {
-            let segments = extractSegments(from: allRows[i])
-            lines.append(TerminalLine(id: lineId, segments: segments, isWrapped: false))
-            lineId += 1
+            var segments = extractSegments(from: allRows[i])
+            segments = replaceSymbols(segments)
+
+            // Detect terminal-wrapped lines: previous line filled all columns.
+            let prevWrapped = i > headerEnd &&
+                allRows[i - 1].getTrimmedLength() >= cols
+
+            // Strip Claude Code's 2-space continuation indent from all lines.
+            segments = stripLeadingSpaces(segments, maxCount: 2)
+
+            if prevWrapped, !lines.isEmpty {
+                // Join with previous line (terminal soft-wrap).
+                var joined = lines[lines.count - 1].segments
+                joined.append(contentsOf: segments)
+                lines[lines.count - 1] = TerminalLine(
+                    id: lines[lines.count - 1].id, segments: joined, isWrapped: true
+                )
+            } else {
+                lines.append(TerminalLine(
+                    id: lineId, segments: segments, isWrapped: false
+                ))
+                lineId += 1
+            }
         }
 
         // Trim trailing empty lines.
@@ -210,6 +231,45 @@ final class HeadlessTerminalParser: ObservableObject {
         let nonSpace = text.filter { !$0.isWhitespace }.count
         guard nonSpace > 0 else { return false }
         return Double(boxCount) / Double(nonSpace) > 0.5
+    }
+
+    // MARK: - Post-Processing
+
+    /// Replace emoji-style symbols with simpler Unicode equivalents for mobile.
+    /// ⏺ (U+23FA) → ● (U+25CF), ❯ (U+276F) → › (U+203A)
+    private func replaceSymbols(_ segments: [StyledSegment]) -> [StyledSegment] {
+        segments.map { seg in
+            let replaced = seg.text
+                .replacingOccurrences(of: "\u{23FA}", with: "\u{2022}")
+                .replacingOccurrences(of: "\u{276F}", with: "\u{203A}")
+            guard replaced != seg.text else { return seg }
+            return StyledSegment(text: replaced, style: seg.style)
+        }
+    }
+
+    /// Strip up to `maxCount` leading space characters from the first segment(s).
+    private func stripLeadingSpaces(_ segments: [StyledSegment], maxCount: Int) -> [StyledSegment] {
+        guard maxCount > 0, !segments.isEmpty else { return segments }
+        var result = segments
+        var remaining = maxCount
+
+        for idx in result.indices {
+            let text = result[idx].text
+            var stripped = text[text.startIndex...]
+            while remaining > 0, stripped.first == " " {
+                stripped = stripped.dropFirst()
+                remaining -= 1
+            }
+            if stripped.isEmpty && idx < result.count - 1 {
+                // Entire segment was spaces — remove it and continue to next.
+                result[idx] = StyledSegment(text: "", style: result[idx].style)
+            } else {
+                result[idx] = StyledSegment(text: String(stripped), style: result[idx].style)
+                break
+            }
+        }
+        // Remove any empty segments we created.
+        return result.filter { !$0.text.isEmpty }
     }
 
     // MARK: - Segment Extraction
