@@ -20,6 +20,7 @@
 		421C8CC638EF49CDCB2C843F /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FF246A4A3131A5AB9E40961A /* IOKit.framework */; };
 		52EA4D3614E7CD7C01FAFCEA /* BLECentral.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63C417099683EF822F4B30DF /* BLECentral.swift */; };
 		54B68596DB033B25770224FE /* BonjourBrowser.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7DE45B3FC97C8DC7FADEB16 /* BonjourBrowser.swift */; };
+		61B35E1445E28DE6B57C9447 /* ConversationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50C657DCB9087A3FB0B1E315 /* ConversationView.swift */; };
 		663D66965E45C127C3FF27DD /* TerminalContainerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AF99EBC38F153B19FDEB53A /* TerminalContainerView.swift */; };
 		6ADD5A55445484CB8EDF48B3 /* CryptoManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D952D21F5F35A1506E4A4D08 /* CryptoManagerTests.swift */; };
 		6B4353EBEE2E8A5A6B8E1AFF /* NIOHTTP1 in Frameworks */ = {isa = PBXBuildFile; productRef = D5859053BEF37E29C28D0EF6 /* NIOHTTP1 */; };
@@ -35,8 +36,10 @@
 		8ACEB2F730210C579A95CFEA /* SessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 160D61822B93FBE67A1C20C2 /* SessionManager.swift */; };
 		9117D5D329E9C5CB6A6E011A /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E860783542070F02AED00B7 /* SettingsView.swift */; };
 		96F2B3247DD15F44DDB1246D /* ConnectionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 783D378FB676157E04C99FC9 /* ConnectionManager.swift */; };
+		98D09ECF7A45BB7ED30B1C5F /* HeadlessTerminalParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37B5F7A0DDF8C4003E6BD6B9 /* HeadlessTerminalParser.swift */; };
 		992E8F57143B3830BA04B39D /* MessageProtocolTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EAEA92A0B879C8CC2EF8F97 /* MessageProtocolTests.swift */; };
 		9D859BDA07E92C27020D71C8 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33367B0D382AADED54836B8B /* main.swift */; };
+		9F156723BD078A153B7FEED7 /* ANSIColorMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = D68E9482CD96A6EAD061F6F8 /* ANSIColorMapper.swift */; };
 		A2C5F308DF137DEC43893871 /* EncryptedPipelineIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA00F9F09E1361C6366E02A8 /* EncryptedPipelineIntegrationTests.swift */; };
 		A3F3119F2BC407CF8E28230A /* IOBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6084BF828A4001E3731C509 /* IOBridge.swift */; };
 		AB12D97B837548A8A8D6D4B5 /* BonjourAdvertiser.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEFB8FEA08F6458F0103A0F7 /* BonjourAdvertiser.swift */; };
@@ -46,6 +49,7 @@
 		B098C729F8B817D207DB3AC2 /* BalconyMacApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 886E3C57A893FC1E5B991BA6 /* BalconyMacApp.swift */; };
 		B5332132DD670D9915D73222 /* ConnectionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAE1288EF0CA05A15B0E30FF /* ConnectionManager.swift */; };
 		B6798FB8D55B6691C4162C6D /* WebSocketServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F43204098DB6C4D61A3C700 /* WebSocketServer.swift */; };
+		B8B852BB44C301BF582E80A6 /* TerminalLine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 037E15271FF9FC402D02B51B /* TerminalLine.swift */; };
 		BAC73425A4C54FCCD6036774 /* MenuBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 669BE9921928194372E5B944 /* MenuBarView.swift */; };
 		BDFFEF7010DECCDDE79DAAC6 /* SessionListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8781800E637EC256C88F313C /* SessionListView.swift */; };
 		C1FF8F6B9C14B58D1ABC9B8B /* PTYSessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A876093B09C95BC6B439A4EC /* PTYSessionManager.swift */; };
@@ -59,10 +63,10 @@
 		F8CAE6DC6EB90AD2D7804B30 /* BalconyShared in Frameworks */ = {isa = PBXBuildFile; productRef = 79417DF319AEB98518662E44 /* BalconyShared */; };
 		FA08BD1DC31042CE542E3791 /* SwiftTerm in Frameworks */ = {isa = PBXBuildFile; productRef = E17B7059A73D41936CD7D713 /* SwiftTerm */; };
 		FA21E15455103252F1C0C876 /* QRCodePairingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4C999A09628EB4D18E4FB4E /* QRCodePairingView.swift */; };
-		FECDEEE2B39232DA44E03C7B /* TerminalViewRepresentable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4BA1B40B0B2FEF2473433C8A /* TerminalViewRepresentable.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		037E15271FF9FC402D02B51B /* TerminalLine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalLine.swift; sourceTree = "<group>"; };
 		0C02C757F4FB8D345A6EFEF9 /* ModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelTests.swift; sourceTree = "<group>"; };
 		14954C747CB9B37EFDCE1BEA /* PreferencesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesView.swift; sourceTree = "<group>"; };
 		160D61822B93FBE67A1C20C2 /* SessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionManager.swift; sourceTree = "<group>"; };
@@ -73,9 +77,10 @@
 		2EAEA92A0B879C8CC2EF8F97 /* MessageProtocolTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageProtocolTests.swift; sourceTree = "<group>"; };
 		30D8A1BC1C4516A364BFA87F /* WebSocketClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSocketClient.swift; sourceTree = "<group>"; };
 		33367B0D382AADED54836B8B /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		37B5F7A0DDF8C4003E6BD6B9 /* HeadlessTerminalParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeadlessTerminalParser.swift; sourceTree = "<group>"; };
 		4241CE63445459C9D9FD3C36 /* DeviceManagementView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceManagementView.swift; sourceTree = "<group>"; };
 		49449E8E646DB0F7693BF3F0 /* WebSocketClientHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSocketClientHandler.swift; sourceTree = "<group>"; };
-		4BA1B40B0B2FEF2473433C8A /* TerminalViewRepresentable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalViewRepresentable.swift; sourceTree = "<group>"; };
+		50C657DCB9087A3FB0B1E315 /* ConversationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationView.swift; sourceTree = "<group>"; };
 		50CDFFCE4495E7D88AFCF8C4 /* SocketClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocketClient.swift; sourceTree = "<group>"; };
 		563031AC1EAF150E0A7AAF5B /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
 		575956E033E5EF90DEBBE923 /* BalconyCLI */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = text; name = BalconyCLI; path = balcony; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -100,6 +105,7 @@
 		BD4F94005F234CC1764797BF /* SessionListModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionListModel.swift; sourceTree = "<group>"; };
 		C4C999A09628EB4D18E4FB4E /* QRCodePairingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRCodePairingView.swift; sourceTree = "<group>"; };
 		C7DE45B3FC97C8DC7FADEB16 /* BonjourBrowser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BonjourBrowser.swift; sourceTree = "<group>"; };
+		D68E9482CD96A6EAD061F6F8 /* ANSIColorMapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ANSIColorMapper.swift; sourceTree = "<group>"; };
 		D75F5677A18F7C8240B9CD91 /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
 		D952D21F5F35A1506E4A4D08 /* CryptoManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CryptoManagerTests.swift; sourceTree = "<group>"; };
 		DAE1288EF0CA05A15B0E30FF /* ConnectionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionManager.swift; sourceTree = "<group>"; };
@@ -312,8 +318,11 @@
 		91C6B9F134F53A2255E0E64D /* Terminal */ = {
 			isa = PBXGroup;
 			children = (
+				D68E9482CD96A6EAD061F6F8 /* ANSIColorMapper.swift */,
+				50C657DCB9087A3FB0B1E315 /* ConversationView.swift */,
+				37B5F7A0DDF8C4003E6BD6B9 /* HeadlessTerminalParser.swift */,
 				8AF99EBC38F153B19FDEB53A /* TerminalContainerView.swift */,
-				4BA1B40B0B2FEF2473433C8A /* TerminalViewRepresentable.swift */,
+				037E15271FF9FC402D02B51B /* TerminalLine.swift */,
 			);
 			path = Terminal;
 			sourceTree = "<group>";
@@ -555,12 +564,15 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				9F156723BD078A153B7FEED7 /* ANSIColorMapper.swift in Sources */,
 				52EA4D3614E7CD7C01FAFCEA /* BLECentral.swift in Sources */,
 				39BA738A247CAB3676A4C7C8 /* BalconyiOSApp.swift in Sources */,
 				54B68596DB033B25770224FE /* BonjourBrowser.swift in Sources */,
 				96F2B3247DD15F44DDB1246D /* ConnectionManager.swift in Sources */,
+				61B35E1445E28DE6B57C9447 /* ConversationView.swift in Sources */,
 				1EE8C4879DF09145406EDB96 /* DeviceManagementView.swift in Sources */,
 				EE22BDDF9F8B09255D1A3B38 /* DiscoveryView.swift in Sources */,
+				98D09ECF7A45BB7ED30B1C5F /* HeadlessTerminalParser.swift in Sources */,
 				7D0244EC2C9842D09733E0E8 /* NotificationManager.swift in Sources */,
 				E988DDBE65BDB2A7E0BDBC34 /* QRScannerView.swift in Sources */,
 				BDFFEF7010DECCDDE79DAAC6 /* SessionListView.swift in Sources */,
@@ -569,7 +581,7 @@
 				9117D5D329E9C5CB6A6E011A /* SettingsView.swift in Sources */,
 				05F879B73DA8046A8D8E49A4 /* StatusBadge.swift in Sources */,
 				663D66965E45C127C3FF27DD /* TerminalContainerView.swift in Sources */,
-				FECDEEE2B39232DA44E03C7B /* TerminalViewRepresentable.swift in Sources */,
+				B8B852BB44C301BF582E80A6 /* TerminalLine.swift in Sources */,
 				15A28C87E7BAC5940DF63E23 /* WebSocketClient.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

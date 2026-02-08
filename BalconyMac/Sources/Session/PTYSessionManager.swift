@@ -16,6 +16,7 @@ actor PTYSessionManager {
     private var serverFD: Int32 = -1
     private var clientFDs: [Int32: PTYClientState] = [:]
     private var sessions: [String: Session] = [:]
+    private var sessionBuffers: [String: Data] = [:]
     private var acceptSource: DispatchSourceRead?
     private let ioQueue = DispatchQueue(label: "com.balcony.mac.pty.io", qos: .userInteractive)
 
@@ -202,6 +203,11 @@ actor PTYSessionManager {
         switch type {
         case 0x01: // PTY output
             guard let state = clientFDs[fd], let sessionId = state.sessionId else { return }
+            if sessionBuffers[sessionId] != nil {
+                sessionBuffers[sessionId]!.append(payload)
+            } else {
+                sessionBuffers[sessionId] = payload
+            }
             onPTYOutput?(sessionId, payload)
 
         case 0x04: // Session info
@@ -214,7 +220,9 @@ actor PTYSessionManager {
                 id: info.sessionId,
                 projectPath: info.cwd,
                 status: .active,
-                cwd: info.cwd
+                cwd: info.cwd,
+                cols: info.cols,
+                rows: info.rows
             )
             sessions[info.sessionId] = session
             clientFDs[fd]?.sessionId = info.sessionId
@@ -225,6 +233,7 @@ actor PTYSessionManager {
         case 0x05: // Session ended
             guard let state = clientFDs[fd], let sessionId = state.sessionId else { return }
             sessions.removeValue(forKey: sessionId)
+            sessionBuffers.removeValue(forKey: sessionId)
             logger.info("PTY session ended: \(sessionId)")
             onSessionEvent?(.sessionEnded(sessionId))
 
@@ -240,6 +249,7 @@ actor PTYSessionManager {
 
         if let sessionId = state.sessionId {
             sessions.removeValue(forKey: sessionId)
+            sessionBuffers.removeValue(forKey: sessionId)
             logger.info("CLI client disconnected, session ended: \(sessionId)")
             onSessionEvent?(.sessionEnded(sessionId))
         } else {
@@ -267,6 +277,11 @@ actor PTYSessionManager {
         withUnsafeBytes(of: bigCols) { data.replaceSubrange(0..<2, with: $0) }
         withUnsafeBytes(of: bigRows) { data.replaceSubrange(2..<4, with: $0) }
         sendFramed(fd: fd, type: 0x03, data: data)
+    }
+
+    /// Get the buffered PTY output for a session (for history replay on subscribe).
+    func getSessionBuffer(_ sessionId: String) -> Data? {
+        sessionBuffers[sessionId]
     }
 
     /// Get active PTY sessions.

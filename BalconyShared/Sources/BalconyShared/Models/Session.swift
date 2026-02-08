@@ -9,6 +9,8 @@ public struct Session: Codable, Identifiable, Hashable, Sendable {
     public var lastActivityAt: Date
     public var messageCount: Int
     public var cwd: String?
+    public var cols: UInt16?
+    public var rows: UInt16?
 
     public var projectName: String {
         (projectPath as NSString).lastPathComponent
@@ -21,7 +23,9 @@ public struct Session: Codable, Identifiable, Hashable, Sendable {
         createdAt: Date = Date(),
         lastActivityAt: Date = Date(),
         messageCount: Int = 0,
-        cwd: String? = nil
+        cwd: String? = nil,
+        cols: UInt16? = nil,
+        rows: UInt16? = nil
     ) {
         self.id = id
         self.projectPath = projectPath
@@ -30,6 +34,8 @@ public struct Session: Codable, Identifiable, Hashable, Sendable {
         self.lastActivityAt = lastActivityAt
         self.messageCount = messageCount
         self.cwd = cwd
+        self.cols = cols
+        self.rows = rows
     }
 }
 

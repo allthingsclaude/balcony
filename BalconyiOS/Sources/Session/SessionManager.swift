@@ -1,5 +1,6 @@
 import Foundation
 import BalconyShared
+import Combine
 import os
 
 /// Manages Claude Code sessions received from the connected Mac.
@@ -10,8 +11,11 @@ final class SessionManager: ObservableObject {
     @Published var sessions: [Session] = []
     @Published var activeSession: Session?
 
-    /// Raw PTY byte chunks for feeding the terminal view.
-    @Published var terminalRawFeed: [[UInt8]] = []
+    /// Parsed conversation lines from the headless terminal parser.
+    @Published var conversationLines: [TerminalLine] = []
+
+    private var parser: HeadlessTerminalParser?
+    private var parserCancellable: AnyCancellable?
 
     private weak var connectionManager: ConnectionManager?
 
@@ -46,7 +50,15 @@ final class SessionManager: ObservableObject {
     func subscribe(to session: Session) async {
         logger.info("Subscribing to session: \(session.id)")
         activeSession = session
-        terminalRawFeed = []
+        conversationLines = []
+
+        let cols = Int(session.cols ?? 80)
+        let rows = Int(session.rows ?? 24)
+        let newParser = HeadlessTerminalParser(cols: cols, rows: rows)
+        self.parser = newParser
+        parserCancellable = newParser.$conversationLines
+            .receive(on: DispatchQueue.main)
+            .assign(to: \.conversationLines, on: self)
 
         guard let connectionManager else { return }
         do {
@@ -63,7 +75,10 @@ final class SessionManager: ObservableObject {
         logger.info("Unsubscribing from session: \(session.id)")
         if activeSession?.id == session.id {
             activeSession = nil
-            terminalRawFeed = []
+            parserCancellable?.cancel()
+            parserCancellable = nil
+            parser = nil
+            conversationLines = []
         }
 
         guard let connectionManager else { return }
@@ -86,18 +101,6 @@ final class SessionManager: ObservableObject {
             try await connectionManager.send(msg)
         } catch {
             logger.error("Failed to send input: \(error.localizedDescription)")
-        }
-    }
-
-    /// Send a terminal resize event to the Mac.
-    func sendResize(cols: UInt16, rows: UInt16, to session: Session) async {
-        guard let connectionManager else { return }
-        do {
-            let payload = TerminalResizePayload(sessionId: session.id, cols: cols, rows: rows)
-            let msg = try BalconyMessage.create(type: .terminalResize, payload: payload)
-            try await connectionManager.send(msg)
-        } catch {
-            logger.error("Failed to send resize: \(error.localizedDescription)")
         }
     }
 
@@ -147,7 +150,7 @@ final class SessionManager: ObservableObject {
         do {
             let payload = try message.decodePayload(TerminalDataPayload.self)
             guard payload.sessionId == activeSession?.id else { return }
-            terminalRawFeed.append(Array(payload.data))
+            parser?.feed(bytes: Array(payload.data))
             logger.debug("Terminal data for \(payload.sessionId): \(payload.data.count) bytes")
         } catch {
             logger.error("Failed to decode terminal data: \(error.localizedDescription)")

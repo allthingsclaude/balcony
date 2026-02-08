@@ -6,24 +6,14 @@ struct TerminalContainerView: View {
     @EnvironmentObject var sessionManager: SessionManager
 
     var body: some View {
-        TerminalViewRepresentable(
-            rawFeedContent: sessionManager.terminalRawFeed,
-            onInput: { userInput in
+        ConversationView(
+            lines: sessionManager.conversationLines,
+            onSendInput: { text in
                 Task {
-                    await sessionManager.sendInput(userInput, to: session)
-                }
-            },
-            onResize: { cols, rows in
-                Task {
-                    await sessionManager.sendResize(
-                        cols: UInt16(cols),
-                        rows: UInt16(rows),
-                        to: session
-                    )
+                    await sessionManager.sendInput(text, to: session)
                 }
             }
         )
-        .ignoresSafeArea(.container, edges: .bottom)
         .navigationTitle(session.projectName)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

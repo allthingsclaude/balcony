@@ -145,10 +145,17 @@ final class ConnectionManager: ObservableObject {
             await sendSessionList(to: client)
 
         case .sessionSubscribe:
-            // PTY sessions have no history to replay — just start streaming
             do {
                 let payload = try message.decodePayload(SessionSubscribePayload.self)
-                logger.info("Client subscribed to PTY session \(payload.sessionId)")
+                let sessionId = payload.sessionId
+                logger.info("Client subscribed to PTY session \(sessionId)")
+
+                // Send buffered PTY history so iOS gets the full conversation.
+                if let buffer = await ptySessionManager.getSessionBuffer(sessionId), !buffer.isEmpty {
+                    let historyPayload = TerminalDataPayload(sessionId: sessionId, data: buffer)
+                    let historyMsg = try BalconyMessage.create(type: .terminalData, payload: historyPayload)
+                    await webSocketServer.send(historyMsg, to: client)
+                }
             } catch {
                 logger.error("Failed to decode session subscribe: \(error.localizedDescription)")
             }
