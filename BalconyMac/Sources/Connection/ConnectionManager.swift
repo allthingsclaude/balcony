@@ -26,6 +26,7 @@ final class ConnectionManager: ObservableObject {
     private let bonjourAdvertiser: BonjourAdvertiser
     private let blePeripheral: BLEPeripheral
     private let sessionMonitor: SessionMonitor
+    private let ttyWriter = TTYWriter()
 
     /// Server identity crypto manager used for QR code pairing.
     let serverCrypto = CryptoManager()
@@ -214,18 +215,60 @@ final class ConnectionManager: ObservableObject {
             // iOS client requesting the session list (e.g. after handshake)
             await sendSessionList(to: client)
 
+        case .sessionSubscribe:
+            // Send session history to the newly subscribing client
+            do {
+                let payload = try message.decodePayload(SessionSubscribePayload.self)
+                await sendSessionHistory(sessionId: payload.sessionId, to: client)
+            } catch {
+                logger.error("Failed to decode session subscribe: \(error.localizedDescription)")
+            }
+
         case .userInput:
-            // Forward user input to the appropriate session
+            // Forward user input to the Claude process TTY
             do {
                 let input = try message.decodePayload(UserInputPayload.self)
                 logger.info("User input for session \(input.sessionId): \(input.text.prefix(50))")
-                // TODO: Phase 1.8 - Write input to session via stdin or hook
+
+                guard let cwd = await sessionMonitor.getCWD(forSession: input.sessionId) else {
+                    logger.warning("No CWD found for session \(input.sessionId), cannot write to TTY")
+                    return
+                }
+
+                try await ttyWriter.write(input.text, toCWD: cwd)
+                logger.info("Delivered input to TTY for session \(input.sessionId)")
             } catch {
-                logger.error("Failed to decode user input: \(error.localizedDescription)")
+                logger.error("Failed to deliver user input: \(error.localizedDescription)")
             }
 
         default:
             logger.debug("Unhandled client message type: \(message.type.rawValue)")
+        }
+    }
+
+    // MARK: - Session History
+
+    /// Send all existing messages for a session to a client.
+    private func sendSessionHistory(sessionId: String, to client: ConnectedClient) async {
+        let messages = await sessionMonitor.getSessionHistory(id: sessionId)
+        guard !messages.isEmpty else {
+            logger.info("No history for session \(sessionId)")
+            return
+        }
+
+        logger.info("Sending \(messages.count) history messages for session \(sessionId)")
+
+        for message in messages {
+            do {
+                let outputPayload = TerminalOutputPayload(
+                    sessionId: sessionId,
+                    message: message
+                )
+                let msg = try BalconyMessage.create(type: .terminalOutput, payload: outputPayload)
+                await webSocketServer.send(msg, to: client)
+            } catch {
+                logger.error("Failed to send history message: \(error.localizedDescription)")
+            }
         }
     }
 

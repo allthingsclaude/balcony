@@ -255,6 +255,8 @@ actor WebSocketServer {
 
             case .sessionSubscribe:
                 handleSessionSubscribe(from: client, message: message)
+                // Also forward to ConnectionManager so it can send session history
+                eventContinuation?.yield(.messageReceived(client, message))
 
             case .sessionUnsubscribe:
                 handleSessionUnsubscribe(from: client, message: message)

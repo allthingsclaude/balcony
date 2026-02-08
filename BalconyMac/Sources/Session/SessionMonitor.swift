@@ -25,6 +25,7 @@ actor SessionMonitor {
     private var sessions: [String: Session] = [:]
     private var fileOffsets: [String: UInt64] = [:]
     private var filePaths: [String: String] = [:] // sessionId -> filePath
+    private var sessionCWDs: [String: String] = [:] // sessionId -> cwd
     private var isMonitoring = false
 
     private let claudeDir: String
@@ -89,6 +90,18 @@ actor SessionMonitor {
     /// Get a specific session by ID.
     func getSession(id: String) -> Session? {
         sessions[id]
+    }
+
+    /// Get the working directory for a session.
+    func getCWD(forSession sessionId: String) -> String? {
+        sessionCWDs[sessionId]
+    }
+
+    /// Read all messages from a session's JSONL file (for sending history to new subscribers).
+    func getSessionHistory(id sessionId: String) -> [SessionMessage] {
+        guard let filePath = filePaths[sessionId] else { return [] }
+        guard let data = FileManager.default.contents(atPath: filePath) else { return [] }
+        return parser.parse(data)
     }
 
     /// Mark a session as ended.
@@ -215,7 +228,22 @@ actor SessionMonitor {
         guard !newData.isEmpty else { return [] }
 
         fileOffsets[sessionId] = offset + UInt64(newData.count)
-        return parser.parse(newData)
+
+        guard let text = String(data: newData, encoding: .utf8) else { return [] }
+        let entries = parser.parseEntries(text)
+
+        // Extract CWD from entries (use the latest non-nil cwd)
+        for entry in entries {
+            if let cwd = entry.cwd {
+                sessionCWDs[sessionId] = cwd
+                if var session = sessions[sessionId] {
+                    session.cwd = cwd
+                    sessions[sessionId] = session
+                }
+            }
+        }
+
+        return entries.compactMap { $0.message }
     }
 
     private func fileCreationDate(_ path: String) -> Date? {

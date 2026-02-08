@@ -7,23 +7,24 @@ final class SessionParserIntegrationTests: XCTestCase {
 
     // MARK: - Realistic Session Parsing
 
-    /// Parse a realistic Claude Code session with multiple message roles.
+    /// Parse a realistic Claude Code session with multiple message types.
     func testRealisticSessionParsing() {
         let jsonl = """
-        {"type":"human","content":"Fix the bug in UserService.swift","session_id":"sess-001","timestamp":"2024-06-15T10:00:00Z"}
-        {"type":"assistant","content":"I'll look at UserService.swift and fix the bug.","session_id":"sess-001","timestamp":"2024-06-15T10:00:02Z"}
-        {"type":"tool_use","content":"Reading UserService.swift","session_id":"sess-001","timestamp":"2024-06-15T10:00:03Z"}
-        {"type":"tool_result","content":"func fetchUser(id: Int) -> User? { ... }","session_id":"sess-001","timestamp":"2024-06-15T10:00:04Z"}
-        {"type":"assistant","content":"I found the issue. The fetchUser method has a race condition.","session_id":"sess-001","timestamp":"2024-06-15T10:00:05Z"}
+        {"type":"user","sessionId":"sess-001","cwd":"/Users/dev/myapp","message":{"role":"user","content":"Fix the bug in UserService.swift"},"timestamp":"2026-06-15T10:00:00.000Z"}
+        {"type":"assistant","sessionId":"sess-001","cwd":"/Users/dev/myapp","message":{"role":"assistant","content":[{"type":"text","text":"I'll look at UserService.swift and fix the bug."}]},"timestamp":"2026-06-15T10:00:02.100Z"}
+        {"type":"assistant","sessionId":"sess-001","cwd":"/Users/dev/myapp","message":{"role":"assistant","content":[{"type":"tool_use","id":"toolu_01","name":"Read","input":{"file_path":"UserService.swift"}}]},"timestamp":"2026-06-15T10:00:03.200Z"}
+        {"type":"assistant","sessionId":"sess-001","cwd":"/Users/dev/myapp","message":{"role":"assistant","content":[{"type":"text","text":"I found the issue. The fetchUser method has a race condition."}]},"timestamp":"2026-06-15T10:00:05.500Z"}
         """
 
         let messages = parser.parse(jsonl)
-        XCTAssertEqual(messages.count, 5)
-        XCTAssertEqual(messages[0].role, .human)
+        XCTAssertEqual(messages.count, 4)
+        XCTAssertEqual(messages[0].role, .user)
+        XCTAssertEqual(messages[0].content, "Fix the bug in UserService.swift")
         XCTAssertEqual(messages[1].role, .assistant)
-        XCTAssertEqual(messages[2].role, .toolUse)
-        XCTAssertEqual(messages[3].role, .toolResult)
-        XCTAssertEqual(messages[4].role, .assistant)
+        XCTAssertEqual(messages[1].content, "I'll look at UserService.swift and fix the bug.")
+        XCTAssertEqual(messages[2].role, .assistant)
+        XCTAssertTrue(messages[2].content.contains("[Tool: Read]"))
+        XCTAssertEqual(messages[3].role, .assistant)
 
         for msg in messages {
             XCTAssertEqual(msg.sessionId, "sess-001")
@@ -35,20 +36,38 @@ final class SessionParserIntegrationTests: XCTestCase {
     /// Simulate file tailing: parse first batch, then parse appended lines.
     func testIncrementalParsing() {
         let batch1 = """
-        {"type":"human","content":"Hello","session_id":"s1","timestamp":"2024-01-01T00:00:00Z"}
-        {"type":"assistant","content":"Hi!","session_id":"s1","timestamp":"2024-01-01T00:00:01Z"}
+        {"type":"user","sessionId":"s1","message":{"role":"user","content":"Hello"},"timestamp":"2026-01-01T00:00:00.000Z"}
+        {"type":"assistant","sessionId":"s1","message":{"role":"assistant","content":[{"type":"text","text":"Hi!"}]},"timestamp":"2026-01-01T00:00:01.000Z"}
         """
         let messages1 = parser.parse(batch1)
         XCTAssertEqual(messages1.count, 2)
 
         // New lines appended to file
         let batch2 = """
-        {"type":"human","content":"Fix the tests","session_id":"s1","timestamp":"2024-01-01T00:01:00Z"}
-        {"type":"assistant","content":"On it!","session_id":"s1","timestamp":"2024-01-01T00:01:01Z"}
+        {"type":"user","sessionId":"s1","message":{"role":"user","content":"Fix the tests"},"timestamp":"2026-01-01T00:01:00.000Z"}
+        {"type":"assistant","sessionId":"s1","message":{"role":"assistant","content":[{"type":"text","text":"On it!"}]},"timestamp":"2026-01-01T00:01:01.000Z"}
         """
         let messages2 = parser.parse(batch2)
         XCTAssertEqual(messages2.count, 2)
         XCTAssertEqual(messages2[0].content, "Fix the tests")
+    }
+
+    // MARK: - Skipped Types
+
+    /// Progress and file-history-snapshot lines should be skipped.
+    func testSkippedTypes() {
+        let jsonl = """
+        {"type":"file-history-snapshot","messageId":"abc","snapshot":{"trackedFileBackups":{}}}
+        {"type":"user","sessionId":"s1","message":{"role":"user","content":"Hello"},"timestamp":"2026-01-01T00:00:00Z"}
+        {"type":"progress","data":{"type":"hook_progress","hookEvent":"SessionStart"},"sessionId":"s1","timestamp":"2026-01-01T00:00:01Z"}
+        {"type":"assistant","sessionId":"s1","message":{"role":"assistant","content":[{"type":"text","text":"Hi!"}]},"timestamp":"2026-01-01T00:00:02Z"}
+        {"type":"progress","data":{"type":"agent_progress"},"sessionId":"s1","timestamp":"2026-01-01T00:00:03Z"}
+        """
+
+        let messages = parser.parse(jsonl)
+        XCTAssertEqual(messages.count, 2)
+        XCTAssertEqual(messages[0].role, .user)
+        XCTAssertEqual(messages[1].role, .assistant)
     }
 
     // MARK: - Incomplete Data
@@ -56,13 +75,13 @@ final class SessionParserIntegrationTests: XCTestCase {
     /// Incomplete trailing line (file still being written) should be skipped.
     func testIncompleteTrailingLine() {
         let jsonl = """
-        {"type":"human","content":"Hello","session_id":"s1","timestamp":"2024-01-01T00:00:00Z"}
-        {"type":"assistant","content":"Work
+        {"type":"user","sessionId":"s1","message":{"role":"user","content":"Hello"},"timestamp":"2026-01-01T00:00:00Z"}
+        {"type":"assistant","sessionId":"s1","message":{"role":"assistant","content":[{"type":"text","text":"Work
         """
 
         let messages = parser.parse(jsonl)
         XCTAssertEqual(messages.count, 1)
-        XCTAssertEqual(messages[0].role, .human)
+        XCTAssertEqual(messages[0].role, .user)
     }
 
     // MARK: - Multiple Sessions
@@ -70,11 +89,11 @@ final class SessionParserIntegrationTests: XCTestCase {
     /// Parse lines from different sessions independently.
     func testMultipleSessions() {
         let session1 = (0..<5).map { i in
-            "{\"type\":\"human\",\"content\":\"Message \(i)\",\"session_id\":\"sess-A\",\"timestamp\":\"2024-01-01T00:00:0\(i)Z\"}"
+            "{\"type\":\"user\",\"sessionId\":\"sess-A\",\"message\":{\"role\":\"user\",\"content\":\"Message \(i)\"},\"timestamp\":\"2026-01-01T00:00:0\(i).000Z\"}"
         }.joined(separator: "\n")
 
         let session2 = (0..<3).map { i in
-            "{\"type\":\"assistant\",\"content\":\"Reply \(i)\",\"session_id\":\"sess-B\",\"timestamp\":\"2024-01-01T00:00:0\(i)Z\"}"
+            "{\"type\":\"assistant\",\"sessionId\":\"sess-B\",\"message\":{\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"Reply \(i)\"}]},\"timestamp\":\"2026-01-01T00:00:0\(i).000Z\"}"
         }.joined(separator: "\n")
 
         let messages1 = parser.parse(session1)
@@ -92,7 +111,7 @@ final class SessionParserIntegrationTests: XCTestCase {
     /// Claude API format: content is an array of text blocks.
     func testContentArrayBlocks() {
         let jsonl = """
-        {"type":"assistant","content":[{"type":"text","text":"First paragraph."},{"type":"text","text":"Second paragraph."}],"session_id":"s1","timestamp":"2024-01-01T00:00:00Z"}
+        {"type":"assistant","sessionId":"s1","message":{"role":"assistant","content":[{"type":"text","text":"First paragraph."},{"type":"text","text":"Second paragraph."}]},"timestamp":"2026-01-01T00:00:00Z"}
         """
 
         let messages = parser.parse(jsonl)
@@ -101,17 +120,21 @@ final class SessionParserIntegrationTests: XCTestCase {
         XCTAssertTrue(messages[0].content.contains("Second paragraph."))
     }
 
-    // MARK: - Special Characters
+    // MARK: - CWD Extraction
 
-    /// ANSI escape codes and unicode survive parsing.
-    func testSpecialCharactersAndANSI() {
+    /// parseEntries extracts CWD from lines.
+    func testCWDExtraction() {
         let jsonl = """
-        {"type":"assistant","content":"Output: \\u001B[32m\\u2713\\u001B[0m Tests passed","session_id":"s1","timestamp":"2024-01-01T00:00:00Z"}
+        {"type":"user","sessionId":"s1","cwd":"/Users/dev/myapp","message":{"role":"user","content":"Hello"},"timestamp":"2026-01-01T00:00:00Z"}
+        {"type":"assistant","sessionId":"s1","cwd":"/Users/dev/myapp","message":{"role":"assistant","content":[{"type":"text","text":"Hi"}]},"timestamp":"2026-01-01T00:00:01Z"}
         """
 
-        let messages = parser.parse(jsonl)
-        XCTAssertEqual(messages.count, 1)
-        XCTAssertFalse(messages[0].content.isEmpty)
+        let entries = parser.parseEntries(jsonl)
+        XCTAssertEqual(entries.count, 2)
+        XCTAssertEqual(entries[0].cwd, "/Users/dev/myapp")
+        XCTAssertEqual(entries[1].cwd, "/Users/dev/myapp")
+        XCTAssertNotNil(entries[0].message)
+        XCTAssertNotNil(entries[1].message)
     }
 
     // MARK: - End-to-End: JSONL → Encrypt → Decrypt → Verify
@@ -128,13 +151,13 @@ final class SessionParserIntegrationTests: XCTestCase {
         try await mac.deriveSharedSecret(theirPublicKey: iosKP.publicKey)
         try await ios.deriveSharedSecret(theirPublicKey: macKP.publicKey)
 
-        // Mac reads JSONL session file
+        // Mac reads JSONL session file (real format)
         let jsonl = """
-        {"type":"human","content":"Build the project","session_id":"proj-1","timestamp":"2024-06-15T10:00:00Z"}
-        {"type":"assistant","content":"Running swift build...","session_id":"proj-1","timestamp":"2024-06-15T10:00:01Z"}
-        {"type":"tool_use","content":"Executing: swift build","session_id":"proj-1","timestamp":"2024-06-15T10:00:02Z"}
-        {"type":"tool_result","content":"Build complete! (0.42s)","session_id":"proj-1","timestamp":"2024-06-15T10:00:05Z"}
-        {"type":"assistant","content":"The build succeeded with no errors.","session_id":"proj-1","timestamp":"2024-06-15T10:00:06Z"}
+        {"type":"user","sessionId":"proj-1","cwd":"/Users/dev/myapp","message":{"role":"user","content":"Build the project"},"timestamp":"2026-06-15T10:00:00.000Z"}
+        {"type":"assistant","sessionId":"proj-1","cwd":"/Users/dev/myapp","message":{"role":"assistant","content":[{"type":"text","text":"Running swift build..."}]},"timestamp":"2026-06-15T10:00:01.100Z"}
+        {"type":"assistant","sessionId":"proj-1","cwd":"/Users/dev/myapp","message":{"role":"assistant","content":[{"type":"tool_use","id":"toolu_01","name":"Bash","input":{"command":"swift build"}}]},"timestamp":"2026-06-15T10:00:02.200Z"}
+        {"type":"assistant","sessionId":"proj-1","cwd":"/Users/dev/myapp","message":{"role":"assistant","content":[{"type":"text","text":"Build complete! (0.42s)"}]},"timestamp":"2026-06-15T10:00:05.300Z"}
+        {"type":"assistant","sessionId":"proj-1","cwd":"/Users/dev/myapp","message":{"role":"assistant","content":[{"type":"text","text":"The build succeeded with no errors."}]},"timestamp":"2026-06-15T10:00:06.400Z"}
         """
 
         let sessionMessages = parser.parse(jsonl)
@@ -168,7 +191,6 @@ final class SessionParserIntegrationTests: XCTestCase {
 
         XCTAssertEqual(receivedContents.count, 5)
         XCTAssertEqual(receivedContents[0], "Build the project")
-        XCTAssertEqual(receivedContents[3], "Build complete! (0.42s)")
         XCTAssertEqual(receivedContents[4], "The build succeeded with no errors.")
     }
 

@@ -26,8 +26,8 @@ final class SessionMonitorTests: XCTestCase {
 
         let sessionFile = projectDir.appendingPathComponent("session-001.jsonl")
         let jsonl = """
-        {"type":"human","content":"Hello","session_id":"session-001","timestamp":"2025-01-01T00:00:00Z"}
-        {"type":"assistant","content":"Hi there","session_id":"session-001","timestamp":"2025-01-01T00:00:01Z"}
+        {"type":"user","sessionId":"session-001","cwd":"/Users/dev/project","message":{"role":"user","content":"Hello"},"timestamp":"2026-01-01T00:00:00.000Z"}
+        {"type":"assistant","sessionId":"session-001","cwd":"/Users/dev/project","message":{"role":"assistant","content":[{"type":"text","text":"Hi there"}]},"timestamp":"2026-01-01T00:00:01.000Z"}
         """
         try jsonl.write(to: sessionFile, atomically: true, encoding: .utf8)
 
@@ -65,7 +65,7 @@ final class SessionMonitorTests: XCTestCase {
         if let (session, messages) = updatedSessions.first {
             XCTAssertEqual(session.id, "session-001")
             XCTAssertEqual(messages.count, 2)
-            XCTAssertEqual(messages[0].role, .human)
+            XCTAssertEqual(messages[0].role, .user)
             XCTAssertEqual(messages[1].role, .assistant)
         }
     }
@@ -77,12 +77,12 @@ final class SessionMonitorTests: XCTestCase {
         // Create two sessions
         let session1 = projectDir.appendingPathComponent("old-session.jsonl")
         try """
-        {"type":"human","content":"Old","session_id":"old-session","timestamp":"2025-01-01T00:00:00Z"}
+        {"type":"user","sessionId":"old-session","message":{"role":"user","content":"Old"},"timestamp":"2025-01-01T00:00:00Z"}
         """.write(to: session1, atomically: true, encoding: .utf8)
 
         let session2 = projectDir.appendingPathComponent("new-session.jsonl")
         try """
-        {"type":"human","content":"New","session_id":"new-session","timestamp":"2025-06-01T00:00:00Z"}
+        {"type":"user","sessionId":"new-session","message":{"role":"user","content":"New"},"timestamp":"2025-06-01T00:00:00Z"}
         """.write(to: session2, atomically: true, encoding: .utf8)
 
         let monitor = SessionMonitor(claudeDir: tempDir.path)
@@ -104,7 +104,7 @@ final class SessionMonitorTests: XCTestCase {
 
         let sessionFile = projectDir.appendingPathComponent("test-session.jsonl")
         try """
-        {"type":"human","content":"Hello","session_id":"test-session","timestamp":"2025-01-01T00:00:00Z"}
+        {"type":"user","sessionId":"test-session","message":{"role":"user","content":"Hello"},"timestamp":"2025-01-01T00:00:00Z"}
         """.write(to: sessionFile, atomically: true, encoding: .utf8)
 
         let monitor = SessionMonitor(claudeDir: tempDir.path)
@@ -154,7 +154,7 @@ final class SessionMonitorTests: XCTestCase {
         // Write a new session file AFTER monitoring started
         let newSession = projectDir.appendingPathComponent("dynamic-session.jsonl")
         try """
-        {"type":"human","content":"Dynamic","session_id":"dynamic-session","timestamp":"2025-01-01T00:00:00Z"}
+        {"type":"user","sessionId":"dynamic-session","message":{"role":"user","content":"Dynamic"},"timestamp":"2025-01-01T00:00:00Z"}
         """.write(to: newSession, atomically: true, encoding: .utf8)
 
         // Wait for FSEvents to fire (latency is 300ms + processing)
@@ -182,5 +182,25 @@ final class SessionMonitorTests: XCTestCase {
         // Verify the projects dir was created
         let projectsDir = tempDir.appendingPathComponent("projects")
         XCTAssertTrue(FileManager.default.fileExists(atPath: projectsDir.path))
+    }
+
+    func testCWDExtractedFromSessionFile() async throws {
+        let projectDir = tempDir.appendingPathComponent("projects/proj1/sessions")
+        try FileManager.default.createDirectory(at: projectDir, withIntermediateDirectories: true)
+
+        let sessionFile = projectDir.appendingPathComponent("cwd-session.jsonl")
+        try """
+        {"type":"user","sessionId":"cwd-session","cwd":"/Users/dev/myproject","message":{"role":"user","content":"Hello"},"timestamp":"2026-01-01T00:00:00Z"}
+        """.write(to: sessionFile, atomically: true, encoding: .utf8)
+
+        let monitor = SessionMonitor(claudeDir: tempDir.path)
+        _ = await monitor.startMonitoring()
+
+        try await Task.sleep(nanoseconds: 500_000_000)
+
+        let cwd = await monitor.getCWD(forSession: "cwd-session")
+        XCTAssertEqual(cwd, "/Users/dev/myproject")
+
+        await monitor.stopMonitoring()
     }
 }

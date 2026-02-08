@@ -8,6 +8,7 @@ public struct Session: Codable, Identifiable, Hashable, Sendable {
     public let createdAt: Date
     public var lastActivityAt: Date
     public var messageCount: Int
+    public var cwd: String?
 
     public var projectName: String {
         (projectPath as NSString).lastPathComponent
@@ -19,7 +20,8 @@ public struct Session: Codable, Identifiable, Hashable, Sendable {
         status: SessionStatus = .active,
         createdAt: Date = Date(),
         lastActivityAt: Date = Date(),
-        messageCount: Int = 0
+        messageCount: Int = 0,
+        cwd: String? = nil
     ) {
         self.id = id
         self.projectPath = projectPath
@@ -27,6 +29,7 @@ public struct Session: Codable, Identifiable, Hashable, Sendable {
         self.createdAt = createdAt
         self.lastActivityAt = lastActivityAt
         self.messageCount = messageCount
+        self.cwd = cwd
     }
 }
 

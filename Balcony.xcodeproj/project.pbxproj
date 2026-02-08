@@ -54,11 +54,13 @@
 		B6798FB8D55B6691C4162C6D /* WebSocketServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F43204098DB6C4D61A3C700 /* WebSocketServer.swift */; };
 		BAC73425A4C54FCCD6036774 /* MenuBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 669BE9921928194372E5B944 /* MenuBarView.swift */; };
 		BDFFEF7010DECCDDE79DAAC6 /* SessionListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8781800E637EC256C88F313C /* SessionListView.swift */; };
+		D3B8268BBCAF7434098A2196 /* TTYWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D4BF0C4D339BB7B6171D111 /* TTYWriter.swift */; };
 		D3DE442878C7BC38468448CC /* SessionListModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD4F94005F234CC1764797BF /* SessionListModel.swift */; };
 		DA500C499792EA420BE493FD /* QRCodeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72541086349D5C7FE7CA0C64 /* QRCodeView.swift */; };
 		DDDD84968B57343C7DBBE707 /* HookManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0EA137F1486263BA1334587B /* HookManager.swift */; };
 		DFFB8C76E4D453A641002387 /* StatusItemManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5BA326573C4E510CFC7C2A8 /* StatusItemManager.swift */; };
 		E50D03AEEA94650D2FA831C6 /* WebSocketClientHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49449E8E646DB0F7693BF3F0 /* WebSocketClientHandler.swift */; };
+		E8A10762186666F3069605D3 /* TTYWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D4BF0C4D339BB7B6171D111 /* TTYWriter.swift */; };
 		E988DDBE65BDB2A7E0BDBC34 /* QRScannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5330CC3525DAD310296E4BE /* QRScannerView.swift */; };
 		EE22BDDF9F8B09255D1A3B38 /* DiscoveryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0AA3AD6C3787879CAAB89F1 /* DiscoveryView.swift */; };
 		F7A6FDE9F0B65FDA8CA6EA1E /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29C23B5584D65228ECB8AF8D /* AppDelegate.swift */; };
@@ -71,6 +73,7 @@
 
 /* Begin PBXFileReference section */
 		0C02C757F4FB8D345A6EFEF9 /* ModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelTests.swift; sourceTree = "<group>"; };
+		0D4BF0C4D339BB7B6171D111 /* TTYWriter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TTYWriter.swift; sourceTree = "<group>"; };
 		0EA137F1486263BA1334587B /* HookManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HookManager.swift; sourceTree = "<group>"; };
 		14954C747CB9B37EFDCE1BEA /* PreferencesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesView.swift; sourceTree = "<group>"; };
 		160D61822B93FBE67A1C20C2 /* SessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionManager.swift; sourceTree = "<group>"; };
@@ -430,6 +433,7 @@
 				0EA137F1486263BA1334587B /* HookManager.swift */,
 				BD4F94005F234CC1764797BF /* SessionListModel.swift */,
 				17CCC29BE78C5A1A4B508DED /* SessionMonitor.swift */,
+				0D4BF0C4D339BB7B6171D111 /* TTYWriter.swift */,
 			);
 			path = Session;
 			sourceTree = "<group>";
@@ -600,6 +604,7 @@
 				D3DE442878C7BC38468448CC /* SessionListModel.swift in Sources */,
 				95DC5B754E71B08F31921FAF /* SessionMonitor.swift in Sources */,
 				50FE19E8865DE14C1871C378 /* SessionMonitorTests.swift in Sources */,
+				D3B8268BBCAF7434098A2196 /* TTYWriter.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -622,6 +627,7 @@
 				3D79F3D2AC1738237F5FF7CB /* SessionListModel.swift in Sources */,
 				5EB7B1AA3CC285D6FEE45D2D /* SessionMonitor.swift in Sources */,
 				DFFB8C76E4D453A641002387 /* StatusItemManager.swift in Sources */,
+				E8A10762186666F3069605D3 /* TTYWriter.swift in Sources */,
 				E50D03AEEA94650D2FA831C6 /* WebSocketClientHandler.swift in Sources */,
 				B6798FB8D55B6691C4162C6D /* WebSocketServer.swift in Sources */,
 			);

@@ -29,6 +29,7 @@ public struct SessionMessage: Codable, Identifiable, Sendable {
 /// The role of a message sender.
 public enum MessageRole: String, Codable, Sendable {
     case human
+    case user
     case assistant
     case system
     case toolUse = "tool_use"
