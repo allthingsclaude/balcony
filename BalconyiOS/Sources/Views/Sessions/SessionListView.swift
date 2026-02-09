@@ -55,6 +55,7 @@ struct SessionListView: View {
                         .font(.system(size: 14))
                         .foregroundStyle(BalconyTheme.textSecondary)
                         .rotationEffect(.degrees(180))
+                        .offset(x: -3)
                 }
             }
             ToolbarItem(placement: .navigationBarTrailing) {
