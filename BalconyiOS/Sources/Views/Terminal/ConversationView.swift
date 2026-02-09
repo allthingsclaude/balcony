@@ -21,7 +21,7 @@ struct ConversationView: View {
                                 .id(line.id)
                         }
                     }
-                    .padding(.horizontal, 8)
+                    .padding(.horizontal, 12)
                     .padding(.top, 8)
                 }
                 .onChange(of: lines.count) { _ in

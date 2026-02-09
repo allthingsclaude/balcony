@@ -88,8 +88,24 @@ final class HeadlessTerminalParser: ObservableObject {
             segments = stripLeadingSpaces(segments, maxCount: 2)
 
             if prevWrapped, !lines.isEmpty {
-                // Join with previous line (terminal soft-wrap).
+                // Terminal soft-wrap — join without extra space (break may be mid-word).
                 var joined = lines[lines.count - 1].segments
+                joined.append(contentsOf: segments)
+                lines[lines.count - 1] = TerminalLine(
+                    id: lines[lines.count - 1].id, segments: joined, isWrapped: true
+                )
+            } else if !lines.isEmpty,
+                      !isEmptyLine(lines[lines.count - 1]),
+                      isTextContinuation(segments) {
+                // Claude's text wrap — join with space (break was at word boundary).
+                var joined = lines[lines.count - 1].segments
+                if let lastIdx = joined.indices.last,
+                   !joined[lastIdx].text.hasSuffix(" ") {
+                    joined[lastIdx] = StyledSegment(
+                        text: joined[lastIdx].text + " ",
+                        style: joined[lastIdx].style
+                    )
+                }
                 joined.append(contentsOf: segments)
                 lines[lines.count - 1] = TerminalLine(
                     id: lines[lines.count - 1].id, segments: joined, isWrapped: true
@@ -260,6 +276,33 @@ final class HeadlessTerminalParser: ObservableObject {
         }
         // Remove any empty segments we created.
         return result.filter { !$0.text.isEmpty }
+    }
+
+    /// Check if a line's segments represent empty/whitespace-only content.
+    private func isEmptyLine(_ line: TerminalLine) -> Bool {
+        line.segments.isEmpty ||
+        line.segments.allSatisfy { $0.text.trimmingCharacters(in: .whitespaces).isEmpty }
+    }
+
+    /// Check if segments look like a text continuation (not code, list, heading, etc.).
+    /// Used to join Claude Code's word-wrapped lines into flowing paragraphs.
+    private func isTextContinuation(_ segments: [StyledSegment]) -> Bool {
+        guard let first = segments.first, !first.text.isEmpty else { return false }
+        let firstChar = first.text.first!
+
+        // Marker = new message, not continuation.
+        if firstChar == "\u{203A}" || firstChar == "\u{00B7}" { return false }
+        // Leading whitespace = code block.
+        if firstChar == " " || firstChar == "\t" { return false }
+        // Structural prefixes (headings, lists, blockquotes, fences, diffs).
+        if "#-*>|+`~@".contains(firstChar) { return false }
+        // Numbered list: "1. " or "1) "
+        if firstChar.isNumber {
+            let rest = first.text.dropFirst()
+            if rest.hasPrefix(". ") || rest.hasPrefix(") ") { return false }
+        }
+
+        return true
     }
 
     // MARK: - Segment Extraction
