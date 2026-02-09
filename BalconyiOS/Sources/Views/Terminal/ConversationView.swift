@@ -51,10 +51,25 @@ struct ConversationView: View {
                 }
             }
 
-            // Input bar — transparent glass pill
+            // Bottom fade + input bar — move together with keyboard
             VStack(spacing: 0) {
                 Spacer()
 
+                // Fade: content dissolves before the input bar
+                LinearGradient(
+                    stops: [
+                        .init(color: BalconyTheme.background.opacity(0), location: 0),
+                        .init(color: BalconyTheme.background.opacity(0.8), location: 0.5),
+                        .init(color: BalconyTheme.background, location: 1),
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .frame(height: 150)
+                .offset(y: 100)
+                .allowsHitTesting(false)
+
+                // Input bar — glass pill
                 HStack(spacing: BalconyTheme.spacingSM) {
                     TextField("Type a message...", text: $inputText)
                         .textFieldStyle(.plain)
@@ -339,6 +354,7 @@ private struct LiquidGlassCapsule: ViewModifier {
         }
     }
 }
+
 
 // MARK: - Preview
 
