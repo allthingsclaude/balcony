@@ -72,24 +72,137 @@ final class HeadlessTerminalParser: ObservableObject {
             return
         }
 
-        var lines: [TerminalLine] = []
-        var lineId = 0
         let cols = terminal.cols
+        let count = chromeStart - headerEnd
 
-        for i in headerEnd..<chromeStart {
-            var segments = extractSegments(from: allRows[i])
+        // Phase 1: Extract segments and classify each row.
+        //
+        // Classification uses *color diversity* — syntax highlighting produces
+        // multiple distinct non-default fg colors on a single line (keyword color,
+        // type color, string color, etc.). Prose uses default fg throughout.
+        //
+        //   strongCode — 2+ distinct non-default fg colors (syntax highlighting)
+        //   weakCode   — code-like pattern (.foo, }, //) OR exactly 1 non-default fg
+        //   neutral    — empty / whitespace-only
+        //   prose      — default fg, structural prefixes, markers
+
+        enum CodeSignal { case strongCode, weakCode, neutral, prose }
+
+        var rowSegments: [[StyledSegment]] = []
+        var rowIsTable = [Bool](repeating: false, count: count)
+        var rowSignal = [CodeSignal](repeating: .neutral, count: count)
+        var rowOrigLen = [Int](repeating: 0, count: count)
+
+        for i in 0..<count {
+            let ri = headerEnd + i
+            var segments = extractSegments(from: allRows[ri])
             segments = replaceSymbols(segments)
 
             let isTable = containsBoxDrawing(segments)
-
-            // Don't strip indent from table rows — preserves column alignment.
             if !isTable {
                 segments = stripLeadingSpaces(segments, maxCount: 2)
             }
 
+            rowSegments.append(segments)
+            rowIsTable[i] = isTable
+            rowOrigLen[i] = allRows[ri].getTrimmedLength()
+
+            // Classify this row.
+            if isTable {
+                rowSignal[i] = .neutral // tables handled separately
+                continue
+            }
+
+            let empty = segments.isEmpty ||
+                segments.allSatisfy { $0.text.trimmingCharacters(in: .whitespaces).isEmpty }
+            if empty {
+                rowSignal[i] = .neutral
+                continue
+            }
+
+            guard let first = segments.first, !first.text.isEmpty else {
+                rowSignal[i] = .neutral
+                continue
+            }
+
+            let firstChar = first.text.first!
+
+            // Markers (› ·) → always prose (message boundary).
+            if firstChar == "\u{203A}" || firstChar == "\u{00B7}" {
+                rowSignal[i] = .prose
+                continue
+            }
+
+            // Structural prefixes (#, -, *, >, etc.) → prose even if colored.
+            if "#-*>|+`~@".contains(firstChar) {
+                rowSignal[i] = .prose
+                continue
+            }
+
+            // Count distinct non-default fg colors across ALL segments.
+            var nonDefaultColors = Set<ANSIColor>()
+            for seg in segments {
+                if seg.style.fgColor != .defaultFg {
+                    nonDefaultColors.insert(seg.style.fgColor)
+                }
+            }
+
+            if nonDefaultColors.count >= 2 || hasNonDefaultBackground(segments) {
+                rowSignal[i] = .strongCode
+            } else if looksLikeCodeLine(segments) || nonDefaultColors.count == 1 {
+                rowSignal[i] = .weakCode
+            } else {
+                rowSignal[i] = .prose
+            }
+        }
+
+        // Phase 2: Find code blocks.
+        //
+        // A code block is a contiguous non-prose run that contains at least one
+        // strongCode line. Neutral/weakCode lines between strongCode lines are
+        // absorbed. Leading/trailing neutral lines are trimmed from each block.
+
+        var isCodeBlock = [Bool](repeating: false, count: count)
+        var runStart = -1
+
+        for i in 0...count {
+            let endOfRun = (i == count) || rowSignal[i] == .prose || rowIsTable[i]
+
+            if endOfRun {
+                if runStart >= 0 {
+                    let run = runStart..<i
+
+                    // Only promote to code block if the run has a strong anchor.
+                    if run.contains(where: { rowSignal[$0] == .strongCode }) {
+                        // Trim leading/trailing neutral lines.
+                        var first = run.lowerBound
+                        var last = run.upperBound - 1
+                        while first <= last && rowSignal[first] == .neutral { first += 1 }
+                        while last >= first && rowSignal[last] == .neutral { last -= 1 }
+
+                        if first <= last {
+                            for j in first...last { isCodeBlock[j] = true }
+                        }
+                    }
+                    runStart = -1
+                }
+            } else {
+                if runStart < 0 { runStart = i }
+            }
+        }
+
+        // Phase 3: Build output lines.
+        var lines: [TerminalLine] = []
+        var lineId = 0
+        var lastOriginalLength = 0
+
+        for i in 0..<count {
+            let segments = rowSegments[i]
+            let isPreformatted = rowIsTable[i] || isCodeBlock[i]
+
             // Detect terminal-wrapped lines: previous line filled all columns.
-            let prevWrapped = !isTable && i > headerEnd &&
-                allRows[i - 1].getTrimmedLength() >= cols
+            let prevWrapped = !isPreformatted && i > 0 &&
+                rowOrigLen[i - 1] >= cols
 
             if prevWrapped, !lines.isEmpty {
                 // Terminal soft-wrap — join without extra space (break may be mid-word).
@@ -98,10 +211,11 @@ final class HeadlessTerminalParser: ObservableObject {
                 lines[lines.count - 1] = TerminalLine(
                     id: lines[lines.count - 1].id, segments: joined, isWrapped: true
                 )
-            } else if !isTable,
+            } else if !isPreformatted,
                       !lines.isEmpty,
                       !isEmptyLine(lines[lines.count - 1]),
                       isPreviousLineJoinable(lines[lines.count - 1]),
+                      lastOriginalLength >= cols - 15,
                       isTextContinuation(segments) {
                 // Claude's text wrap — join with space (break was at word boundary).
                 var joined = lines[lines.count - 1].segments
@@ -118,10 +232,13 @@ final class HeadlessTerminalParser: ObservableObject {
                 )
             } else {
                 lines.append(TerminalLine(
-                    id: lineId, segments: segments, isWrapped: false, isTableRow: isTable
+                    id: lineId, segments: segments, isWrapped: false,
+                    isTableRow: isPreformatted
                 ))
                 lineId += 1
             }
+
+            lastOriginalLength = rowOrigLen[i]
         }
 
         // Trim trailing empty lines.
@@ -294,6 +411,23 @@ final class HeadlessTerminalParser: ObservableObject {
         return false
     }
 
+    /// Check if any segment has a non-default background (code block indicator).
+    private func hasNonDefaultBackground(_ segments: [StyledSegment]) -> Bool {
+        segments.contains { $0.style.bgColor != .defaultBg }
+    }
+
+    /// Check if a line has code-like syntactic patterns that never start prose.
+    /// Used as a weak signal for code block membership.
+    private func looksLikeCodeLine(_ segments: [StyledSegment]) -> Bool {
+        guard let first = segments.first, !first.text.isEmpty else { return false }
+        let firstChar = first.text.first!
+        // Method chaining (.foo), braces, brackets, closing delimiters.
+        if ".{}()[];:".contains(firstChar) { return true }
+        // Comments (// ...)
+        if first.text.hasPrefix("//") { return true }
+        return false
+    }
+
     /// Check if the previous line's content allows text joining.
     /// Returns false for code endings, table rows, and other structural content.
     private func isPreviousLineJoinable(_ line: TerminalLine) -> Bool {
@@ -327,8 +461,8 @@ final class HeadlessTerminalParser: ObservableObject {
         if firstChar == "\u{203A}" || firstChar == "\u{00B7}" { return false }
         // Leading whitespace = code block.
         if firstChar == " " || firstChar == "\t" { return false }
-        // Structural prefixes (headings, lists, blockquotes, fences, diffs).
-        if "#-*>|+`~@".contains(firstChar) { return false }
+        // Structural prefixes (headings, lists, blockquotes, fences, diffs, comments).
+        if "#-*>|+`~@/".contains(firstChar) { return false }
         // Numbered list: "1. " or "1) "
         if firstChar.isNumber {
             let rest = first.text.dropFirst()

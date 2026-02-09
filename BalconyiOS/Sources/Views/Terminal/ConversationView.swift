@@ -22,11 +22,18 @@ struct ConversationView: View {
                                 TerminalLineView(line: line)
                                     .id(line.id)
                             case .table(let rows):
-                                ScrollView(.horizontal, showsIndicators: false) {
-                                    VStack(alignment: .leading, spacing: 0) {
-                                        ForEach(rows) { row in
-                                            buildStyledText(from: row.segments)
-                                                .font(.system(size: 13, design: .monospaced))
+                                HStack(alignment: .top, spacing: 4) {
+                                    // Invisible spacer matching marker column width.
+                                    Text(" ")
+                                        .font(.system(size: 13, design: .monospaced))
+                                        .opacity(0)
+
+                                    ScrollView(.horizontal, showsIndicators: false) {
+                                        VStack(alignment: .leading, spacing: 0) {
+                                            ForEach(rows) { row in
+                                                buildStyledText(from: row.segments)
+                                                    .font(.system(size: 13, design: .monospaced))
+                                            }
                                         }
                                     }
                                 }

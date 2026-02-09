@@ -26,7 +26,7 @@ struct SegmentStyle: Equatable {
 }
 
 /// Terminal color representation.
-enum ANSIColor: Equatable {
+enum ANSIColor: Equatable, Hashable {
     case palette(UInt8)
     case rgb(UInt8, UInt8, UInt8)
     case defaultFg
