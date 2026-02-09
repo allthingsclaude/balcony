@@ -39,7 +39,13 @@ func findClaude() -> String? {
 
 // MARK: - Cleanup & exit
 
+/// Guard against cleanup being called twice (process source + PTY EIO can race).
+var cleanupCalled = false
+
 func cleanup(status: Int32) -> Never {
+    guard !cleanupCalled else { dispatchMain() }
+    cleanupCalled = true
+
     bridge.stop()
     close(pty.masterFD)
 
@@ -137,6 +143,18 @@ if socketConnected {
 // Set up the I/O bridge
 let bridge = IOBridge(masterFD: pty.masterFD, childPID: childPID, socketClient: socketConnected ? socketClient : nil)
 
+// Fallback: if PTY master returns EIO (slave closed), the child has exited.
+// This catches cases where the process source might not fire.
+bridge.onPTYClosed = {
+    var status: Int32 = 0
+    let result = waitpid(childPID, &status, WNOHANG)
+    if result > 0 {
+        cleanup(status: status)
+    } else {
+        cleanup(status: 0)
+    }
+}
+
 // Handle SIGWINCH — forward terminal resize to PTY and child,
 // but only if iOS hasn't taken control of the PTY size.
 signal(SIGWINCH) { _ in
@@ -156,22 +174,25 @@ signal(SIGTERM) { _ in
     kill(childPID, SIGTERM)
 }
 
-// Handle SIGCHLD — child process exited, clean up and exit
-// Must ignore default handler so the dispatch source receives the signal
-signal(SIGCHLD, SIG_IGN)
-let sigchldSource = DispatchSource.makeSignalSource(signal: SIGCHLD, queue: .main)
-sigchldSource.setEventHandler {
+// Monitor child process for exit using a process-specific dispatch source.
+// This uses kqueue(EVFILT_PROC) under the hood and avoids the SIGCHLD + SIG_IGN
+// race where auto-reaping causes waitpid to fail with ECHILD.
+let processSource = DispatchSource.makeProcessSource(identifier: childPID, eventMask: .exit, queue: .main)
+processSource.setEventHandler {
     var status: Int32 = 0
     let result = waitpid(childPID, &status, WNOHANG)
     if result > 0 {
         cleanup(status: status)
+    } else {
+        // Child was already reaped — exit cleanly
+        cleanup(status: 0)
     }
 }
-sigchldSource.resume()
+processSource.resume()
 
 // Start the I/O bridge
 bridge.start()
 
 // Enter the GCD main run loop — never returns.
-// Exit happens in the SIGCHLD handler via cleanup().
+// Exit happens via the process source or PTY EIO fallback calling cleanup().
 dispatchMain()

@@ -23,6 +23,10 @@ final class IOBridge {
     /// Saved terminal attributes for restoring on exit.
     private var savedTermios: termios?
 
+    /// Called when the PTY master returns EIO (slave closed, child exited).
+    /// Used as a fallback exit mechanism if the process source misses the exit.
+    var onPTYClosed: (() -> Void)?
+
     init(masterFD: Int32, childPID: pid_t, socketClient: SocketClient?) {
         self.masterFD = masterFD
         self.childPID = childPID
@@ -79,8 +83,12 @@ final class IOBridge {
                     self.socketClient?.sendPTYOutput(data)
                 }
             }
-            // n == 0 or EAGAIN: no data right now, dispatch source will fire again
-            // n < 0 && errno != EAGAIN: PTY closed (child exited), handled by SIGCHLD
+            if n <= 0 && errno != EAGAIN && errno != EINTR {
+                // EIO or EOF: PTY slave was closed (child exited).
+                // Dispatch to main to avoid cancelling this source from its own handler.
+                let callback = self.onPTYClosed
+                DispatchQueue.main.async { callback?() }
+            }
         }
         masterSource.resume()
         masterReadSource = masterSource
