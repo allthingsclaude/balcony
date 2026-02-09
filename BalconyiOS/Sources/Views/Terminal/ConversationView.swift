@@ -108,7 +108,7 @@ struct ConversationView: View {
 
 // MARK: - Terminal Line View
 
-/// Renders a single terminal line as styled text.
+/// Renders a single terminal line with a marker column (›/·) and indented content.
 struct TerminalLineView: View {
     let line: TerminalLine
 
@@ -119,27 +119,94 @@ struct TerminalLineView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .frame(height: 18)
         } else {
-            buildAttributedText()
+            let parsed = parseLine()
+
+            HStack(alignment: .top, spacing: 4) {
+                // Marker column — fixed-width, invisible for continuation lines.
+                Text(parsed.marker.character)
+                    .font(.system(size: 13, design: .monospaced))
+                    .foregroundColor(Color(uiColor: .tertiaryLabel))
+                    .opacity(parsed.marker == .none ? 0 : 1)
+
+                // Content — text flows next to marker.
+                // User messages use adaptive color so text is readable in light mode.
+                buildAttributedText(
+                    from: parsed.content,
+                    adaptiveColor: parsed.marker == .user
+                )
                 .font(.system(size: 13, design: .monospaced))
-                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .background {
+                if parsed.marker == .user {
+                    // Extend background beyond text without shifting content.
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color(uiColor: .secondarySystemBackground))
+                        .padding(.horizontal, -6)
+                        .padding(.vertical, -6)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
-    private func buildAttributedText() -> Text {
+    // MARK: - Marker Parsing
+
+    private enum LineMarker: Equatable {
+        case user, assistant, none
+
+        var character: String {
+            switch self {
+            case .user: return "\u{203A}"      // ›
+            case .assistant: return "\u{00B7}"  // ·
+            case .none: return " "
+            }
+        }
+    }
+
+    /// Extract the conversation marker and remaining content segments.
+    private func parseLine() -> (marker: LineMarker, content: [StyledSegment]) {
+        guard !line.segments.isEmpty,
+              let firstScalar = line.segments[0].text.unicodeScalars.first else {
+            return (.none, line.segments)
+        }
+
+        let marker: LineMarker
+        if firstScalar == "\u{203A}" { marker = .user }
+        else if firstScalar == "\u{00B7}" { marker = .assistant }
+        else { return (.none, line.segments) }
+
+        // Strip marker character (and optional space after it) from segments.
+        var segments = line.segments
+        var remaining = String(segments[0].text.dropFirst())
+        if remaining.hasPrefix(" ") { remaining = String(remaining.dropFirst()) }
+
+        if remaining.isEmpty {
+            segments.removeFirst()
+            // Strip leading space from next segment if present.
+            if !segments.isEmpty, segments[0].text.hasPrefix(" ") {
+                let stripped = String(segments[0].text.dropFirst())
+                if stripped.isEmpty { segments.removeFirst() }
+                else { segments[0] = StyledSegment(text: stripped, style: segments[0].style) }
+            }
+        } else {
+            segments[0] = StyledSegment(text: remaining, style: segments[0].style)
+        }
+
+        return (marker, segments)
+    }
+
+    // MARK: - Text Building
+
+    private func buildAttributedText(from segments: [StyledSegment], adaptiveColor: Bool = false) -> Text {
         var result = Text("")
-        for segment in line.segments {
-            let fgColor = ANSIColorMapper.color(for: segment.style.fgColor)
+        for segment in segments {
+            // Adaptive: use .primary so text is readable in both light/dark mode.
+            let fgColor = adaptiveColor ? Color.primary : ANSIColorMapper.color(for: segment.style.fgColor)
             var text = Text(segment.text)
                 .foregroundColor(segment.style.isDim ? fgColor.opacity(0.6) : fgColor)
-            if segment.style.isBold {
-                text = text.bold()
-            }
-            if segment.style.isItalic {
-                text = text.italic()
-            }
-            if segment.style.isUnderline {
-                text = text.underline()
-            }
+            if segment.style.isBold { text = text.bold() }
+            if segment.style.isItalic { text = text.italic() }
+            if segment.style.isUnderline { text = text.underline() }
             result = result + text
         }
         return result

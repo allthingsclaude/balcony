@@ -67,6 +67,11 @@ final class HeadlessTerminalParser: ObservableObject {
         let headerEnd = detectHeaderEnd(allRows: allRows)
         let chromeStart = detectChromeStart(allRows: allRows)
 
+        guard headerEnd < chromeStart else {
+            conversationLines = []
+            return
+        }
+
         var lines: [TerminalLine] = []
         var lineId = 0
         let cols = terminal.cols
@@ -109,39 +114,24 @@ final class HeadlessTerminalParser: ObservableObject {
 
     // MARK: - Chrome Detection
 
-    /// Skip the top header box (Claude Code welcome/version banner)
-    /// and any vestigial lines until we hit actual conversation content.
+    /// Skip the top header (Claude Code welcome banner, ASCII art logo, version info).
+    ///
+    /// Scans for the first conversation marker: ❯ (user) or ⏺ (assistant).
+    /// Everything before that is header chrome. Uses unicode scalar comparison
+    /// to handle variation selectors (U+FE0F) that iOS may attach.
     private func detectHeaderEnd(allRows: [BufferLine]) -> Int {
-        let scanLimit = min(30, allRows.count)
-        var insideBox = false
+        let scanLimit = min(50, allRows.count)
 
         for i in 0..<scanLimit {
             let text = allRows[i].translateToString(trimRight: true)
             let trimmed = text.trimmingCharacters(in: .whitespaces)
+            guard !trimmed.isEmpty else { continue }
 
-            if trimmed.isEmpty { continue }
-
-            // Box-drawing rows (─── lines) mark header boundaries.
-            if isChromeRow(text, minLength: 10) {
-                insideBox = true
-                continue
+            // Check the first unicode scalar (ignores variation selectors).
+            guard let first = trimmed.unicodeScalars.first else { continue }
+            if first == "\u{276F}" || first == "\u{23FA}" { // ❯ or ⏺
+                return i
             }
-
-            // Content rows inside a box (start with │).
-            if insideBox && (trimmed.hasPrefix("│") || trimmed.hasPrefix("┃")) {
-                continue
-            }
-
-            // Exited any box region.
-            insideBox = false
-
-            // Bare prompt with no text — vestigial.
-            if trimmed == "❯" || trimmed == "\u{276F}" { continue }
-            // Notification markers.
-            if trimmed.hasPrefix("○") || trimmed.hasPrefix("◌") { continue }
-
-            // First row of real content.
-            return i
         }
         return 0
     }
@@ -240,7 +230,7 @@ final class HeadlessTerminalParser: ObservableObject {
     private func replaceSymbols(_ segments: [StyledSegment]) -> [StyledSegment] {
         segments.map { seg in
             let replaced = seg.text
-                .replacingOccurrences(of: "\u{23FA}", with: "\u{2022}")
+                .replacingOccurrences(of: "\u{23FA}", with: "\u{00B7}")
                 .replacingOccurrences(of: "\u{276F}", with: "\u{203A}")
             guard replaced != seg.text else { return seg }
             return StyledSegment(text: replaced, style: seg.style)
