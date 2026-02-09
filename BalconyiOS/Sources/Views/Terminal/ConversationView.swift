@@ -40,9 +40,10 @@ struct ConversationView: View {
                         }
                     }
                     .padding(.top, 8)
-                    // Bottom padding so content scrolls above the input bar + fade
-                    .padding(.bottom, 64)
+                    // Bottom padding so content scrolls above the input bar
+                    .padding(.bottom, 80)
                 }
+                .modifier(BottomScrollEdgeBlur())
                 .onChange(of: lines.count) { _ in
                     scrollToBottom(proxy: proxy, animated: true)
                 }
@@ -51,37 +52,32 @@ struct ConversationView: View {
                 }
             }
 
-            // Input bar — transparent glass pill
-            VStack(spacing: 0) {
-                Spacer()
-
-                HStack(spacing: BalconyTheme.spacingSM) {
-                    TextField("Type a message...", text: $inputText)
-                        .textFieldStyle(.plain)
-                        .font(BalconyTheme.monoFont(15))
-                        .focused($inputFocused)
-                        .onSubmit { submitInput() }
-                        .onChange(of: inputText) { newValue in
-                            sendLiveKeystrokes(from: previousText, to: newValue)
-                            previousText = newValue
-                        }
-                        .padding(.vertical, 8)
-                        .padding(.horizontal, BalconyTheme.spacingMD)
-
-                    Button(action: submitInput) {
-                        Image(systemName: "arrow.up.circle.fill")
-                            .font(.system(size: 26))
-                            .foregroundStyle(inputText.isEmpty ? BalconyTheme.textSecondary : BalconyTheme.accent)
+            // Glass input pill
+            HStack(spacing: BalconyTheme.spacingSM) {
+                TextField("Type a message...", text: $inputText)
+                    .textFieldStyle(.plain)
+                    .font(BalconyTheme.monoFont(15))
+                    .focused($inputFocused)
+                    .onSubmit { submitInput() }
+                    .onChange(of: inputText) { newValue in
+                        sendLiveKeystrokes(from: previousText, to: newValue)
+                        previousText = newValue
                     }
-                    .disabled(inputText.isEmpty)
-                    .padding(.trailing, 6)
+                    .padding(.vertical, 12)
+                    .padding(.horizontal, BalconyTheme.spacingMD)
+
+                Button(action: submitInput) {
+                    Image(systemName: "arrow.up.circle.fill")
+                        .font(.system(size: 26))
+                        .foregroundStyle(inputText.isEmpty ? BalconyTheme.textSecondary : BalconyTheme.accent)
                 }
-                .background(.ultraThinMaterial, in: Capsule())
-                .shadow(color: .black.opacity(0.15), radius: 12, y: 4)
-                .padding(.horizontal, BalconyTheme.spacingMD)
-                .padding(.bottom, BalconyTheme.spacingSM)
+                .disabled(inputText.isEmpty)
+                .padding(.trailing, 6)
             }
-            .ignoresSafeArea(.container, edges: .bottom)
+            .modifier(LiquidGlassCapsule())
+            .shadow(color: .black.opacity(0.15), radius: 12, y: 4)
+            .padding(.horizontal, BalconyTheme.spacingMD)
+            .padding(.bottom, BalconyTheme.spacingSM)
         }
         .background {
             BalconyTheme.background.ignoresSafeArea()
@@ -324,6 +320,45 @@ struct TerminalLineView: View {
             result = result + text
         }
         return result
+    }
+}
+
+// MARK: - Liquid Glass Capsule
+
+/// Applies iOS 26 Liquid Glass when available, falls back to material on older versions.
+private struct LiquidGlassCapsule: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            content.glassEffect(.regular, in: .capsule)
+        } else {
+            content.background(.regularMaterial, in: Capsule())
+        }
+    }
+}
+
+// MARK: - Bottom Scroll Edge Blur
+
+/// Uses the system progressive blur on iOS 26+, falls back to a color gradient fade.
+private struct BottomScrollEdgeBlur: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            content.scrollEdgeEffectStyle(.soft, for: .bottom)
+        } else {
+            content.overlay(alignment: .bottom) {
+                LinearGradient(
+                    stops: [
+                        .init(color: BalconyTheme.background.opacity(0), location: 0),
+                        .init(color: BalconyTheme.background.opacity(0.6), location: 0.4),
+                        .init(color: BalconyTheme.background, location: 1),
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .frame(height: 80)
+                .allowsHitTesting(false)
+                .ignoresSafeArea(.container, edges: .bottom)
+            }
+        }
     }
 }
 
