@@ -14,6 +14,8 @@ final class ConnectionManager: ObservableObject {
     @Published var discoveredDevices: [DeviceInfo] = []
     @Published var pairedDevices: [DeviceInfo] = []
     @Published var isConnected = false
+    @Published var isConnecting = false
+    @Published var connectionError: String?
     @Published var connectedDevice: DeviceInfo?
 
     private let bonjourBrowser = BonjourBrowser()
@@ -74,15 +76,21 @@ final class ConnectionManager: ObservableObject {
     /// Connect to a discovered Mac.
     func connect(to device: DeviceInfo) async {
         logger.info("Connecting to \(device.name)")
+        isConnecting = true
+        connectionError = nil
 
         guard let endpoint = discoveredEndpoints[device.id] else {
             logger.error("No endpoint found for device \(device.id)")
+            isConnecting = false
+            connectionError = "Could not find \(device.name) on the network."
             return
         }
 
         // Resolve the Bonjour endpoint to a host and port
         guard let (host, port) = await resolveEndpoint(endpoint) else {
             logger.error("Failed to resolve endpoint for \(device.name)")
+            isConnecting = false
+            connectionError = "Could not resolve address for \(device.name)."
             return
         }
 
@@ -112,19 +120,24 @@ final class ConnectionManager: ObservableObject {
             try await performHandshake(with: device)
 
             isConnected = true
+            isConnecting = false
             connectedDevice = device
             savePairedDevice(device)
             logger.info("Connected to \(device.name)")
         } catch {
             logger.error("Connection failed: \(error.localizedDescription)")
+            isConnecting = false
             isConnected = false
             connectedDevice = nil
+            connectionError = "Failed to connect to \(device.name). Make sure BalconyMac is running."
         }
     }
 
     /// Connect directly using host/port from QR code scan.
     func connectDirect(host: String, port: Int, publicKeyBase64: String?) async {
         logger.info("Direct connect to \(host):\(port)")
+        isConnecting = true
+        connectionError = nil
 
         let device = DeviceInfo(
             id: "\(host):\(port)",
@@ -159,13 +172,16 @@ final class ConnectionManager: ObservableObject {
             try await performHandshake(with: device)
 
             isConnected = true
+            isConnecting = false
             connectedDevice = device
             savePairedDevice(device)
             logger.info("Connected to \(host):\(port) via QR")
         } catch {
             logger.error("Direct connection failed: \(error.localizedDescription)")
+            isConnecting = false
             isConnected = false
             connectedDevice = nil
+            connectionError = "Failed to connect to \(host):\(port). Check the address and try again."
         }
     }
 
