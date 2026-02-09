@@ -20,28 +20,25 @@ struct ConversationView: View {
                             switch block {
                             case .line(let line):
                                 TerminalLineView(line: line)
+                                    .padding(.horizontal, 12)
                                     .id(line.id)
                             case .table(let rows):
-                                HStack(alignment: .top, spacing: 4) {
-                                    // Invisible spacer matching marker column width.
-                                    Text(" ")
-                                        .font(.system(size: 13, design: .monospaced))
-                                        .opacity(0)
-
-                                    ScrollView(.horizontal, showsIndicators: false) {
-                                        VStack(alignment: .leading, spacing: 0) {
-                                            ForEach(rows) { row in
-                                                buildStyledText(from: row.segments)
-                                                    .font(.system(size: 13, design: .monospaced))
-                                            }
+                                ScrollView(.horizontal, showsIndicators: false) {
+                                    VStack(alignment: .leading, spacing: 0) {
+                                        ForEach(rows) { row in
+                                            buildStyledText(from: row.segments)
+                                                .font(.system(size: 13, design: .monospaced))
                                         }
                                     }
+                                    // Left padding aligns content with text after marker column.
+                                    .padding(.leading, 24)
+                                    .padding(.trailing, 20)
                                 }
+                                .overlay(codeBlockFadeOverlay)
                                 .id(rows.first?.id ?? -1)
                             }
                         }
                     }
-                    .padding(.horizontal, 12)
                     .padding(.top, 8)
                 }
                 .onChange(of: lines.count) { _ in
@@ -158,6 +155,37 @@ struct ConversationView: View {
             blocks.append(.table(tableBuffer))
         }
         return blocks
+    }
+
+    /// Gradient fade overlay for edge-to-edge scrollable code blocks.
+    private var codeBlockFadeOverlay: some View {
+        let bgColor = Color(uiColor: .systemBackground)
+        return HStack(spacing: 0) {
+            LinearGradient(
+                stops: [
+                    .init(color: bgColor, location: 0),
+                    .init(color: bgColor.opacity(0.6), location: 0.4),
+                    .init(color: bgColor.opacity(0), location: 1),
+                ],
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+            .frame(width: 32)
+
+            Spacer()
+
+            LinearGradient(
+                stops: [
+                    .init(color: bgColor.opacity(0), location: 0),
+                    .init(color: bgColor.opacity(0.6), location: 0.6),
+                    .init(color: bgColor, location: 1),
+                ],
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+            .frame(width: 32)
+        }
+        .allowsHitTesting(false)
     }
 
     /// Build styled text from segments (used for table rows).
