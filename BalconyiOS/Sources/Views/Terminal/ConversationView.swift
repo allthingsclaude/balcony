@@ -93,7 +93,7 @@ struct ConversationView: View {
                 }
                 .modifier(LiquidGlassCapsule())
                 .shadow(color: .black.opacity(0.15), radius: 12, y: 4)
-                .padding(.horizontal, BalconyTheme.spacingMD)
+                .padding(.horizontal, BalconyTheme.spacingLG)
                 .padding(.bottom, BalconyTheme.spacingSM)
             }
         }

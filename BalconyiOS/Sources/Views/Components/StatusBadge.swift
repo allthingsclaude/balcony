@@ -13,11 +13,12 @@ struct StatusBadge: View {
                 .font(.caption2)
                 .foregroundStyle(BalconyTheme.textSecondary)
         }
+        .padding(.horizontal, 8)
     }
 
     private var color: Color {
         switch status {
-        case .active: return BalconyTheme.statusGreen
+        case .active: return BalconyTheme.accent
         case .idle: return BalconyTheme.statusYellow
         case .completed: return BalconyTheme.textSecondary
         case .error: return BalconyTheme.statusRed

@@ -18,16 +18,7 @@ struct TerminalContainerView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                HStack(spacing: 6) {
-                    Text("LIVE")
-                        .font(.caption2)
-                        .fontWeight(.bold)
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(BalconyTheme.statusGreen, in: Capsule())
-                    StatusBadge(status: sessionManager.activeSession?.status ?? session.status)
-                }
+                StatusBadge(status: sessionManager.activeSession?.status ?? session.status)
             }
         }
         .onAppear {
