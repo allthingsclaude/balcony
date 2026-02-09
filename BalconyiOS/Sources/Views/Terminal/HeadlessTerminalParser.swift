@@ -80,12 +80,16 @@ final class HeadlessTerminalParser: ObservableObject {
             var segments = extractSegments(from: allRows[i])
             segments = replaceSymbols(segments)
 
-            // Detect terminal-wrapped lines: previous line filled all columns.
-            let prevWrapped = i > headerEnd &&
-                allRows[i - 1].getTrimmedLength() >= cols
+            let isTable = containsBoxDrawing(segments)
 
-            // Strip Claude Code's 2-space continuation indent from all lines.
-            segments = stripLeadingSpaces(segments, maxCount: 2)
+            // Don't strip indent from table rows — preserves column alignment.
+            if !isTable {
+                segments = stripLeadingSpaces(segments, maxCount: 2)
+            }
+
+            // Detect terminal-wrapped lines: previous line filled all columns.
+            let prevWrapped = !isTable && i > headerEnd &&
+                allRows[i - 1].getTrimmedLength() >= cols
 
             if prevWrapped, !lines.isEmpty {
                 // Terminal soft-wrap — join without extra space (break may be mid-word).
@@ -94,8 +98,10 @@ final class HeadlessTerminalParser: ObservableObject {
                 lines[lines.count - 1] = TerminalLine(
                     id: lines[lines.count - 1].id, segments: joined, isWrapped: true
                 )
-            } else if !lines.isEmpty,
+            } else if !isTable,
+                      !lines.isEmpty,
                       !isEmptyLine(lines[lines.count - 1]),
+                      isPreviousLineJoinable(lines[lines.count - 1]),
                       isTextContinuation(segments) {
                 // Claude's text wrap — join with space (break was at word boundary).
                 var joined = lines[lines.count - 1].segments
@@ -112,7 +118,7 @@ final class HeadlessTerminalParser: ObservableObject {
                 )
             } else {
                 lines.append(TerminalLine(
-                    id: lineId, segments: segments, isWrapped: false
+                    id: lineId, segments: segments, isWrapped: false, isTableRow: isTable
                 ))
                 lineId += 1
             }
@@ -276,6 +282,33 @@ final class HeadlessTerminalParser: ObservableObject {
         }
         // Remove any empty segments we created.
         return result.filter { !$0.text.isEmpty }
+    }
+
+    /// Check if segments contain box-drawing characters (table row).
+    private func containsBoxDrawing(_ segments: [StyledSegment]) -> Bool {
+        for seg in segments {
+            for ch in seg.text.unicodeScalars {
+                if ch.value >= 0x2500 && ch.value <= 0x257F { return true }
+            }
+        }
+        return false
+    }
+
+    /// Check if the previous line's content allows text joining.
+    /// Returns false for code endings, table rows, and other structural content.
+    private func isPreviousLineJoinable(_ line: TerminalLine) -> Bool {
+        if line.isTableRow { return false }
+        let fullText = line.segments.map(\.text).joined()
+        let trimmed = fullText.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return false }
+
+        // Don't join after lines ending with code/structural characters.
+        if let last = trimmed.last, "{}[]();|".contains(last) { return false }
+        // Don't join after table rows (box-drawing).
+        for ch in trimmed.unicodeScalars {
+            if ch.value >= 0x2500 && ch.value <= 0x257F { return false }
+        }
+        return true
     }
 
     /// Check if a line's segments represent empty/whitespace-only content.

@@ -16,9 +16,22 @@ struct ConversationView: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 0) {
-                        ForEach(lines) { line in
-                            TerminalLineView(line: line)
-                                .id(line.id)
+                        ForEach(groupedBlocks, id: \.id) { block in
+                            switch block {
+                            case .line(let line):
+                                TerminalLineView(line: line)
+                                    .id(line.id)
+                            case .table(let rows):
+                                ScrollView(.horizontal, showsIndicators: false) {
+                                    VStack(alignment: .leading, spacing: 0) {
+                                        ForEach(rows) { row in
+                                            buildStyledText(from: row.segments)
+                                                .font(.system(size: 13, design: .monospaced))
+                                        }
+                                    }
+                                }
+                                .id(rows.first?.id ?? -1)
+                            }
                         }
                     }
                     .padding(.horizontal, 12)
@@ -103,6 +116,56 @@ struct ConversationView: View {
         // Set previousText first so onChange doesn't send backspaces for the clear.
         previousText = ""
         inputText = ""
+    }
+    // MARK: - Table Grouping
+
+    private enum ConversationBlock {
+        case line(TerminalLine)
+        case table([TerminalLine])
+
+        var id: Int {
+            switch self {
+            case .line(let l): return l.id
+            case .table(let rows): return rows.first?.id ?? -1
+            }
+        }
+    }
+
+    /// Group consecutive table rows so they share a single horizontal scroll view.
+    private var groupedBlocks: [ConversationBlock] {
+        var blocks: [ConversationBlock] = []
+        var tableBuffer: [TerminalLine] = []
+
+        for line in lines {
+            if line.isTableRow {
+                tableBuffer.append(line)
+            } else {
+                if !tableBuffer.isEmpty {
+                    blocks.append(.table(tableBuffer))
+                    tableBuffer = []
+                }
+                blocks.append(.line(line))
+            }
+        }
+        if !tableBuffer.isEmpty {
+            blocks.append(.table(tableBuffer))
+        }
+        return blocks
+    }
+
+    /// Build styled text from segments (used for table rows).
+    private func buildStyledText(from segments: [StyledSegment]) -> Text {
+        var result = Text("")
+        for segment in segments {
+            let fgColor = ANSIColorMapper.color(for: segment.style.fgColor)
+            var text = Text(segment.text)
+                .foregroundColor(segment.style.isDim ? fgColor.opacity(0.6) : fgColor)
+            if segment.style.isBold { text = text.bold() }
+            if segment.style.isItalic { text = text.italic() }
+            if segment.style.isUnderline { text = text.underline() }
+            result = result + text
+        }
+        return result
     }
 }
 

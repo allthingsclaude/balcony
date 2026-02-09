@@ -5,6 +5,7 @@ struct TerminalLine: Identifiable {
     let id: Int
     let segments: [StyledSegment]
     let isWrapped: Bool
+    var isTableRow: Bool = false
 }
 
 /// A contiguous run of text sharing the same style.
