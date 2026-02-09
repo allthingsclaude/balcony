@@ -40,18 +40,27 @@ struct QRScannerView: View {
                     VStack(spacing: 16) {
                         Image(systemName: "camera.fill")
                             .font(.system(size: 48))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(BalconyTheme.textSecondary)
                         Text("Camera Access Required")
-                            .font(.headline)
+                            .font(BalconyTheme.headingFont())
+                            .foregroundStyle(BalconyTheme.textPrimary)
                         Text("Open Settings and allow camera access to scan QR codes.")
                             .multilineTextAlignment(.center)
-                            .foregroundStyle(.secondary)
-                        Button("Open Settings") {
+                            .font(BalconyTheme.bodyFont())
+                            .foregroundStyle(BalconyTheme.textSecondary)
+                        Button {
                             if let url = URL(string: UIApplication.openSettingsURLString) {
                                 UIApplication.shared.open(url)
                             }
+                        } label: {
+                            Text("Open Settings")
+                                .font(BalconyTheme.bodyFont())
+                                .fontWeight(.semibold)
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, BalconyTheme.spacingXL)
+                                .padding(.vertical, BalconyTheme.spacingMD)
+                                .background(BalconyTheme.accent, in: Capsule())
                         }
-                        .buttonStyle(.borderedProminent)
                     }
                     .padding()
 
@@ -60,7 +69,7 @@ struct QRScannerView: View {
 
                 @unknown default:
                     Text("Camera unavailable")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(BalconyTheme.textSecondary)
                 }
             }
             .navigationTitle("Scan QR Code")

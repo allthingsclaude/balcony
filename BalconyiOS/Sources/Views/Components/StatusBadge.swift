@@ -11,16 +11,16 @@ struct StatusBadge: View {
                 .frame(width: 8, height: 8)
             Text(label)
                 .font(.caption2)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(BalconyTheme.textSecondary)
         }
     }
 
     private var color: Color {
         switch status {
-        case .active: return .green
-        case .idle: return .yellow
-        case .completed: return .gray
-        case .error: return .red
+        case .active: return BalconyTheme.statusGreen
+        case .idle: return BalconyTheme.statusYellow
+        case .completed: return BalconyTheme.textSecondary
+        case .error: return BalconyTheme.statusRed
         }
     }
 

@@ -6,9 +6,9 @@ enum ANSIColorMapper {
     static func color(for ansi: ANSIColor) -> Color {
         switch ansi {
         case .defaultFg:
-            return .primary
+            return BalconyTheme.textPrimary
         case .defaultBg:
-            return Color(uiColor: .systemBackground)
+            return BalconyTheme.background
         case .rgb(let r, let g, let b):
             return Color(
                 red: Double(r) / 255.0,
@@ -42,7 +42,7 @@ enum ANSIColorMapper {
         case 4:  return Color(red: 0.0, green: 0.0, blue: 0.67)          // Blue
         case 5:  return Color(red: 0.67, green: 0.0, blue: 0.67)         // Magenta
         case 6:  return Color(red: 0.0, green: 0.67, blue: 0.67)         // Cyan
-        case 7:  return Color(uiColor: .secondaryLabel)                    // White (adaptive)
+        case 7:  return BalconyTheme.textSecondary                            // White (warm adaptive)
         case 8:  return Color(red: 0.33, green: 0.33, blue: 0.33)        // Bright Black
         case 9:  return Color(red: 1.0, green: 0.33, blue: 0.33)         // Bright Red
         case 10: return Color(red: 0.33, green: 1.0, blue: 0.33)         // Bright Green
@@ -50,7 +50,7 @@ enum ANSIColorMapper {
         case 12: return Color(red: 0.33, green: 0.33, blue: 1.0)         // Bright Blue
         case 13: return Color(red: 1.0, green: 0.33, blue: 1.0)          // Bright Magenta
         case 14: return Color(red: 0.33, green: 1.0, blue: 1.0)          // Bright Cyan
-        case 15: return Color(uiColor: .label)                             // Bright White (adaptive)
+        case 15: return BalconyTheme.textPrimary                             // Bright White (warm adaptive)
         default: return .primary
         }
     }

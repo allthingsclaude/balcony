@@ -15,7 +15,7 @@ struct SessionListView: View {
                     )
                 } else {
                     Text("No Active Sessions")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(BalconyTheme.textSecondary)
                 }
             } else {
                 ForEach(sessionManager.sessions) { session in
@@ -25,6 +25,8 @@ struct SessionListView: View {
                 }
             }
         }
+        .scrollContentBackground(.hidden)
+        .background(BalconyTheme.background)
         .navigationTitle("Sessions")
         .navigationDestination(for: Session.self) { session in
             TerminalContainerView(session: session)

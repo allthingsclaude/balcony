@@ -14,17 +14,19 @@ struct DiscoveryView: View {
 
             Image(systemName: "antenna.radiowaves.left.and.right")
                 .font(.system(size: 64))
-                .foregroundStyle(.blue)
+                .foregroundStyle(BalconyTheme.accent)
 
             Text("Searching for Macs...")
-                .font(.title2)
+                .font(BalconyTheme.headingFont(22))
+                .foregroundStyle(BalconyTheme.textPrimary)
 
             if connectionManager.discoveredDevices.isEmpty {
                 ProgressView()
                     .padding()
                 Text("Make sure BalconyMac is running\non your Mac")
                     .multilineTextAlignment(.center)
-                    .foregroundStyle(.secondary)
+                    .font(BalconyTheme.bodyFont())
+                    .foregroundStyle(BalconyTheme.textSecondary)
             } else {
                 List(connectionManager.discoveredDevices, id: \.id) { device in
                     Button {
@@ -37,7 +39,7 @@ struct DiscoveryView: View {
                             Text(device.name)
                             Spacer()
                             Image(systemName: "chevron.right")
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(BalconyTheme.textSecondary)
                         }
                     }
                     .disabled(connectionManager.isConnecting)
@@ -47,23 +49,35 @@ struct DiscoveryView: View {
 
             Spacer()
 
-            Button("Scan QR Code") {
+            Button {
                 showingQRScanner = true
+            } label: {
+                Text("Scan QR Code")
+                    .font(BalconyTheme.bodyFont())
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, BalconyTheme.spacingXL)
+                    .padding(.vertical, BalconyTheme.spacingMD)
+                    .background(BalconyTheme.accent, in: Capsule())
             }
-            .buttonStyle(.borderedProminent)
             .disabled(connectionManager.isConnecting)
         }
+        .background(BalconyTheme.background)
         .navigationTitle("Balcony")
         .overlay(alignment: .bottom) {
             if showConnectingBadge {
                 HStack(spacing: 8) {
                     ProgressView()
+                        .tint(BalconyTheme.accent)
                     Text("Connecting...")
-                        .font(.subheadline.weight(.medium))
+                        .font(BalconyTheme.bodyFont(14))
+                        .fontWeight(.medium)
+                        .foregroundStyle(BalconyTheme.textPrimary)
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
-                .background(.regularMaterial, in: Capsule())
+                .background(BalconyTheme.accentSubtle, in: Capsule())
+                .overlay(Capsule().stroke(BalconyTheme.accent.opacity(0.3), lineWidth: 1))
                 .padding(.bottom, 16)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }

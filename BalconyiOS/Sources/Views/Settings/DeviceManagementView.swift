@@ -15,7 +15,7 @@ struct DeviceManagementView: View {
                     )
                 } else {
                     Text("No Paired Devices")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(BalconyTheme.textSecondary)
                 }
             } else {
                 ForEach(connectionManager.pairedDevices, id: \.id) { device in
@@ -26,12 +26,12 @@ struct DeviceManagementView: View {
                                 .font(.headline)
                             Text("Fingerprint: \(device.publicKeyFingerprint.prefix(8))...")
                                 .font(.caption)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(BalconyTheme.textSecondary)
                         }
                         Spacer()
                         if connectionManager.connectedDevice?.id == device.id {
                             Image(systemName: "checkmark.circle.fill")
-                                .foregroundStyle(.green)
+                                .foregroundStyle(BalconyTheme.statusGreen)
                         }
                     }
                 }
@@ -43,6 +43,8 @@ struct DeviceManagementView: View {
                 }
             }
         }
+        .scrollContentBackground(.hidden)
+        .background(BalconyTheme.background)
         .navigationTitle("Devices")
     }
 }

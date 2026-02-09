@@ -8,7 +8,8 @@ struct SessionRowView: View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
                 Text(session.projectName)
-                    .font(.headline)
+                    .font(BalconyTheme.headingFont())
+                    .foregroundStyle(BalconyTheme.textPrimary)
                 Spacer()
                 StatusBadge(status: session.status)
             }
@@ -16,11 +17,11 @@ struct SessionRowView: View {
             HStack {
                 Text("\(session.messageCount) messages")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(BalconyTheme.textSecondary)
                 Spacer()
                 Text(session.lastActivityAt, style: .relative)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(BalconyTheme.textSecondary)
             }
         }
         .padding(.vertical, 4)

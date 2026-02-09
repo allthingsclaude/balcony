@@ -25,7 +25,7 @@ struct SettingsView: View {
                     Button("Reset Encryption Keys") {
                         showResetConfirmation = true
                     }
-                    .foregroundStyle(.red)
+                    .foregroundStyle(BalconyTheme.statusRed)
                 }
 
                 Section("About") {
@@ -33,10 +33,12 @@ struct SettingsView: View {
                         Text("Version")
                         Spacer()
                         Text("0.1.0")
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(BalconyTheme.textSecondary)
                     }
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background(BalconyTheme.background)
             .navigationTitle("Settings")
             .alert("Reset Encryption Keys?", isPresented: $showResetConfirmation) {
                 Button("Cancel", role: .cancel) {}

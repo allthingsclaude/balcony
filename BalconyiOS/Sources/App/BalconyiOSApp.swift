@@ -11,6 +11,7 @@ struct BalconyiOSApp: App {
             ContentView()
                 .environmentObject(connectionManager)
                 .environmentObject(sessionManager)
+                .tint(BalconyTheme.accent)
                 .onAppear {
                     sessionManager.configure(connectionManager: connectionManager)
                 }
@@ -29,5 +30,6 @@ struct ContentView: View {
                 DiscoveryView()
             }
         }
+        .background(BalconyTheme.background)
     }
 }

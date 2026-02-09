@@ -11,7 +11,7 @@ struct ConversationView: View {
     @FocusState private var inputFocused: Bool
 
     var body: some View {
-        VStack(spacing: 0) {
+        ZStack(alignment: .bottom) {
             // Conversation scroll area
             ScrollViewReader { proxy in
                 ScrollView {
@@ -40,6 +40,8 @@ struct ConversationView: View {
                         }
                     }
                     .padding(.top, 8)
+                    // Bottom padding so content scrolls above the input bar + fade
+                    .padding(.bottom, 64)
                 }
                 .onChange(of: lines.count) { _ in
                     scrollToBottom(proxy: proxy, animated: true)
@@ -49,32 +51,51 @@ struct ConversationView: View {
                 }
             }
 
-            Divider()
+            // Bottom fade + input bar
+            VStack(spacing: 0) {
+                // Progressive fade from transparent → background
+                LinearGradient(
+                    stops: [
+                        .init(color: BalconyTheme.background.opacity(0), location: 0),
+                        .init(color: BalconyTheme.background.opacity(0.5), location: 0.4),
+                        .init(color: BalconyTheme.background, location: 1),
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .frame(height: 32)
+                .allowsHitTesting(false)
 
-            // Input bar
-            HStack(spacing: 8) {
-                TextField("Type a message...", text: $inputText)
-                    .textFieldStyle(.plain)
-                    .font(.system(size: 15, design: .monospaced))
-                    .focused($inputFocused)
-                    .onSubmit { submitInput() }
-                    .onChange(of: inputText) { newValue in
-                        sendLiveKeystrokes(from: previousText, to: newValue)
-                        previousText = newValue
+                // Input bar — glass pill matching nav bar back button style
+                HStack(spacing: BalconyTheme.spacingSM) {
+                    TextField("Type a message...", text: $inputText)
+                        .textFieldStyle(.plain)
+                        .font(BalconyTheme.monoFont(15))
+                        .focused($inputFocused)
+                        .onSubmit { submitInput() }
+                        .onChange(of: inputText) { newValue in
+                            sendLiveKeystrokes(from: previousText, to: newValue)
+                            previousText = newValue
+                        }
+                        .padding(.vertical, 8)
+                        .padding(.horizontal, BalconyTheme.spacingMD)
+
+                    Button(action: submitInput) {
+                        Image(systemName: "arrow.up.circle.fill")
+                            .font(.system(size: 26))
+                            .foregroundStyle(inputText.isEmpty ? BalconyTheme.textSecondary : BalconyTheme.accent)
                     }
-                    .padding(.vertical, 8)
-
-                Button(action: submitInput) {
-                    Image(systemName: "arrow.up.circle.fill")
-                        .font(.title2)
-                        .foregroundStyle(inputText.isEmpty ? .gray : .blue)
+                    .disabled(inputText.isEmpty)
+                    .padding(.trailing, 6)
                 }
-                .disabled(inputText.isEmpty)
+                .background(.ultraThinMaterial, in: Capsule())
+                .padding(.horizontal, BalconyTheme.spacingMD)
+                .padding(.bottom, BalconyTheme.spacingSM)
+                .background(BalconyTheme.background)
             }
-            .padding(.horizontal, 12)
-            .padding(.bottom, 4)
+            .ignoresSafeArea(.container, edges: .bottom)
         }
-        .background(Color(uiColor: .systemBackground))
+        .background(BalconyTheme.background)
     }
 
     // MARK: - Scrolling
@@ -159,7 +180,7 @@ struct ConversationView: View {
 
     /// Gradient fade overlay for edge-to-edge scrollable code blocks.
     private var codeBlockFadeOverlay: some View {
-        let bgColor = Color(uiColor: .systemBackground)
+        let bgColor = BalconyTheme.background
         return HStack(spacing: 0) {
             LinearGradient(
                 stops: [
@@ -222,8 +243,8 @@ struct TerminalLineView: View {
             HStack(alignment: .top, spacing: 4) {
                 // Marker column — fixed-width, invisible for continuation lines.
                 Text(parsed.marker.character)
-                    .font(.system(size: 13, design: .monospaced))
-                    .foregroundColor(Color(uiColor: .tertiaryLabel))
+                    .font(BalconyTheme.monoFont())
+                    .foregroundColor(parsed.marker == .user ? BalconyTheme.accent : BalconyTheme.textSecondary)
                     .opacity(parsed.marker == .none ? 0 : 1)
 
                 // Content — text flows next to marker.
@@ -237,10 +258,15 @@ struct TerminalLineView: View {
             .background {
                 if parsed.marker == .user {
                     // Extend background beyond text without shifting content.
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(Color(uiColor: .secondarySystemBackground))
-                        .padding(.horizontal, -6)
-                        .padding(.vertical, -6)
+                    HStack(spacing: 0) {
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(BalconyTheme.accent)
+                            .frame(width: 3)
+                        RoundedRectangle(cornerRadius: BalconyTheme.radiusSM)
+                            .fill(BalconyTheme.surfaceSecondary)
+                    }
+                    .padding(.horizontal, -6)
+                    .padding(.vertical, -6)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -298,8 +324,8 @@ struct TerminalLineView: View {
     private func buildAttributedText(from segments: [StyledSegment], adaptiveColor: Bool = false) -> Text {
         var result = Text("")
         for segment in segments {
-            // Adaptive: use .primary so text is readable in both light/dark mode.
-            let fgColor = adaptiveColor ? Color.primary : ANSIColorMapper.color(for: segment.style.fgColor)
+            // Adaptive: use theme primary so text is readable in both light/dark mode.
+            let fgColor = adaptiveColor ? BalconyTheme.textPrimary : ANSIColorMapper.color(for: segment.style.fgColor)
             var text = Text(segment.text)
                 .foregroundColor(segment.style.isDim ? fgColor.opacity(0.6) : fgColor)
             if segment.style.isBold { text = text.bold() }

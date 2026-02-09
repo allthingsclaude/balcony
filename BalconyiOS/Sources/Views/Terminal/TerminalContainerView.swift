@@ -25,7 +25,7 @@ struct TerminalContainerView: View {
                         .foregroundStyle(.white)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
-                        .background(.green, in: Capsule())
+                        .background(BalconyTheme.statusGreen, in: Capsule())
                     StatusBadge(status: sessionManager.activeSession?.status ?? session.status)
                 }
             }
