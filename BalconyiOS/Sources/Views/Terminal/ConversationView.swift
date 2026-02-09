@@ -96,7 +96,6 @@ struct ConversationView: View {
                 .padding(.horizontal, BalconyTheme.spacingMD)
                 .padding(.bottom, BalconyTheme.spacingSM)
             }
-            .ignoresSafeArea(.container, edges: .bottom)
         }
         .background {
             BalconyTheme.background.ignoresSafeArea()
