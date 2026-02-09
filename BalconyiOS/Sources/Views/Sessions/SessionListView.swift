@@ -51,9 +51,10 @@ struct SessionListView: View {
                 Button {
                     Task { await connectionManager.disconnect() }
                 } label: {
-                    Image(systemName: "wifi.slash")
+                    Image(systemName: "rectangle.portrait.and.arrow.forward")
                         .font(.system(size: 14))
                         .foregroundStyle(BalconyTheme.textSecondary)
+                        .rotationEffect(.degrees(180))
                 }
             }
             ToolbarItem(placement: .navigationBarTrailing) {
@@ -117,21 +118,26 @@ private struct ConnectedMacHeaderView: View {
 
     var body: some View {
         HStack(spacing: BalconyTheme.spacingMD) {
-            Image(systemName: "desktopcomputer")
-                .font(.system(size: 20))
-                .foregroundStyle(BalconyTheme.textPrimary)
+            ZStack {
+                Circle()
+                    .fill(BalconyTheme.accent.opacity(0.15))
+                    .frame(width: 40, height: 40)
+                Image(systemName: "desktopcomputer")
+                    .font(.system(size: 18))
+                    .foregroundStyle(BalconyTheme.accent)
+            }
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(deviceName)
                     .font(BalconyTheme.headingFont(15))
                     .foregroundStyle(BalconyTheme.textPrimary)
                 HStack(spacing: 4) {
-                    Circle()
-                        .fill(BalconyTheme.statusGreen)
-                        .frame(width: 6, height: 6)
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundStyle(BalconyTheme.accent)
                     Text("Connected")
                         .font(.caption2)
-                        .foregroundStyle(BalconyTheme.statusGreen)
+                        .foregroundStyle(BalconyTheme.accent)
                 }
             }
 
