@@ -341,20 +341,6 @@ struct TerminalLineView: View {
     }
 }
 
-// MARK: - Liquid Glass Capsule
-
-/// Applies iOS 26 Liquid Glass when available, falls back to material on older versions.
-private struct LiquidGlassCapsule: ViewModifier {
-    func body(content: Content) -> some View {
-        if #available(iOS 26.0, *) {
-            content.glassEffect(.regular, in: .capsule)
-        } else {
-            content.background(.regularMaterial, in: Capsule())
-        }
-    }
-}
-
-
 // MARK: - Preview
 
 #if DEBUG

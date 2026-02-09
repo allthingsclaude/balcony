@@ -93,6 +93,21 @@ enum BalconyTheme {
     static let spacingLG: CGFloat = 16
     static let spacingXL: CGFloat = 24
 
+    // MARK: - Gradients
+
+    /// 3-stop bottom fade gradient matching ConversationView pattern.
+    static func bottomFadeGradient(for color: Color = background) -> LinearGradient {
+        LinearGradient(
+            stops: [
+                .init(color: color.opacity(0), location: 0),
+                .init(color: color.opacity(0.8), location: 0.5),
+                .init(color: color, location: 1),
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+    }
+
     // MARK: - Corner Radius
 
     static let radiusSM: CGFloat = 8

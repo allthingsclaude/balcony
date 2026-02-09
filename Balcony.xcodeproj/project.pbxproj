@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		02F56943AC8EE99383270589 /* LiquidGlassCapsule.swift in Sources */ = {isa = PBXBuildFile; fileRef = A218A4C58E7F312AB70DC57F /* LiquidGlassCapsule.swift */; };
 		05F879B73DA8046A8D8E49A4 /* StatusBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C4666F5F2F672B0D7E53B59 /* StatusBadge.swift */; };
 		0FE6915E324A2EA05EEEC639 /* SessionRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A153BA8C47D076D9BD988A08 /* SessionRowView.swift */; };
 		15A28C87E7BAC5940DF63E23 /* WebSocketClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30D8A1BC1C4516A364BFA87F /* WebSocketClient.swift */; };
@@ -99,6 +100,7 @@
 		8AF99EBC38F153B19FDEB53A /* TerminalContainerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalContainerView.swift; sourceTree = "<group>"; };
 		9E5C4CCA055249D15C411831 /* PreferencesManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesManager.swift; sourceTree = "<group>"; };
 		A153BA8C47D076D9BD988A08 /* SessionRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionRowView.swift; sourceTree = "<group>"; };
+		A218A4C58E7F312AB70DC57F /* LiquidGlassCapsule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiquidGlassCapsule.swift; sourceTree = "<group>"; };
 		A2992E0888E0EBC79BA14280 /* BalconyMac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; name = BalconyMac.app; path = Balcony.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A6084BF828A4001E3731C509 /* IOBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IOBridge.swift; sourceTree = "<group>"; };
 		A876093B09C95BC6B439A4EC /* PTYSessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PTYSessionManager.swift; sourceTree = "<group>"; };
@@ -254,6 +256,7 @@
 			isa = PBXGroup;
 			children = (
 				DF662BA7926B1B03E10B19B6 /* BalconyTheme.swift */,
+				A218A4C58E7F312AB70DC57F /* LiquidGlassCapsule.swift */,
 			);
 			path = Theme;
 			sourceTree = "<group>";
@@ -585,6 +588,7 @@
 				1EE8C4879DF09145406EDB96 /* DeviceManagementView.swift in Sources */,
 				EE22BDDF9F8B09255D1A3B38 /* DiscoveryView.swift in Sources */,
 				98D09ECF7A45BB7ED30B1C5F /* HeadlessTerminalParser.swift in Sources */,
+				02F56943AC8EE99383270589 /* LiquidGlassCapsule.swift in Sources */,
 				7D0244EC2C9842D09733E0E8 /* NotificationManager.swift in Sources */,
 				E988DDBE65BDB2A7E0BDBC34 /* QRScannerView.swift in Sources */,
 				BDFFEF7010DECCDDE79DAAC6 /* SessionListView.swift in Sources */,
