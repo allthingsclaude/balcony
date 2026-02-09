@@ -51,22 +51,10 @@ struct ConversationView: View {
                 }
             }
 
-            // Bottom fade + input bar
+            // Input bar — transparent glass pill
             VStack(spacing: 0) {
-                // Progressive fade from transparent → background
-                LinearGradient(
-                    stops: [
-                        .init(color: BalconyTheme.background.opacity(0), location: 0),
-                        .init(color: BalconyTheme.background.opacity(0.5), location: 0.4),
-                        .init(color: BalconyTheme.background, location: 1),
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .frame(height: 32)
-                .allowsHitTesting(false)
+                Spacer()
 
-                // Input bar — glass pill matching nav bar back button style
                 HStack(spacing: BalconyTheme.spacingSM) {
                     TextField("Type a message...", text: $inputText)
                         .textFieldStyle(.plain)
@@ -89,13 +77,15 @@ struct ConversationView: View {
                     .padding(.trailing, 6)
                 }
                 .background(.ultraThinMaterial, in: Capsule())
+                .shadow(color: .black.opacity(0.15), radius: 12, y: 4)
                 .padding(.horizontal, BalconyTheme.spacingMD)
                 .padding(.bottom, BalconyTheme.spacingSM)
-                .background(BalconyTheme.background)
             }
             .ignoresSafeArea(.container, edges: .bottom)
         }
-        .background(BalconyTheme.background)
+        .background {
+            BalconyTheme.background.ignoresSafeArea()
+        }
     }
 
     // MARK: - Scrolling
@@ -295,8 +285,8 @@ struct TerminalLineView: View {
         }
 
         let marker: LineMarker
-        if firstScalar == "\u{203A}" { marker = .user }
-        else if firstScalar == "\u{00B7}" { marker = .assistant }
+        if firstScalar == Unicode.Scalar(0x203A) { marker = .user }
+        else if firstScalar == Unicode.Scalar(0x00B7) { marker = .assistant }
         else { return (.none, line.segments) }
 
         // Strip marker character (and optional space after it) from segments.
@@ -336,3 +326,46 @@ struct TerminalLineView: View {
         return result
     }
 }
+
+// MARK: - Preview
+
+#if DEBUG
+#Preview {
+    let plain = SegmentStyle()
+    let bold = SegmentStyle(isBold: true)
+    let green = SegmentStyle(fgColor: .palette(2), isBold: true)
+    let dim = SegmentStyle(isDim: true)
+
+    let sampleLines: [TerminalLine] = [
+        TerminalLine(id: 0, segments: [
+            StyledSegment(text: "\u{203A} ", style: bold),
+            StyledSegment(text: "help me fix the login bug", style: plain),
+        ], isWrapped: false),
+        TerminalLine(id: 1, segments: [], isWrapped: false),
+        TerminalLine(id: 2, segments: [
+            StyledSegment(text: "\u{00B7} ", style: dim),
+            StyledSegment(text: "I'll look into the login flow.", style: plain),
+        ], isWrapped: false),
+        TerminalLine(id: 3, segments: [
+            StyledSegment(text: "  Let me check the auth module first.", style: plain),
+        ], isWrapped: false),
+        TerminalLine(id: 4, segments: [], isWrapped: false),
+        TerminalLine(id: 5, segments: [
+            StyledSegment(text: "\u{00B7} ", style: dim),
+            StyledSegment(text: "Read", style: green),
+            StyledSegment(text: " src/auth/login.ts", style: plain),
+        ], isWrapped: false),
+        TerminalLine(id: 6, segments: [], isWrapped: false),
+        TerminalLine(id: 7, segments: [
+            StyledSegment(text: "\u{00B7} ", style: dim),
+            StyledSegment(text: "Found the issue — the token refresh", style: plain),
+        ], isWrapped: false),
+        TerminalLine(id: 8, segments: [
+            StyledSegment(text: "  is using an expired secret key.", style: plain),
+        ], isWrapped: false),
+    ]
+
+    ConversationView(lines: sampleLines)
+        .background(BalconyTheme.background)
+}
+#endif
