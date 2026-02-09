@@ -77,14 +77,12 @@ final class HeadlessTerminalParser: ObservableObject {
 
         // Phase 1: Extract segments and classify each row.
         //
-        // Classification uses *color diversity* — syntax highlighting produces
-        // multiple distinct non-default fg colors on a single line (keyword color,
-        // type color, string color, etc.). Prose uses default fg throughout.
+        // Classification uses a *structural* approach — no fraction thresholds.
         //
-        //   strongCode — 2+ distinct non-default fg colors (syntax highlighting)
-        //   weakCode   — code-like pattern (.foo, }, //) OR exactly 1 non-default fg
+        //   strongCode — 2+ distinct non-default fg colors, OR non-default bg
+        //   weakCode   — code pattern (.foo, }, //) OR exactly 1 non-default color
         //   neutral    — empty / whitespace-only
-        //   prose      — default fg, structural prefixes, markers
+        //   prose      — 0 non-default colors, structural prefixes, markers
 
         enum CodeSignal { case strongCode, weakCode, neutral, prose }
 
@@ -139,7 +137,7 @@ final class HeadlessTerminalParser: ObservableObject {
                 continue
             }
 
-            // Count distinct non-default fg colors across ALL segments.
+            // Count distinct non-default fg colors (no fraction threshold).
             var nonDefaultColors = Set<ANSIColor>()
             for seg in segments {
                 if seg.style.fgColor != .defaultFg {
@@ -147,7 +145,7 @@ final class HeadlessTerminalParser: ObservableObject {
                 }
             }
 
-            if nonDefaultColors.count >= 2 || hasNonDefaultBackground(segments) {
+            if hasNonDefaultBackground(segments) || nonDefaultColors.count >= 2 {
                 rowSignal[i] = .strongCode
             } else if looksLikeCodeLine(segments) || nonDefaultColors.count == 1 {
                 rowSignal[i] = .weakCode
@@ -156,38 +154,72 @@ final class HeadlessTerminalParser: ObservableObject {
             }
         }
 
-        // Phase 2: Find code blocks.
+        // Phase 2: Code block detection using core-expand-merge.
         //
-        // A code block is a contiguous non-prose run that contains at least one
-        // strongCode line. Neutral/weakCode lines between strongCode lines are
-        // absorbed. Leading/trailing neutral lines are trimmed from each block.
+        // Step 1 (Core): Find consecutive runs of strongCode lines.
+        // Step 2 (Expand): From each core edge, absorb adjacent weakCode lines.
+        //                   Stop at neutral (empty) or prose lines — empty lines
+        //                   are the natural boundary Claude Code places between
+        //                   code blocks and prose.
+        // Step 3 (Merge): Reconnect expanded blocks separated by ≤2 neutral lines
+        //                  (handles blank lines inside code blocks like between
+        //                  function definitions).
+        //
+        // This avoids fraction thresholds entirely. The key insight is that
+        // Claude Code always puts empty lines between code blocks and surrounding
+        // text, so expansion naturally stops at the right boundary.
 
         var isCodeBlock = [Bool](repeating: false, count: count)
-        var runStart = -1
 
-        for i in 0...count {
-            let endOfRun = (i == count) || rowSignal[i] == .prose || rowIsTable[i]
+        // Step 1: Mark core blocks (consecutive strongCode).
+        for i in 0..<count {
+            if rowSignal[i] == .strongCode && !rowIsTable[i] {
+                isCodeBlock[i] = true
+            }
+        }
 
-            if endOfRun {
-                if runStart >= 0 {
-                    let run = runStart..<i
+        // Step 2: Expand each core block to absorb adjacent weakCode.
+        // Scan forward and backward from each marked edge.
+        var changed = true
+        while changed {
+            changed = false
+            for i in 0..<count {
+                guard isCodeBlock[i] else { continue }
 
-                    // Only promote to code block if the run has a strong anchor.
-                    if run.contains(where: { rowSignal[$0] == .strongCode }) {
-                        // Trim leading/trailing neutral lines.
-                        var first = run.lowerBound
-                        var last = run.upperBound - 1
-                        while first <= last && rowSignal[first] == .neutral { first += 1 }
-                        while last >= first && rowSignal[last] == .neutral { last -= 1 }
-
-                        if first <= last {
-                            for j in first...last { isCodeBlock[j] = true }
-                        }
-                    }
-                    runStart = -1
+                // Expand forward: if next line is weakCode and not yet marked.
+                if i + 1 < count && !isCodeBlock[i + 1] &&
+                   !rowIsTable[i + 1] && rowSignal[i + 1] == .weakCode {
+                    isCodeBlock[i + 1] = true
+                    changed = true
                 }
-            } else {
-                if runStart < 0 { runStart = i }
+
+                // Expand backward: if previous line is weakCode and not yet marked.
+                if i - 1 >= 0 && !isCodeBlock[i - 1] &&
+                   !rowIsTable[i - 1] && rowSignal[i - 1] == .weakCode {
+                    isCodeBlock[i - 1] = true
+                    changed = true
+                }
+            }
+        }
+
+        // Step 3: Merge blocks separated by small neutral gaps (≤2 lines).
+        // This handles blank lines inside code blocks (e.g., between functions).
+        for i in 0..<count {
+            guard isCodeBlock[i] else { continue }
+
+            // Look ahead past neutral gap.
+            var j = i + 1
+            while j < count && rowSignal[j] == .neutral && !rowIsTable[j] && j - i <= 3 {
+                j += 1
+            }
+
+            // If we hit another code block within the gap limit, fill the gap.
+            if j < count && j - i <= 3 && isCodeBlock[j] {
+                for k in (i + 1)..<j {
+                    if rowSignal[k] == .neutral && !rowIsTable[k] {
+                        isCodeBlock[k] = true
+                    }
+                }
             }
         }
 
