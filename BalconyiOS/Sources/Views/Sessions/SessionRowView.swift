@@ -53,7 +53,7 @@ struct SessionCardView: View {
         }
         .padding(BalconyTheme.spacingMD)
         .background {
-            HStack(spacing: 0) {
+            HStack(spacing: 4) {
                 if session.status == .active {
                     RoundedRectangle(cornerRadius: 2)
                         .fill(BalconyTheme.accent)
