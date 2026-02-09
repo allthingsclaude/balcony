@@ -41,7 +41,7 @@ struct ConversationView: View {
                     }
                     .padding(.top, 8)
                     // Bottom padding so content scrolls above the input bar + fade
-                    .padding(.bottom, 64)
+                    .padding(.bottom, 100)
                 }
                 .onChange(of: lines.count) { _ in
                     scrollToBottom(proxy: proxy, animated: true)
