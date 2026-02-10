@@ -27,10 +27,10 @@ struct SidebarContainerView: View {
                     .offset(x: contentOffset(sidebarWidth: sidebarWidth))
                     .disabled(isSidebarOpen)
 
-                // MARK: - Dimmed Overlay
-                if isSidebarOpen || dragOffset > 0 {
-                    Color.black
-                        .opacity(overlayOpacity(sidebarWidth: sidebarWidth))
+                // MARK: - Tap-to-dismiss overlay (no dimming)
+                if isSidebarOpen {
+                    Color.clear
+                        .contentShape(Rectangle())
                         .ignoresSafeArea()
                         .offset(x: contentOffset(sidebarWidth: sidebarWidth))
                         .onTapGesture { closeSidebar() }
@@ -252,16 +252,6 @@ struct SidebarContainerView: View {
         } else {
             return max(0, dragOffset)
         }
-    }
-
-    private func overlayOpacity(sidebarWidth: CGFloat) -> Double {
-        let progress: CGFloat
-        if isSidebarOpen {
-            progress = max(0, 1 + dragOffset / sidebarWidth)
-        } else {
-            progress = dragOffset / sidebarWidth
-        }
-        return Double(min(0.3, progress * 0.3))
     }
 
     // MARK: - Gestures

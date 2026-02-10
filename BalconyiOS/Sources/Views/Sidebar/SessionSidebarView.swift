@@ -94,7 +94,7 @@ struct SessionSidebarView: View {
                 .padding(.vertical, BalconyTheme.spacingSM)
             }
         }
-        .background(BalconyTheme.surface)
+        .background(Color.black)
     }
 
     // MARK: - Sorted Sessions
