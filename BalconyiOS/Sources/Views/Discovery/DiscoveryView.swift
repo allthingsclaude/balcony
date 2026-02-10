@@ -18,16 +18,25 @@ struct DiscoveryView: View {
 
                     // Header text
                     VStack(spacing: BalconyTheme.spacingSM) {
-                        Text("Looking for your Mac...")
-                            .font(BalconyTheme.headingFont(22))
-                            .foregroundStyle(BalconyTheme.textPrimary)
-                        Text("Searching on Wi-Fi and Bluetooth")
-                            .font(BalconyTheme.bodyFont(14))
-                            .foregroundStyle(BalconyTheme.textSecondary)
+                        if connectionManager.isAutoConnecting {
+                            Text("Connecting to \(autoConnectDeviceName)...")
+                                .font(BalconyTheme.headingFont(22))
+                                .foregroundStyle(BalconyTheme.textPrimary)
+                            Text("Reconnecting automatically")
+                                .font(BalconyTheme.bodyFont(14))
+                                .foregroundStyle(BalconyTheme.textSecondary)
+                        } else {
+                            Text("Looking for your Mac...")
+                                .font(BalconyTheme.headingFont(22))
+                                .foregroundStyle(BalconyTheme.textPrimary)
+                            Text("Searching on Wi-Fi and Bluetooth")
+                                .font(BalconyTheme.bodyFont(14))
+                                .foregroundStyle(BalconyTheme.textSecondary)
+                        }
                     }
 
                     // Discovered devices
-                    if !connectionManager.discoveredDevices.isEmpty {
+                    if !connectionManager.discoveredDevices.isEmpty && !connectionManager.isAutoConnecting {
                         VStack(alignment: .leading, spacing: BalconyTheme.spacingSM) {
                             sectionHeader("AVAILABLE")
 
@@ -44,7 +53,7 @@ struct DiscoveryView: View {
                     }
 
                     // Previously paired (offline)
-                    if !offlinePairedDevices.isEmpty {
+                    if !offlinePairedDevices.isEmpty && !connectionManager.isAutoConnecting {
                         VStack(alignment: .leading, spacing: BalconyTheme.spacingSM) {
                             sectionHeader("PREVIOUSLY PAIRED")
 
@@ -55,8 +64,24 @@ struct DiscoveryView: View {
                         .padding(.horizontal, BalconyTheme.spacingLG)
                     }
 
+                    // Cancel auto-connect button
+                    if connectionManager.isAutoConnecting {
+                        Button {
+                            BalconyTheme.hapticLight()
+                            connectionManager.cancelAutoConnect()
+                        } label: {
+                            Text("Cancel")
+                                .font(BalconyTheme.bodyFont(15))
+                                .fontWeight(.medium)
+                                .foregroundStyle(BalconyTheme.textSecondary)
+                                .padding(.vertical, 10)
+                                .padding(.horizontal, BalconyTheme.spacingXL)
+                        }
+                        .modifier(LiquidGlassCapsule())
+                    }
+
                     // How It Works (when no devices)
-                    if connectionManager.discoveredDevices.isEmpty {
+                    if connectionManager.discoveredDevices.isEmpty && !connectionManager.isAutoConnecting {
                         HowItWorksSection()
                             .padding(.horizontal, BalconyTheme.spacingLG)
 
@@ -68,37 +93,40 @@ struct DiscoveryView: View {
                 .padding(.bottom, 120)
             }
 
-            // Bottom fade + floating QR button
-            VStack(spacing: 0) {
-                Spacer()
+            // Bottom fade + floating QR button (hidden during auto-connect)
+            if !connectionManager.isAutoConnecting {
+                VStack(spacing: 0) {
+                    Spacer()
 
-                BalconyTheme.bottomFadeGradient()
-                    .frame(height: 150)
-                    .offset(y: 100)
-                    .allowsHitTesting(false)
+                    BalconyTheme.bottomFadeGradient()
+                        .frame(height: 150)
+                        .offset(y: 100)
+                        .allowsHitTesting(false)
 
-                Button {
-                    BalconyTheme.hapticLight()
-                    showingQRScanner = true
-                } label: {
-                    HStack(spacing: BalconyTheme.spacingSM) {
-                        Image(systemName: "qrcode.viewfinder")
-                            .font(.system(size: 16, weight: .medium))
-                        Text("Scan QR Code")
-                            .font(BalconyTheme.bodyFont(15))
-                            .fontWeight(.medium)
+                    Button {
+                        BalconyTheme.hapticLight()
+                        showingQRScanner = true
+                    } label: {
+                        HStack(spacing: BalconyTheme.spacingSM) {
+                            Image(systemName: "qrcode.viewfinder")
+                                .font(.system(size: 16, weight: .medium))
+                            Text("Scan QR Code")
+                                .font(BalconyTheme.bodyFont(15))
+                                .fontWeight(.medium)
+                        }
+                        .foregroundStyle(BalconyTheme.textPrimary)
+                        .padding(.vertical, 12)
+                        .padding(.horizontal, BalconyTheme.spacingXL)
                     }
-                    .foregroundStyle(BalconyTheme.textPrimary)
-                    .padding(.vertical, 12)
-                    .padding(.horizontal, BalconyTheme.spacingXL)
+                    .modifier(LiquidGlassCapsule())
+                    .shadow(color: .black.opacity(0.15), radius: 12, y: 4)
+                    .disabled(connectionManager.isConnecting)
+                    .padding(.bottom, BalconyTheme.spacingSM)
                 }
-                .modifier(LiquidGlassCapsule())
-                .shadow(color: .black.opacity(0.15), radius: 12, y: 4)
-                .disabled(connectionManager.isConnecting)
-                .padding(.bottom, BalconyTheme.spacingSM)
             }
         }
         .background(BalconyTheme.background)
+        .animation(.easeInOut(duration: 0.3), value: connectionManager.isAutoConnecting)
         .navigationTitle("")
         .overlay(alignment: .bottom) {
             if showConnectingBadge {
@@ -158,6 +186,15 @@ struct DiscoveryView: View {
     }
 
     // MARK: - Helpers
+
+    /// Name of the device being auto-connected to, for display.
+    private var autoConnectDeviceName: String {
+        if let lastId = connectionManager.lastConnectedDeviceId,
+           let device = connectionManager.discoveredDevices.first(where: { $0.id == lastId }) {
+            return device.name
+        }
+        return "your Mac"
+    }
 
     private var offlinePairedDevices: [DeviceInfo] {
         connectionManager.pairedDevices.filter { paired in

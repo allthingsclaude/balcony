@@ -10,14 +10,24 @@ final class ConnectionManager: ObservableObject {
     private let logger = Logger(subsystem: "com.balcony.ios", category: "ConnectionManager")
 
     private static let pairedDevicesKey = "com.balcony.pairedDevices"
+    private static let lastConnectedDeviceIdKey = "com.balcony.lastConnectedDeviceId"
 
     @Published var discoveredDevices: [DeviceInfo] = []
     @Published var pairedDevices: [DeviceInfo] = []
     @Published var isConnected = false
     @Published var isConnecting = false
     @Published var isReconnecting = false
+    @Published var isAutoConnecting = false
     @Published var connectionError: String?
     @Published var connectedDevice: DeviceInfo?
+
+    /// The device ID of the last successfully connected Mac (persisted for auto-reconnect).
+    var lastConnectedDeviceId: String? {
+        get { UserDefaults.standard.string(forKey: Self.lastConnectedDeviceIdKey) }
+        set { UserDefaults.standard.set(newValue, forKey: Self.lastConnectedDeviceIdKey) }
+    }
+
+    private var autoConnectTask: Task<Void, Never>?
 
     private let bonjourBrowser = BonjourBrowser()
     private let webSocketClient = WebSocketClient()
@@ -46,6 +56,13 @@ final class ConnectionManager: ObservableObject {
                     if !self.discoveredDevices.contains(where: { $0.id == deviceInfo.id }) {
                         self.discoveredDevices.append(deviceInfo)
                         self.logger.info("Discovered device: \(deviceInfo.name)")
+                    }
+
+                    // Auto-connect if this matches the last connected device
+                    if !self.isConnected && !self.isConnecting && !self.isAutoConnecting,
+                       let lastId = self.lastConnectedDeviceId,
+                       deviceInfo.id == lastId {
+                        self.attemptAutoConnect(to: deviceInfo)
                     }
                 }
             }
@@ -124,14 +141,17 @@ final class ConnectionManager: ObservableObject {
             isConnected = true
             isConnecting = false
             isReconnecting = false
+            isAutoConnecting = false
             connectedDevice = device
             savePairedDevice(device)
+            lastConnectedDeviceId = device.id
             logger.info("Connected to \(device.name)")
         } catch {
             logger.error("Connection failed: \(error.localizedDescription)")
             isConnecting = false
             isConnected = false
             isReconnecting = false
+            isAutoConnecting = false
             connectedDevice = nil
             connectionError = "Failed to connect to \(device.name). Make sure BalconyMac is running."
         }
@@ -179,8 +199,10 @@ final class ConnectionManager: ObservableObject {
             isConnected = true
             isConnecting = false
             isReconnecting = false
+            isAutoConnecting = false
             connectedDevice = device
             savePairedDevice(device)
+            lastConnectedDeviceId = device.id
             logger.info("Connected to \(host):\(port) via QR")
         } catch {
             logger.error("Direct connection failed: \(error.localizedDescription)")
@@ -194,11 +216,38 @@ final class ConnectionManager: ObservableObject {
 
     /// Disconnect from current Mac.
     func disconnect() async {
+        autoConnectTask?.cancel()
+        autoConnectTask = nil
         await webSocketClient.disconnect()
         isConnected = false
         isReconnecting = false
+        isAutoConnecting = false
         connectedDevice = nil
+        lastConnectedDeviceId = nil
         logger.info("Disconnected")
+    }
+
+    /// Cancel an in-progress auto-connect attempt.
+    func cancelAutoConnect() {
+        autoConnectTask?.cancel()
+        autoConnectTask = nil
+        isAutoConnecting = false
+        isConnecting = false
+        logger.info("Auto-connect cancelled")
+    }
+
+    /// Attempt to auto-connect to a previously connected device.
+    private func attemptAutoConnect(to device: DeviceInfo) {
+        logger.info("Auto-connecting to \(device.name)")
+        isAutoConnecting = true
+        autoConnectTask = Task { [weak self] in
+            await self?.connect(to: device)
+            guard let self, !Task.isCancelled else { return }
+            // If connection failed, silently clear auto-connecting state
+            if !self.isConnected {
+                self.isAutoConnecting = false
+            }
+        }
     }
 
     /// Send a message to the connected Mac.

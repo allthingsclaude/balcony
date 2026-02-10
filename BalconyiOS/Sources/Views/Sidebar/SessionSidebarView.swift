@@ -18,7 +18,8 @@ struct SessionSidebarView: View {
             ConnectedMacHeaderView(
                 deviceName: connectionManager.connectedDevice?.name ?? "Mac"
             )
-            .padding(.horizontal, BalconyTheme.spacingMD)
+            .padding(.leading, BalconyTheme.spacingMD)
+            .padding(.trailing, BalconyTheme.spacingLG)
             .padding(.top, safeAreaTop + BalconyTheme.spacingMD)
             .padding(.bottom, BalconyTheme.spacingSM)
 
@@ -44,7 +45,8 @@ struct SessionSidebarView: View {
                         }
                     }
                     .padding(.vertical, BalconyTheme.spacingSM)
-                    .padding(.horizontal, BalconyTheme.spacingSM)
+                    .padding(.leading, BalconyTheme.spacingSM)
+                    .padding(.trailing, BalconyTheme.spacingMD)
                 }
             }
 
@@ -148,15 +150,6 @@ struct ConnectedMacHeaderView: View {
 
     var body: some View {
         HStack(spacing: BalconyTheme.spacingMD) {
-            ZStack {
-                Circle()
-                    .fill(BalconyTheme.accent.opacity(0.15))
-                    .frame(width: 40, height: 40)
-                Image(systemName: "desktopcomputer")
-                    .font(.system(size: 18))
-                    .foregroundStyle(BalconyTheme.accent)
-            }
-
             VStack(alignment: .leading, spacing: 2) {
                 Text(deviceName)
                     .font(BalconyTheme.headingFont(15))

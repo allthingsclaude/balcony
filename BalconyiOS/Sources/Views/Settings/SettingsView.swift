@@ -43,8 +43,9 @@ struct SettingsView: View {
             .alert("Reset Encryption Keys?", isPresented: $showResetConfirmation) {
                 Button("Cancel", role: .cancel) {}
                 Button("Reset", role: .destructive) {
-                    // Clear paired devices and keys — user will need to re-pair
+                    // Clear paired devices, auto-reconnect, and keys — user will need to re-pair
                     UserDefaults.standard.removeObject(forKey: "com.balcony.pairedDevices")
+                    UserDefaults.standard.removeObject(forKey: "com.balcony.lastConnectedDeviceId")
                 }
             } message: {
                 Text("This will remove all paired devices. You will need to scan the QR code on your Mac again to reconnect.")

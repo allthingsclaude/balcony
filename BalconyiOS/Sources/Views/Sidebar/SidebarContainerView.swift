@@ -100,11 +100,19 @@ struct SidebarContainerView: View {
         }
         .onAppear {
             autoSelectSession()
+            // Open sidebar immediately when no session is selected
+            if selectedSession == nil {
+                isSidebarOpen = true
+            }
         }
         .onChange(of: sessionManager.sessions) { _ in
             // Auto-select if nothing selected yet, or update the selected session's data
             if selectedSession == nil {
                 autoSelectSession()
+                // Open sidebar when sessions arrive but none selected
+                if selectedSession == nil && !isSidebarOpen {
+                    isSidebarOpen = true
+                }
             } else if let selected = selectedSession,
                       let updated = sessionManager.sessions.first(where: { $0.id == selected.id }) {
                 selectedSession = updated
@@ -225,28 +233,16 @@ struct SidebarContainerView: View {
     // MARK: - Empty Content State
 
     private var emptyContentState: some View {
-        VStack(spacing: BalconyTheme.spacingLG) {
-            Spacer()
-            ZStack {
-                Circle()
-                    .fill(BalconyTheme.surfaceSecondary)
-                    .frame(width: 64, height: 64)
-                Image(systemName: "terminal")
-                    .font(.system(size: 28))
-                    .foregroundStyle(BalconyTheme.textSecondary)
-            }
-            VStack(spacing: BalconyTheme.spacingSM) {
-                Text("No Session Selected")
-                    .font(BalconyTheme.headingFont(18))
-                    .foregroundStyle(BalconyTheme.textPrimary)
-                Text("Open the sidebar to pick a session,\nor start one on your Mac.")
-                    .font(BalconyTheme.bodyFont(14))
-                    .foregroundStyle(BalconyTheme.textSecondary)
-                    .multilineTextAlignment(.center)
-            }
-            Spacer()
+        VStack(spacing: BalconyTheme.spacingMD) {
+            Image(systemName: "arrow.left.to.line")
+                .font(.system(size: 24, weight: .light))
+                .foregroundStyle(BalconyTheme.textSecondary.opacity(0.5))
+            Text("Select a session")
+                .font(BalconyTheme.bodyFont(15))
+                .foregroundStyle(BalconyTheme.textSecondary.opacity(0.6))
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(BalconyTheme.surfaceSecondary.opacity(0.5))
     }
 
     // MARK: - Content Offset
@@ -308,8 +304,10 @@ struct SidebarContainerView: View {
             Task { await sessionManager.unsubscribe(from: old) }
         }
 
+        // Set session first so sidebarWidthFraction updates, then close
         selectedSession = session
         isLoading = true
+        closeSidebar()
 
         // Subscribe to new
         Task {
@@ -318,17 +316,12 @@ struct SidebarContainerView: View {
         }
     }
 
-    /// Auto-select the first active session, or the most recently active one.
+    /// Auto-select a session only when there's exactly one.
+    /// When multiple sessions exist, leave the sidebar open for the user to choose.
     private func autoSelectSession() {
         guard selectedSession == nil, !sessionManager.sessions.isEmpty else { return }
-        let sorted = sessionManager.sessions.sorted { a, b in
-            let orderA = statusPriority(a.status)
-            let orderB = statusPriority(b.status)
-            if orderA != orderB { return orderA < orderB }
-            return a.lastActivityAt > b.lastActivityAt
-        }
-        if let best = sorted.first {
-            selectSession(best)
+        if sessionManager.sessions.count == 1, let only = sessionManager.sessions.first {
+            selectSession(only)
         }
     }
 
@@ -341,3 +334,4 @@ struct SidebarContainerView: View {
         }
     }
 }
+
