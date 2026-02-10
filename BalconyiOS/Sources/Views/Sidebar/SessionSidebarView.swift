@@ -97,7 +97,7 @@ struct SessionSidebarView: View {
                 .padding(.bottom, safeAreaBottom)
             }
         }
-        .background(Color.black.ignoresSafeArea())
+        .background(BalconyTheme.sidebarBackground.ignoresSafeArea())
     }
 
     // MARK: - Sorted Sessions

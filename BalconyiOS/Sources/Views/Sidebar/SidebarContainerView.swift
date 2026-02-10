@@ -5,6 +5,7 @@ import BalconyShared
 struct SidebarContainerView: View {
     @EnvironmentObject var sessionManager: SessionManager
     @EnvironmentObject var connectionManager: ConnectionManager
+    @Environment(\.colorScheme) private var colorScheme
     @State private var isSidebarOpen = false
     @State private var selectedSession: Session?
     @State private var isLoading = false
@@ -29,7 +30,7 @@ struct SidebarContainerView: View {
 
             ZStack(alignment: .leading) {
                 // Full-width black so rounded corners on content always contrast
-                Color.black.ignoresSafeArea()
+                BalconyTheme.sidebarBackground.ignoresSafeArea()
 
                 // MARK: - Sidebar (fixed underneath)
                 SessionSidebarView(
@@ -60,7 +61,7 @@ struct SidebarContainerView: View {
                     .frame(width: geo.size.width)
                     .clipShape(RoundedRectangle(cornerRadius: isSidebarOpen || dragOffset > 0 ? 60 : 0, style: .continuous))
                     .offset(x: contentOffset(sidebarWidth: sidebarWidth))
-                    .shadow(color: .black.opacity(isSidebarOpen || dragOffset > 0 ? 0.2 : 0), radius: 16, x: -5)
+                    .shadow(color: .black.opacity(isSidebarOpen || dragOffset > 0 ? (colorScheme == .dark ? 0.2 : 0.08) : 0), radius: 16, x: -5)
                     .disabled(isSidebarOpen)
 
                 // MARK: - Tap-to-dismiss overlay

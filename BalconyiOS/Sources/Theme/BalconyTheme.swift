@@ -23,6 +23,13 @@ enum BalconyTheme {
             : UIColor(red: 1.0, green: 1.0, blue: 1.0, alpha: 1)       // #FFFFFF
     })
 
+    /// Sidebar background — slightly darker than main background
+    static let sidebarBackground = Color(uiColor: UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 0.082, green: 0.078, blue: 0.065, alpha: 1)  // #151410
+            : UIColor(red: 0.935, green: 0.930, blue: 0.910, alpha: 1) // #EFEDE8
+    })
+
     /// Grouped list backgrounds, user message bubbles
     static let surfaceSecondary = Color(uiColor: UIColor { traits in
         traits.userInterfaceStyle == .dark
