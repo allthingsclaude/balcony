@@ -33,6 +33,7 @@ struct DiscoveryView: View {
 
                             ForEach(connectionManager.discoveredDevices, id: \.id) { device in
                                 DeviceCardView(device: device, isConnecting: connectionManager.isConnecting) {
+                                    BalconyTheme.hapticMedium()
                                     Task {
                                         await connectionManager.connect(to: device)
                                     }
@@ -77,6 +78,7 @@ struct DiscoveryView: View {
                     .allowsHitTesting(false)
 
                 Button {
+                    BalconyTheme.hapticLight()
                     showingQRScanner = true
                 } label: {
                     HStack(spacing: BalconyTheme.spacingSM) {
@@ -132,8 +134,12 @@ struct DiscoveryView: View {
                 showConnectingBadge = false
             }
         }
+        .onChange(of: connectionManager.isConnected) { connected in
+            if connected { BalconyTheme.hapticSuccess() }
+        }
         .onChange(of: connectionManager.connectionError) { error in
             showingError = error != nil
+            if error != nil { BalconyTheme.hapticError() }
         }
         .alert("Connection Failed", isPresented: $showingError) {
             Button("OK") {
@@ -160,10 +166,7 @@ struct DiscoveryView: View {
     }
 
     private func sectionHeader(_ title: String) -> some View {
-        Text(title)
-            .font(.system(size: 11, weight: .semibold, design: .rounded))
-            .tracking(1.2)
-            .foregroundStyle(BalconyTheme.textSecondary)
+        BalconyTheme.sectionHeader(title)
     }
 
     private func handleScannedURL(_ urlString: String) {
@@ -189,22 +192,25 @@ struct DiscoveryView: View {
 
 private struct SearchPulseView: View {
     @State private var animate = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ZStack {
-            ForEach(0..<3, id: \.self) { index in
-                Circle()
-                    .stroke(BalconyTheme.accent.opacity(animate ? 0 : 0.25), lineWidth: 1.5)
-                    .frame(
-                        width: animate ? 120 : 56,
-                        height: animate ? 120 : 56
-                    )
-                    .animation(
-                        .easeOut(duration: 2.4)
-                        .repeatForever(autoreverses: false)
-                        .delay(Double(index) * 0.8),
-                        value: animate
-                    )
+            if !reduceMotion {
+                ForEach(0..<3, id: \.self) { index in
+                    Circle()
+                        .stroke(BalconyTheme.accent.opacity(animate ? 0 : 0.25), lineWidth: 1.5)
+                        .frame(
+                            width: animate ? 120 : 56,
+                            height: animate ? 120 : 56
+                        )
+                        .animation(
+                            .easeOut(duration: 2.4)
+                            .repeatForever(autoreverses: false)
+                            .delay(Double(index) * 0.8),
+                            value: animate
+                        )
+                }
             }
 
             ZStack {
@@ -217,7 +223,10 @@ private struct SearchPulseView: View {
             }
         }
         .frame(height: 120)
-        .onAppear { animate = true }
+        .accessibilityLabel("Searching for nearby Macs")
+        .onAppear {
+            if !reduceMotion { animate = true }
+        }
     }
 }
 
@@ -266,8 +275,9 @@ private struct DeviceCardView: View {
                     .fill(BalconyTheme.surfaceSecondary)
             )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(ScaleButtonStyle())
         .disabled(isConnecting || dimmed)
+        .accessibilityLabel("\(device.name), \(dimmed ? "offline" : "available")")
     }
 }
 
@@ -276,10 +286,7 @@ private struct DeviceCardView: View {
 private struct HowItWorksSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: BalconyTheme.spacingMD) {
-            Text("HOW IT WORKS")
-                .font(.system(size: 11, weight: .semibold, design: .rounded))
-                .tracking(1.2)
-                .foregroundStyle(BalconyTheme.textSecondary)
+            BalconyTheme.sectionHeader("HOW IT WORKS")
 
             InstructionStepCard(
                 number: 1,
@@ -332,6 +339,7 @@ private struct InstructionStepCard: View {
             RoundedRectangle(cornerRadius: BalconyTheme.radiusMD)
                 .fill(BalconyTheme.surfaceSecondary)
         )
+        .accessibilityElement(children: .combine)
     }
 }
 

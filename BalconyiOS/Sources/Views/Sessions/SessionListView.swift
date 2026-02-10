@@ -5,6 +5,7 @@ struct SessionListView: View {
     @EnvironmentObject var sessionManager: SessionManager
     @EnvironmentObject var connectionManager: ConnectionManager
     @State private var showingSettings = false
+    @State private var showDisconnectConfirm = false
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -49,7 +50,7 @@ struct SessionListView: View {
         .toolbar {
             ToolbarItem(placement: .navigationBarLeading) {
                 Button {
-                    Task { await connectionManager.disconnect() }
+                    showDisconnectConfirm = true
                 } label: {
                     Image(systemName: "rectangle.portrait.and.arrow.forward")
                         .font(.system(size: 14))
@@ -70,6 +71,15 @@ struct SessionListView: View {
         }
         .sheet(isPresented: $showingSettings) {
             SettingsView()
+        }
+        .alert("Disconnect?", isPresented: $showDisconnectConfirm) {
+            Button("Disconnect", role: .destructive) {
+                BalconyTheme.hapticMedium()
+                Task { await connectionManager.disconnect() }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("You'll return to the discovery screen.")
         }
     }
 
@@ -94,17 +104,32 @@ struct SessionListView: View {
 
     private func sessionSection(title: String, sessions: [Session], dimmed: Bool) -> some View {
         VStack(alignment: .leading, spacing: BalconyTheme.spacingSM) {
-            Text(title)
-                .font(.system(size: 11, weight: .semibold, design: .rounded))
-                .tracking(1.2)
-                .foregroundStyle(BalconyTheme.textSecondary)
+            BalconyTheme.sectionHeader(title)
                 .padding(.horizontal, BalconyTheme.spacingLG)
 
             ForEach(sessions) { session in
                 NavigationLink(value: session) {
                     SessionCardView(session: session, dimmed: dimmed)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(ScaleButtonStyle())
+                .contextMenu {
+                    Button {
+                        UIPasteboard.general.string = session.id
+                    } label: {
+                        Label("Copy Session ID", systemImage: "doc.on.doc")
+                    }
+                    Button {
+                        UIPasteboard.general.string = session.projectPath
+                    } label: {
+                        Label("Copy Project Path", systemImage: "folder")
+                    }
+                    Divider()
+                    Button {
+                        Task { await sessionManager.refreshSessions() }
+                    } label: {
+                        Label("Refresh Sessions", systemImage: "arrow.clockwise")
+                    }
+                }
                 .padding(.horizontal, BalconyTheme.spacingLG)
             }
         }
@@ -153,6 +178,8 @@ private struct ConnectedMacHeaderView: View {
             RoundedRectangle(cornerRadius: BalconyTheme.radiusMD)
                 .fill(BalconyTheme.surfaceSecondary)
         )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Connected to \(deviceName)")
     }
 }
 
@@ -180,6 +207,15 @@ private struct SessionStatsView: View {
             RoundedRectangle(cornerRadius: BalconyTheme.radiusMD)
                 .fill(BalconyTheme.surfaceSecondary)
         )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(statsAccessibilityLabel)
+    }
+
+    private var statsAccessibilityLabel: String {
+        let total = sessions.count
+        let active = sessions.filter { $0.status == .active }.count
+        let messages = sessions.reduce(0) { $0 + $1.messageCount }
+        return "\(total) sessions, \(active) active, \(messages) messages"
     }
 
     private func statItem(value: String, label: String) -> some View {
@@ -229,7 +265,8 @@ private struct EmptySessionsView: View {
             HStack(spacing: BalconyTheme.spacingSM) {
                 Image(systemName: "apple.terminal")
                     .font(.system(size: 14))
-                    .foregroundColor(BalconyTheme.accent)
+                    .foregroundStyle(BalconyTheme.accent)
+                // Text concatenation requires foregroundColor (not foregroundStyle) on iOS 16
                 Text("Run ")
                     .font(BalconyTheme.bodyFont(13))
                     .foregroundColor(BalconyTheme.textSecondary)

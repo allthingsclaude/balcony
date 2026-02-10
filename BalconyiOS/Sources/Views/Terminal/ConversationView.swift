@@ -8,10 +8,15 @@ struct ConversationView: View {
 
     @State private var inputText = ""
     @State private var previousText = ""
+    @State private var isNearBottom = true
     @FocusState private var inputFocused: Bool
 
     var body: some View {
         ZStack(alignment: .bottom) {
+            if lines.isEmpty {
+                ConversationEmptyView()
+            }
+
             // Conversation scroll area
             ScrollViewReader { proxy in
                 ScrollView {
@@ -38,16 +43,43 @@ struct ConversationView: View {
                                 .id(rows.first?.id ?? -1)
                             }
                         }
+
+                        // Invisible anchor to detect proximity to bottom
+                        Color.clear
+                            .frame(height: 1)
+                            .id("bottom-anchor")
+                            .onAppear { isNearBottom = true }
+                            .onDisappear { isNearBottom = false }
                     }
                     .padding(.top, 8)
                     // Bottom padding so content scrolls above the input bar + fade
                     .padding(.bottom, 100)
                 }
                 .onChange(of: lines.count) { _ in
-                    scrollToBottom(proxy: proxy, animated: true)
+                    if isNearBottom {
+                        scrollToBottom(proxy: proxy, animated: true)
+                    }
                 }
                 .onAppear {
                     scrollToBottom(proxy: proxy, animated: false)
+                }
+                .overlay(alignment: .bottom) {
+                    if !isNearBottom {
+                        Button {
+                            BalconyTheme.hapticLight()
+                            scrollToBottom(proxy: proxy, animated: true)
+                        } label: {
+                            Image(systemName: "chevron.down")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(BalconyTheme.textPrimary)
+                                .frame(width: 36, height: 36)
+                        }
+                        .modifier(LiquidGlassCapsule())
+                        .shadow(color: .black.opacity(0.15), radius: 8, y: 2)
+                        .padding(.bottom, 80)
+                        .transition(.scale.combined(with: .opacity))
+                        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isNearBottom)
+                    }
                 }
             }
 
@@ -105,13 +137,13 @@ struct ConversationView: View {
     // MARK: - Scrolling
 
     private func scrollToBottom(proxy: ScrollViewProxy, animated: Bool) {
-        guard let lastId = lines.last?.id else { return }
+        guard !lines.isEmpty else { return }
         if animated {
             withAnimation(.easeOut(duration: 0.15)) {
-                proxy.scrollTo(lastId, anchor: .bottom)
+                proxy.scrollTo("bottom-anchor", anchor: .bottom)
             }
         } else {
-            proxy.scrollTo(lastId, anchor: .bottom)
+            proxy.scrollTo("bottom-anchor", anchor: .bottom)
         }
     }
 
@@ -141,6 +173,7 @@ struct ConversationView: View {
     /// Submit the current input (send carriage return and clear).
     private func submitInput() {
         guard !inputText.isEmpty else { return }
+        BalconyTheme.hapticLight()
         onSendInput?("\r")
         // Set previousText first so onChange doesn't send backspaces for the clear.
         previousText = ""
@@ -274,6 +307,17 @@ struct TerminalLineView: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(accessibilityText(parsed: parsed))
+        }
+    }
+
+    private func accessibilityText(parsed: (marker: LineMarker, content: [StyledSegment])) -> String {
+        let text = parsed.content.map(\.text).joined()
+        switch parsed.marker {
+        case .user: return "You: \(text)"
+        case .assistant: return "Claude: \(text)"
+        case .none: return text
         }
     }
 
@@ -338,6 +382,45 @@ struct TerminalLineView: View {
             result = result + text
         }
         return result
+    }
+}
+
+// MARK: - Empty State
+
+private struct ConversationEmptyView: View {
+    @State private var pulse = false
+
+    var body: some View {
+        VStack(spacing: BalconyTheme.spacingLG) {
+            ZStack {
+                Circle()
+                    .fill(BalconyTheme.surfaceSecondary)
+                    .frame(width: 64, height: 64)
+                Image(systemName: "terminal.fill")
+                    .font(.system(size: 28))
+                    .foregroundStyle(BalconyTheme.textSecondary)
+            }
+
+            VStack(spacing: BalconyTheme.spacingSM) {
+                Text("Waiting for output...")
+                    .font(BalconyTheme.headingFont(18))
+                    .foregroundStyle(BalconyTheme.textPrimary)
+                Text("Terminal data will appear as Claude responds.")
+                    .font(BalconyTheme.bodyFont(14))
+                    .foregroundStyle(BalconyTheme.textSecondary)
+                    .multilineTextAlignment(.center)
+            }
+
+            ProgressView()
+                .tint(BalconyTheme.accent)
+                .scaleEffect(pulse ? 1.05 : 0.95)
+                .animation(
+                    .easeInOut(duration: 1.2).repeatForever(autoreverses: true),
+                    value: pulse
+                )
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .onAppear { pulse = true }
     }
 }
 

@@ -7,12 +7,13 @@ struct StatusBadge: View {
 
     @State private var pulseScale: CGFloat = 1.0
     @State private var pulseOpacity: Double = 0.6
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: 4) {
             ZStack {
                 // Pulse ring for active status
-                if status == .active {
+                if status == .active && !reduceMotion {
                     Circle()
                         .stroke(color.opacity(pulseOpacity), lineWidth: 1.5)
                         .frame(width: 8 * pulseScale, height: 8 * pulseScale)
@@ -39,6 +40,7 @@ struct StatusBadge: View {
             }
         }
         .padding(.horizontal, compact ? 0 : 8)
+        .accessibilityLabel(label)
     }
 
     private var color: Color {

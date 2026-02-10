@@ -114,4 +114,43 @@ enum BalconyTheme {
     static let radiusMD: CGFloat = 12
     static let radiusLG: CGFloat = 16
     static let radiusPill: CGFloat = 24
+
+    // MARK: - Haptics
+
+    static func hapticLight() {
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    }
+
+    static func hapticMedium() {
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+    }
+
+    static func hapticSuccess() {
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+    }
+
+    static func hapticError() {
+        UINotificationFeedbackGenerator().notificationOccurred(.error)
+    }
+
+    // MARK: - Section Headers
+
+    @ViewBuilder
+    static func sectionHeader(_ title: String) -> some View {
+        Text(title)
+            .font(.system(size: 11, weight: .semibold, design: .rounded))
+            .tracking(1.2)
+            .foregroundStyle(textSecondary)
+    }
+}
+
+// MARK: - Button Styles
+
+/// Press-scale button style for interactive cards.
+struct ScaleButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
+            .animation(.spring(response: 0.25, dampingFraction: 0.7), value: configuration.isPressed)
+    }
 }

@@ -63,6 +63,8 @@ struct SessionCardView: View {
                     .fill(BalconyTheme.surfaceSecondary)
             }
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(session.projectName), \(session.status.rawValue), \(session.messageCount) messages")
     }
 
     // MARK: - Helpers

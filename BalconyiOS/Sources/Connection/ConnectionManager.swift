@@ -15,6 +15,7 @@ final class ConnectionManager: ObservableObject {
     @Published var pairedDevices: [DeviceInfo] = []
     @Published var isConnected = false
     @Published var isConnecting = false
+    @Published var isReconnecting = false
     @Published var connectionError: String?
     @Published var connectedDevice: DeviceInfo?
 
@@ -108,6 +109,7 @@ final class ConnectionManager: ObservableObject {
                     guard let self else { return }
                     self.isConnected = false
                     if unexpected {
+                        self.isReconnecting = true
                         self.logger.warning("Connection lost unexpectedly, WebSocket will auto-reconnect")
                     }
                 }
@@ -121,6 +123,7 @@ final class ConnectionManager: ObservableObject {
 
             isConnected = true
             isConnecting = false
+            isReconnecting = false
             connectedDevice = device
             savePairedDevice(device)
             logger.info("Connected to \(device.name)")
@@ -128,6 +131,7 @@ final class ConnectionManager: ObservableObject {
             logger.error("Connection failed: \(error.localizedDescription)")
             isConnecting = false
             isConnected = false
+            isReconnecting = false
             connectedDevice = nil
             connectionError = "Failed to connect to \(device.name). Make sure BalconyMac is running."
         }
@@ -160,6 +164,7 @@ final class ConnectionManager: ObservableObject {
                     guard let self else { return }
                     self.isConnected = false
                     if unexpected {
+                        self.isReconnecting = true
                         self.logger.warning("Connection lost unexpectedly, WebSocket will auto-reconnect")
                     }
                 }
@@ -173,6 +178,7 @@ final class ConnectionManager: ObservableObject {
 
             isConnected = true
             isConnecting = false
+            isReconnecting = false
             connectedDevice = device
             savePairedDevice(device)
             logger.info("Connected to \(host):\(port) via QR")
@@ -180,6 +186,7 @@ final class ConnectionManager: ObservableObject {
             logger.error("Direct connection failed: \(error.localizedDescription)")
             isConnecting = false
             isConnected = false
+            isReconnecting = false
             connectedDevice = nil
             connectionError = "Failed to connect to \(host):\(port). Check the address and try again."
         }
@@ -189,6 +196,7 @@ final class ConnectionManager: ObservableObject {
     func disconnect() async {
         await webSocketClient.disconnect()
         isConnected = false
+        isReconnecting = false
         connectedDevice = nil
         logger.info("Disconnected")
     }
