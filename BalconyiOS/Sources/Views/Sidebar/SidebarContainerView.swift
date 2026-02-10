@@ -90,11 +90,11 @@ struct SidebarContainerView: View {
             SettingsView()
         }
         .alert("Disconnect?", isPresented: $showDisconnectConfirm) {
-            Button("Disconnect", role: .destructive) {
+            Button("Cancel", role: .cancel) {}
+            Button("Disconnect") {
                 BalconyTheme.hapticMedium()
                 Task { await connectionManager.disconnect() }
             }
-            Button("Cancel", role: .cancel) {}
         } message: {
             Text("You'll return to the discovery screen.")
         }
