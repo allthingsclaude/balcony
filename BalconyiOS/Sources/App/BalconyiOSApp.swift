@@ -25,26 +25,61 @@ struct ContentView: View {
 
     var body: some View {
         ZStack {
-            NavigationStack {
-                DiscoveryView()
-            }
-            .opacity(showConnected ? 0 : 1)
-            .offset(x: showConnected ? -40 : 0)
+            // Actual app content (always fully laid out, hidden behind launch screen)
+            ZStack {
+                NavigationStack {
+                    DiscoveryView()
+                }
+                .opacity(showConnected ? 0 : 1)
+                .offset(x: showConnected ? -40 : 0)
 
-            if showConnected {
-                SidebarContainerView()
-                    .transition(.move(edge: .trailing).combined(with: .opacity))
+                if showConnected {
+                    SidebarContainerView()
+                        .transition(.move(edge: .trailing).combined(with: .opacity))
+                }
             }
-        }
-        .overlay {
-            if connectionManager.isReconnecting && !showConnected {
-                ReconnectingOverlay()
+            .overlay {
+                if connectionManager.isReconnecting && !showConnected {
+                    ReconnectingOverlay()
+                }
             }
+
+            // Launch screen overlay (always in tree, animates itself out)
+            LaunchScreenView()
+                .zIndex(1)
         }
         .background(BalconyTheme.background)
         .animation(.spring(response: 0.5, dampingFraction: 0.85), value: showConnected)
         .onChange(of: connectionManager.isConnected) { connected in
             showConnected = connected
+        }
+    }
+}
+
+// MARK: - Launch Screen
+
+private struct LaunchScreenView: View {
+    @State private var dismissed = false
+
+    var body: some View {
+        ZStack {
+            BalconyTheme.background.ignoresSafeArea()
+
+            Image("BalconyLogo")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 160, height: 160)
+        }
+        .scaleEffect(dismissed ? 1.15 : 1)
+        .opacity(dismissed ? 0 : 1)
+        .allowsHitTesting(!dismissed)
+        .onAppear {
+            Task {
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                withAnimation(.easeOut(duration: 0.5)) {
+                    dismissed = true
+                }
+            }
         }
     }
 }

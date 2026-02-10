@@ -48,8 +48,11 @@ targets:
     deploymentTarget: "14.0"
     sources:
       - path: BalconyMac/Sources
-    resources:
       - path: BalconyMac/Resources
+        buildPhase: resources
+        excludes:
+          - "Info.plist"
+          - "*.entitlements"
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.balcony.mac
@@ -80,8 +83,11 @@ targets:
     deploymentTarget: "16.0"
     sources:
       - path: BalconyiOS/Sources
-    resources:
       - path: BalconyiOS/Resources
+        buildPhase: resources
+        excludes:
+          - "Info.plist"
+          - "*.entitlements"
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.balcony.ios
