@@ -21,30 +21,30 @@ struct BalconyiOSApp: App {
 
 struct ContentView: View {
     @EnvironmentObject var connectionManager: ConnectionManager
-    @State private var showSessions = false
+    @State private var showConnected = false
 
     var body: some View {
-        NavigationStack {
-            ZStack {
+        ZStack {
+            NavigationStack {
                 DiscoveryView()
-                    .opacity(showSessions ? 0 : 1)
-                    .offset(x: showSessions ? -40 : 0)
-
-                if showSessions {
-                    SessionListView()
-                        .transition(.move(edge: .trailing).combined(with: .opacity))
-                }
             }
-            .overlay {
-                if connectionManager.isReconnecting {
-                    ReconnectingOverlay()
-                }
+            .opacity(showConnected ? 0 : 1)
+            .offset(x: showConnected ? -40 : 0)
+
+            if showConnected {
+                SidebarContainerView()
+                    .transition(.move(edge: .trailing).combined(with: .opacity))
+            }
+        }
+        .overlay {
+            if connectionManager.isReconnecting && !showConnected {
+                ReconnectingOverlay()
             }
         }
         .background(BalconyTheme.background)
-        .animation(.spring(response: 0.5, dampingFraction: 0.85), value: showSessions)
+        .animation(.spring(response: 0.5, dampingFraction: 0.85), value: showConnected)
         .onChange(of: connectionManager.isConnected) { connected in
-            showSessions = connected
+            showConnected = connected
         }
     }
 }

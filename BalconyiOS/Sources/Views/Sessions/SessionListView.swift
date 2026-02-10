@@ -138,50 +138,7 @@ struct SessionListView: View {
 }
 
 // MARK: - Connected Mac Header
-
-private struct ConnectedMacHeaderView: View {
-    let deviceName: String
-
-    var body: some View {
-        HStack(spacing: BalconyTheme.spacingMD) {
-            ZStack {
-                Circle()
-                    .fill(BalconyTheme.accent.opacity(0.15))
-                    .frame(width: 40, height: 40)
-                Image(systemName: "desktopcomputer")
-                    .font(.system(size: 18))
-                    .foregroundStyle(BalconyTheme.accent)
-            }
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(deviceName)
-                    .font(BalconyTheme.headingFont(15))
-                    .foregroundStyle(BalconyTheme.textPrimary)
-                HStack(spacing: 4) {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 8, weight: .bold))
-                        .foregroundStyle(BalconyTheme.accent)
-                    Text("Connected")
-                        .font(.caption2)
-                        .foregroundStyle(BalconyTheme.accent)
-                }
-            }
-
-            Spacer()
-
-            Image(systemName: "lock.fill")
-                .font(.system(size: 12))
-                .foregroundStyle(BalconyTheme.textSecondary)
-        }
-        .padding(BalconyTheme.spacingMD)
-        .background(
-            RoundedRectangle(cornerRadius: BalconyTheme.radiusMD)
-                .fill(BalconyTheme.surfaceSecondary)
-        )
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Connected to \(deviceName)")
-    }
-}
+// ConnectedMacHeaderView is now defined in SessionSidebarView.swift and shared.
 
 // MARK: - Session Stats
 

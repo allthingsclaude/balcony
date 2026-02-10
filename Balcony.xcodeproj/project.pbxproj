@@ -10,6 +10,7 @@
 		02F56943AC8EE99383270589 /* LiquidGlassCapsule.swift in Sources */ = {isa = PBXBuildFile; fileRef = A218A4C58E7F312AB70DC57F /* LiquidGlassCapsule.swift */; };
 		05F879B73DA8046A8D8E49A4 /* StatusBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C4666F5F2F672B0D7E53B59 /* StatusBadge.swift */; };
 		0FE6915E324A2EA05EEEC639 /* SessionRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A153BA8C47D076D9BD988A08 /* SessionRowView.swift */; };
+		15406D80C0095BDC371DCAF3 /* SessionSidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04F411A79CF7264F289B6302 /* SessionSidebarView.swift */; };
 		15A28C87E7BAC5940DF63E23 /* WebSocketClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30D8A1BC1C4516A364BFA87F /* WebSocketClient.swift */; };
 		1E628833070E34E4A040D51C /* NIOWebSocket in Frameworks */ = {isa = PBXBuildFile; productRef = 6ED48EC9E94F4FC97A96DE5A /* NIOWebSocket */; };
 		1EE8C4879DF09145406EDB96 /* DeviceManagementView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4241CE63445459C9D9FD3C36 /* DeviceManagementView.swift */; };
@@ -33,6 +34,7 @@
 		7FFB88CAB72CEF70EEA6DB0B /* BalconyShared in Frameworks */ = {isa = PBXBuildFile; productRef = 2C1E9FE6B3F733D2560E28A3 /* BalconyShared */; };
 		867FFE6CCC71EB3F1101C9E8 /* PreferencesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14954C747CB9B37EFDCE1BEA /* PreferencesView.swift */; };
 		86DFC1B0DC3BB380FFC5E540 /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D75F5677A18F7C8240B9CD91 /* AVFoundation.framework */; };
+		872CFE876EF560CB82D75436 /* SidebarContainerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F5F61E1AF4657B0B7E98424 /* SidebarContainerView.swift */; };
 		884796C6E8749F597FDFC982 /* BLEPeripheral.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2567EAF959E0FF8C09874F18 /* BLEPeripheral.swift */; };
 		8ACEB2F730210C579A95CFEA /* SessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 160D61822B93FBE67A1C20C2 /* SessionManager.swift */; };
 		9117D5D329E9C5CB6A6E011A /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E860783542070F02AED00B7 /* SettingsView.swift */; };
@@ -69,6 +71,7 @@
 
 /* Begin PBXFileReference section */
 		037E15271FF9FC402D02B51B /* TerminalLine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalLine.swift; sourceTree = "<group>"; };
+		04F411A79CF7264F289B6302 /* SessionSidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionSidebarView.swift; sourceTree = "<group>"; };
 		0C02C757F4FB8D345A6EFEF9 /* ModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelTests.swift; sourceTree = "<group>"; };
 		14954C747CB9B37EFDCE1BEA /* PreferencesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesView.swift; sourceTree = "<group>"; };
 		160D61822B93FBE67A1C20C2 /* SessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionManager.swift; sourceTree = "<group>"; };
@@ -80,6 +83,7 @@
 		30D8A1BC1C4516A364BFA87F /* WebSocketClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSocketClient.swift; sourceTree = "<group>"; };
 		33367B0D382AADED54836B8B /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		37B5F7A0DDF8C4003E6BD6B9 /* HeadlessTerminalParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeadlessTerminalParser.swift; sourceTree = "<group>"; };
+		3F5F61E1AF4657B0B7E98424 /* SidebarContainerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarContainerView.swift; sourceTree = "<group>"; };
 		4241CE63445459C9D9FD3C36 /* DeviceManagementView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceManagementView.swift; sourceTree = "<group>"; };
 		49449E8E646DB0F7693BF3F0 /* WebSocketClientHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSocketClientHandler.swift; sourceTree = "<group>"; };
 		50C657DCB9087A3FB0B1E315 /* ConversationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationView.swift; sourceTree = "<group>"; };
@@ -218,6 +222,7 @@
 				9E38E5022BACD1B483200456 /* Discovery */,
 				A7EB17E3E1F4071A286FD5AC /* Sessions */,
 				AC0EDDEBBCEF21C15CA414E8 /* Settings */,
+				79E895271FED239654D00377 /* Sidebar */,
 				91C6B9F134F53A2255E0E64D /* Terminal */,
 			);
 			path = Views;
@@ -308,6 +313,15 @@
 				9175D55D1E6F233B3622E477 /* Sources */,
 			);
 			path = BalconyCLI;
+			sourceTree = "<group>";
+		};
+		79E895271FED239654D00377 /* Sidebar */ = {
+			isa = PBXGroup;
+			children = (
+				04F411A79CF7264F289B6302 /* SessionSidebarView.swift */,
+				3F5F61E1AF4657B0B7E98424 /* SidebarContainerView.swift */,
+			);
+			path = Sidebar;
 			sourceTree = "<group>";
 		};
 		84B7E10DE14DA989993CA5E4 /* BalconyiOS */ = {
@@ -594,7 +608,9 @@
 				BDFFEF7010DECCDDE79DAAC6 /* SessionListView.swift in Sources */,
 				8ACEB2F730210C579A95CFEA /* SessionManager.swift in Sources */,
 				0FE6915E324A2EA05EEEC639 /* SessionRowView.swift in Sources */,
+				15406D80C0095BDC371DCAF3 /* SessionSidebarView.swift in Sources */,
 				9117D5D329E9C5CB6A6E011A /* SettingsView.swift in Sources */,
+				872CFE876EF560CB82D75436 /* SidebarContainerView.swift in Sources */,
 				05F879B73DA8046A8D8E49A4 /* StatusBadge.swift in Sources */,
 				663D66965E45C127C3FF27DD /* TerminalContainerView.swift in Sources */,
 				B8B852BB44C301BF582E80A6 /* TerminalLine.swift in Sources */,
