@@ -79,12 +79,12 @@ struct SessionSidebarView: View {
                         HStack(spacing: BalconyTheme.spacingSM) {
                             Image(systemName: "rectangle.portrait.and.arrow.forward")
                                 .font(.system(size: 14))
-                                .foregroundStyle(BalconyTheme.statusRed)
+                                .foregroundStyle(BalconyTheme.accent)
                                 .rotationEffect(.degrees(180))
                                 .frame(width: 24)
                             Text("Disconnect")
                                 .font(BalconyTheme.bodyFont(14))
-                                .foregroundStyle(BalconyTheme.statusRed)
+                                .foregroundStyle(BalconyTheme.accent)
                             Spacer()
                         }
                         .padding(.horizontal, BalconyTheme.spacingMD)
