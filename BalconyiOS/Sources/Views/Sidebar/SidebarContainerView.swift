@@ -21,24 +21,7 @@ struct SidebarContainerView: View {
             let sidebarWidth = geo.size.width * sidebarWidthFraction
 
             ZStack(alignment: .leading) {
-                // MARK: - Main Content
-                mainContent
-                    .frame(width: geo.size.width, height: geo.size.height)
-                    .offset(x: contentOffset(sidebarWidth: sidebarWidth))
-                    .disabled(isSidebarOpen)
-
-                // MARK: - Tap-to-dismiss overlay (no dimming)
-                if isSidebarOpen {
-                    Color.clear
-                        .contentShape(Rectangle())
-                        .ignoresSafeArea()
-                        .offset(x: contentOffset(sidebarWidth: sidebarWidth))
-                        .onTapGesture { closeSidebar() }
-                        .accessibilityLabel("Close sidebar")
-                        .accessibilityAddTraits(.isButton)
-                }
-
-                // MARK: - Sidebar
+                // MARK: - Sidebar (fixed underneath)
                 SessionSidebarView(
                     selectedSessionId: selectedSession?.id,
                     onSelectSession: { session in
@@ -47,7 +30,6 @@ struct SidebarContainerView: View {
                     },
                     onSettings: {
                         closeSidebar()
-                        // Small delay so sidebar closes before sheet appears
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
                             showingSettings = true
                         }
@@ -60,8 +42,24 @@ struct SidebarContainerView: View {
                     }
                 )
                 .frame(width: sidebarWidth)
-                .offset(x: sidebarOffset(sidebarWidth: sidebarWidth))
-                .shadow(color: .black.opacity(isSidebarOpen ? 0.15 : 0), radius: 20, x: 5)
+
+                // MARK: - Main Content (slides right to reveal sidebar)
+                mainContent
+                    .frame(width: geo.size.width, height: geo.size.height)
+                    .offset(x: contentOffset(sidebarWidth: sidebarWidth))
+                    .shadow(color: .black.opacity(isSidebarOpen || dragOffset > 0 ? 0.2 : 0), radius: 16, x: -5)
+                    .disabled(isSidebarOpen)
+
+                // MARK: - Tap-to-dismiss overlay
+                if isSidebarOpen {
+                    Color.clear
+                        .contentShape(Rectangle())
+                        .ignoresSafeArea()
+                        .offset(x: contentOffset(sidebarWidth: sidebarWidth))
+                        .onTapGesture { closeSidebar() }
+                        .accessibilityLabel("Close sidebar")
+                        .accessibilityAddTraits(.isButton)
+                }
             }
             .gesture(edgeSwipeGesture(sidebarWidth: sidebarWidth))
             .animation(
@@ -236,15 +234,7 @@ struct SidebarContainerView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    // MARK: - Sidebar Offsets & Opacity
-
-    private func sidebarOffset(sidebarWidth: CGFloat) -> CGFloat {
-        if isSidebarOpen {
-            return max(0, dragOffset)
-        } else {
-            return -sidebarWidth + max(0, dragOffset)
-        }
-    }
+    // MARK: - Content Offset
 
     private func contentOffset(sidebarWidth: CGFloat) -> CGFloat {
         if isSidebarOpen {
