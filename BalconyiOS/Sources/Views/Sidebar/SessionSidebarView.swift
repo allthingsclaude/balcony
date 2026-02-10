@@ -9,6 +9,8 @@ struct SessionSidebarView: View {
     let onSelectSession: (Session) -> Void
     let onSettings: () -> Void
     let onDisconnect: () -> Void
+    var safeAreaTop: CGFloat = 0
+    var safeAreaBottom: CGFloat = 0
 
     var body: some View {
         VStack(spacing: 0) {
@@ -17,7 +19,7 @@ struct SessionSidebarView: View {
                 deviceName: connectionManager.connectedDevice?.name ?? "Mac"
             )
             .padding(.horizontal, BalconyTheme.spacingMD)
-            .padding(.top, BalconyTheme.spacingMD)
+            .padding(.top, safeAreaTop + BalconyTheme.spacingMD)
             .padding(.bottom, BalconyTheme.spacingSM)
 
             Divider()
@@ -92,9 +94,10 @@ struct SessionSidebarView: View {
                     .buttonStyle(.plain)
                 }
                 .padding(.vertical, BalconyTheme.spacingSM)
+                .padding(.bottom, safeAreaBottom)
             }
         }
-        .background(Color.black)
+        .background(Color.black.ignoresSafeArea())
     }
 
     // MARK: - Sorted Sessions

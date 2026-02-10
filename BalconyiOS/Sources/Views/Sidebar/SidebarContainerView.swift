@@ -19,6 +19,13 @@ struct SidebarContainerView: View {
     var body: some View {
         GeometryReader { geo in
             let sidebarWidth = geo.size.width * sidebarWidthFraction
+            let windowInsets = (UIApplication.shared.connectedScenes
+                .compactMap { $0 as? UIWindowScene }
+                .flatMap(\.windows)
+                .first(where: \.isKeyWindow)?
+                .safeAreaInsets) ?? .zero
+            let safeTop = windowInsets.top
+            let safeBottom = windowInsets.bottom
 
             ZStack(alignment: .leading) {
                 // MARK: - Sidebar (fixed underneath)
@@ -39,13 +46,16 @@ struct SidebarContainerView: View {
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
                             showDisconnectConfirm = true
                         }
-                    }
+                    },
+                    safeAreaTop: safeTop,
+                    safeAreaBottom: safeBottom
                 )
                 .frame(width: sidebarWidth)
 
                 // MARK: - Main Content (slides right to reveal sidebar)
                 mainContent
-                    .frame(width: geo.size.width, height: geo.size.height)
+                    .frame(width: geo.size.width)
+                    .clipShape(RoundedRectangle(cornerRadius: isSidebarOpen || dragOffset > 0 ? 20 : 0, style: .continuous))
                     .offset(x: contentOffset(sidebarWidth: sidebarWidth))
                     .shadow(color: .black.opacity(isSidebarOpen || dragOffset > 0 ? 0.2 : 0), radius: 16, x: -5)
                     .disabled(isSidebarOpen)
@@ -71,6 +81,7 @@ struct SidebarContainerView: View {
                 value: dragOffset
             )
         }
+        .ignoresSafeArea()
         .sheet(isPresented: $showingSettings) {
             SettingsView()
         }
