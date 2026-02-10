@@ -12,7 +12,7 @@ struct SidebarContainerView: View {
     @State private var showDisconnectConfirm = false
     @State private var dragOffset: CGFloat = 0
 
-    private let sidebarWidthFraction: CGFloat = 0.82
+    private let sidebarWidthFraction: CGFloat = 0.69
     private let animationResponse: CGFloat = 0.35
     private let animationDamping: CGFloat = 0.85
 
@@ -28,6 +28,9 @@ struct SidebarContainerView: View {
             let safeBottom = windowInsets.bottom
 
             ZStack(alignment: .leading) {
+                // Full-width black so rounded corners on content always contrast
+                Color.black.ignoresSafeArea()
+
                 // MARK: - Sidebar (fixed underneath)
                 SessionSidebarView(
                     selectedSessionId: selectedSession?.id,
@@ -55,7 +58,7 @@ struct SidebarContainerView: View {
                 // MARK: - Main Content (slides right to reveal sidebar)
                 mainContent
                     .frame(width: geo.size.width)
-                    .clipShape(RoundedRectangle(cornerRadius: isSidebarOpen || dragOffset > 0 ? 20 : 0, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: isSidebarOpen || dragOffset > 0 ? 60 : 0, style: .continuous))
                     .offset(x: contentOffset(sidebarWidth: sidebarWidth))
                     .shadow(color: .black.opacity(isSidebarOpen || dragOffset > 0 ? 0.2 : 0), radius: 16, x: -5)
                     .disabled(isSidebarOpen)
