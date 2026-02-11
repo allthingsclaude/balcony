@@ -156,7 +156,7 @@ struct ConversationView: View {
                     }
                     .padding(.horizontal, BalconyTheme.spacingLG)
                     .padding(.bottom, BalconyTheme.spacingSM)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .transition(.menuPanel)
                 } else if showSlashMenu, !slashCommands.isEmpty {
                     // Slash command menu — floats above the input bar
                     SlashCommandMenu(
@@ -167,7 +167,7 @@ struct ConversationView: View {
                     }
                     .padding(.horizontal, BalconyTheme.spacingLG)
                     .padding(.bottom, BalconyTheme.spacingSM)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .transition(.menuPanel)
                 }
 
                 // Mode badge — appears above input bar when ! or & is typed
@@ -564,6 +564,26 @@ struct TerminalLineView: View {
             result = result + text
         }
         return result
+    }
+}
+
+// MARK: - Menu Panel Transition
+
+private struct MenuBlurModifier: ViewModifier {
+    let radius: CGFloat
+    func body(content: Content) -> some View {
+        content.blur(radius: radius)
+    }
+}
+
+extension AnyTransition {
+    static var menuPanel: AnyTransition {
+        .move(edge: .bottom)
+        .combined(with: .opacity)
+        .combined(with: .modifier(
+            active: MenuBlurModifier(radius: 16),
+            identity: MenuBlurModifier(radius: 0)
+        ))
     }
 }
 
