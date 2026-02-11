@@ -5,6 +5,7 @@ import BalconyShared
 struct BalconyiOSApp: App {
     @StateObject private var connectionManager = ConnectionManager()
     @StateObject private var sessionManager = SessionManager()
+    @AppStorage("appearance") private var appearance: String = "system"
 
     var body: some Scene {
         WindowGroup {
@@ -14,7 +15,27 @@ struct BalconyiOSApp: App {
                 .tint(BalconyTheme.accent)
                 .onAppear {
                     sessionManager.configure(connectionManager: connectionManager)
+                    applyAppearance(appearance)
                 }
+                .onChange(of: appearance) { newValue in
+                    applyAppearance(newValue)
+                }
+        }
+    }
+
+    private func applyAppearance(_ value: String) {
+        let style: UIUserInterfaceStyle
+        switch value {
+        case "light": style = .light
+        case "dark": style = .dark
+        default: style = .unspecified
+        }
+        for scene in UIApplication.shared.connectedScenes {
+            if let windowScene = scene as? UIWindowScene {
+                for window in windowScene.windows {
+                    window.overrideUserInterfaceStyle = style
+                }
+            }
         }
     }
 }
