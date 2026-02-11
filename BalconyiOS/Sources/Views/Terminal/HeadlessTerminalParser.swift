@@ -307,10 +307,16 @@ final class HeadlessTerminalParser: ObservableObject {
         return 0
     }
 
-    /// Find the bottom chrome block (input box + status bar) using a forward scan.
+    /// Find the bottom chrome block (input box + status bar) using a forward scan
+    /// over the bottom portion of the terminal.
     ///
     /// Scans for the LAST "box-drawing → ❯ → box-drawing" sandwich pattern.
     /// Everything from that opening box-drawing row to the end is chrome.
+    ///
+    /// The scan window is 30 rows (not 8) to handle tall input boxes when the
+    /// user types multi-line text. After finding ❯, continuation lines are
+    /// accepted regardless of whether they start with │ — the input box may
+    /// not render side borders on every wrapped line.
     private func detectChromeStart(allRows: [BufferLine]) -> Int {
         let count = allRows.count
 
@@ -326,15 +332,18 @@ final class HeadlessTerminalParser: ObservableObject {
         guard lastNonEmpty >= 0 else { return count }
         let contentEnd = lastNonEmpty + 1
 
+        // Only scan the bottom portion — the input box is always at the end.
+        let scanStart = max(0, contentEnd - 50)
+
         // Forward scan: find the LAST "box → ❯ → box" sandwich.
         var chromeBoundary = contentEnd
 
-        for i in 0..<contentEnd {
+        for i in scanStart..<contentEnd {
             let text = allRows[i].translateToString(trimRight: true)
             guard isChromeRow(text, minLength: 10) else { continue }
 
             // Found a box-drawing row. Look ahead for ❯ then another box-drawing row.
-            let scanEnd = min(i + 8, contentEnd)
+            let scanEnd = min(i + 30, contentEnd)
             var foundPrompt = false
 
             for j in (i + 1)..<scanEnd {
@@ -355,16 +364,12 @@ final class HeadlessTerminalParser: ObservableObject {
                     }
                 } else {
                     // Found ❯, now looking for the closing box-drawing row.
+                    // Accept any content between ❯ and the closing border —
+                    // multi-line input may not have │ side borders on every row.
                     if isChromeRow(nextText, minLength: 10) {
                         // Sandwich complete: box → ❯ → box. Record as chrome boundary.
                         chromeBoundary = i
                         break
-                    } else if nextTrimmed.isEmpty ||
-                              nextTrimmed.hasPrefix("│") ||
-                              nextTrimmed.hasPrefix("┃") {
-                        continue // box content or empty lines after ❯
-                    } else {
-                        break // non-box content after ❯ — not the input chrome
                     }
                 }
             }
