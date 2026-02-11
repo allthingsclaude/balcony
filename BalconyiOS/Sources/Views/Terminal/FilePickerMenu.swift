@@ -17,46 +17,58 @@ struct FilePickerMenu: View {
             EmptyView()
         } else {
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 0) {
+                LazyVStack(spacing: 0) {
                     ForEach(filteredFiles, id: \.self) { file in
                         Button {
                             BalconyTheme.hapticLight()
                             onSelect(file)
                         } label: {
-                            HStack(spacing: 8) {
-                                Image(systemName: iconForFile(file))
-                                    .font(.system(size: 12))
-                                    .foregroundStyle(BalconyTheme.textSecondary)
-                                    .frame(width: 20)
-
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(fileName(file))
-                                        .font(.system(size: 13, weight: .medium, design: .monospaced))
-                                        .foregroundStyle(BalconyTheme.textPrimary)
-                                        .lineLimit(1)
-
-                                    let dir = directoryPath(file)
-                                    if !dir.isEmpty {
-                                        Text(dir)
-                                            .font(.system(size: 11, design: .monospaced))
-                                            .foregroundStyle(BalconyTheme.textSecondary)
-                                            .lineLimit(1)
-                                    }
-                                }
-
-                                Spacer()
-                            }
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 8)
-                            .contentShape(Rectangle())
+                            fileRow(file)
                         }
                         .buttonStyle(.plain)
                     }
                 }
+                .padding(.vertical, 6)
             }
-            .frame(maxHeight: 220)
-            .modifier(LiquidGlassCapsule())
+            .frame(maxHeight: 280)
+            .background {
+                RoundedRectangle(cornerRadius: BalconyTheme.radiusMD)
+                    .fill(.ultraThinMaterial)
+                    .shadow(color: .black.opacity(0.15), radius: 16, y: -4)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: BalconyTheme.radiusMD))
         }
+    }
+
+    // MARK: - Row
+
+    private func fileRow(_ file: String) -> some View {
+        HStack(spacing: BalconyTheme.spacingSM) {
+            Image(systemName: iconForFile(file))
+                .font(.system(size: 14))
+                .foregroundStyle(BalconyTheme.accent)
+                .frame(width: 24, height: 24)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(fileName(file))
+                    .font(BalconyTheme.monoFont(14))
+                    .foregroundStyle(BalconyTheme.textPrimary)
+                    .lineLimit(1)
+
+                let dir = directoryPath(file)
+                if !dir.isEmpty {
+                    Text(dir)
+                        .font(BalconyTheme.bodyFont(12))
+                        .foregroundStyle(BalconyTheme.textSecondary)
+                        .lineLimit(1)
+                }
+            }
+
+            Spacer()
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .contentShape(Rectangle())
     }
 
     // MARK: - Helpers
