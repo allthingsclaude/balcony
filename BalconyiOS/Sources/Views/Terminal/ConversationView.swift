@@ -9,12 +9,20 @@ struct ConversationView: View {
     @State private var inputText = ""
     @State private var previousText = ""
     @State private var isNearBottom = true
+    @State private var showSpinner = false
+    @State private var showEmptyState = false
     @FocusState private var inputFocused: Bool
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            if lines.isEmpty {
+            if lines.isEmpty && showEmptyState {
                 ConversationEmptyView()
+                    .transition(.opacity.animation(.easeIn(duration: 0.5)))
+            } else if lines.isEmpty && showSpinner {
+                ProgressView()
+                    .tint(BalconyTheme.accent)
+                    .transition(.opacity.animation(.easeIn(duration: 0.2)))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
 
             // Conversation scroll area
@@ -131,6 +139,19 @@ struct ConversationView: View {
         }
         .background {
             BalconyTheme.background.ignoresSafeArea()
+        }
+        .task(id: lines.isEmpty) {
+            showSpinner = false
+            showEmptyState = false
+            guard lines.isEmpty else { return }
+            // Small spinner after 200ms
+            try? await Task.sleep(nanoseconds: 200_000_000)
+            guard !Task.isCancelled else { return }
+            showSpinner = true
+            // Full empty state after another 1800ms (2s total)
+            try? await Task.sleep(nanoseconds: 1_800_000_000)
+            guard !Task.isCancelled else { return }
+            showEmptyState = true
         }
     }
 
