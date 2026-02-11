@@ -135,6 +135,7 @@ actor WebSocketClient {
         let config = URLSessionConfiguration.default
         let urlSession = URLSession(configuration: config, delegate: tlsDelegate, delegateQueue: nil)
         let task = urlSession.webSocketTask(with: url)
+        task.maximumMessageSize = 16 * 1024 * 1024 // 16 MB (default 1 MB is too small for session history)
         task.resume()
 
         self.session = urlSession

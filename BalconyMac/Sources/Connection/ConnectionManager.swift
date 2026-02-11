@@ -151,11 +151,22 @@ final class ConnectionManager: ObservableObject {
                 logger.info("Client subscribed to PTY session \(sessionId)")
 
                 // Send buffered PTY history so iOS gets the full conversation.
+                // Chunk large buffers to avoid exceeding WebSocket message size limits.
                 if let buffer = await ptySessionManager.getSessionBuffer(sessionId), !buffer.isEmpty {
-                    let historyPayload = TerminalDataPayload(sessionId: sessionId, data: buffer)
-                    let historyMsg = try BalconyMessage.create(type: .terminalData, payload: historyPayload)
-                    await webSocketServer.send(historyMsg, to: client)
+                    let chunkSize = 512 * 1024 // 512 KB raw → ~750 KB after base64/JSON encoding
+                    var offset = 0
+                    while offset < buffer.count {
+                        let end = min(offset + chunkSize, buffer.count)
+                        let chunk = buffer[offset..<end]
+                        let historyPayload = TerminalDataPayload(sessionId: sessionId, data: Data(chunk))
+                        let historyMsg = try BalconyMessage.create(type: .terminalData, payload: historyPayload)
+                        await webSocketServer.send(historyMsg, to: client)
+                        offset = end
+                    }
                 }
+
+                // Send available slash commands for this session's project.
+                await sendSlashCommands(sessionId: sessionId, to: client)
             } catch {
                 logger.error("Failed to decode session subscribe: \(error.localizedDescription)")
             }
@@ -185,6 +196,25 @@ final class ConnectionManager: ObservableObject {
 
         default:
             logger.debug("Unhandled client message type: \(message.type.rawValue)")
+        }
+    }
+
+    // MARK: - Slash Commands
+
+    private func sendSlashCommands(sessionId: String, to client: ConnectedClient) async {
+        let sessions = await ptySessionManager.getActiveSessions()
+        guard let session = sessions.first(where: { $0.id == sessionId }) else { return }
+
+        let projectPath = session.projectPath
+        let commands = SlashCommandScanner.scan(projectPath: projectPath)
+
+        do {
+            let payload = SlashCommandsPayload(sessionId: sessionId, commands: commands)
+            let msg = try BalconyMessage.create(type: .slashCommands, payload: payload)
+            await webSocketServer.send(msg, to: client)
+            logger.info("Sent \(commands.count) slash commands for session \(sessionId)")
+        } catch {
+            logger.error("Failed to send slash commands: \(error.localizedDescription)")
         }
     }
 

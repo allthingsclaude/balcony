@@ -24,6 +24,7 @@ struct TerminalContainerView: View {
             } else {
                 ConversationView(
                     lines: sessionManager.conversationLines,
+                    slashCommands: sessionManager.slashCommands,
                     onSendInput: { text in
                         Task {
                             await sessionManager.sendInput(text, to: session)

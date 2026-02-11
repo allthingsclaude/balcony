@@ -1,9 +1,11 @@
 import SwiftUI
+import BalconyShared
 
 /// Renders parsed terminal conversation lines with a native input bar.
 /// Keystrokes are streamed live to the Mac terminal as the user types.
 struct ConversationView: View {
     let lines: [TerminalLine]
+    let slashCommands: [SlashCommandInfo]
     var onSendInput: ((String) -> Void)?
 
     @State private var inputText = ""
@@ -11,7 +13,19 @@ struct ConversationView: View {
     @State private var isNearBottom = true
     @State private var showSpinner = false
     @State private var showEmptyState = false
+    @State private var showSlashMenu = false
     @FocusState private var inputFocused: Bool
+
+    /// Find the last "/" in the input and return the text after it as the filter query.
+    /// Returns nil if no "/" is present (meaning the menu should be hidden).
+    private var slashQuery: String? {
+        guard let slashIndex = inputText.lastIndex(of: "/") else { return nil }
+        let afterSlash = inputText[inputText.index(after: slashIndex)...]
+        // Only treat it as a command query if there's no space after the slash yet
+        // (once a space appears, the user is done picking a command).
+        if afterSlash.contains(" ") { return nil }
+        return String(afterSlash)
+    }
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -109,8 +123,33 @@ struct ConversationView: View {
                 .offset(y: 100)
                 .allowsHitTesting(false)
 
+                // Slash command menu — floats above the input bar
+                if showSlashMenu, !slashCommands.isEmpty {
+                    SlashCommandMenu(
+                        commands: slashCommands,
+                        query: slashQuery ?? ""
+                    ) { command in
+                        selectSlashCommand(command)
+                    }
+                    .padding(.horizontal, BalconyTheme.spacingLG)
+                    .padding(.bottom, BalconyTheme.spacingSM)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+
                 // Input bar — glass pill
                 HStack(spacing: BalconyTheme.spacingSM) {
+                    // Slash command button — inserts "/" to trigger the menu
+                    Button {
+                        BalconyTheme.hapticLight()
+                        inputText += "/"
+                    } label: {
+                        Text("/")
+                            .font(.system(size: 18, weight: .semibold, design: .monospaced))
+                            .foregroundStyle(showSlashMenu ? BalconyTheme.accent : BalconyTheme.textSecondary)
+                            .frame(width: 30, height: 30)
+                    }
+                    .padding(.leading, 6)
+
                     TextField("Type a message...", text: $inputText)
                         .textFieldStyle(.plain)
                         .font(BalconyTheme.monoFont(15))
@@ -119,9 +158,12 @@ struct ConversationView: View {
                         .onChange(of: inputText) { newValue in
                             sendLiveKeystrokes(from: previousText, to: newValue)
                             previousText = newValue
+                            // Show/hide slash menu when "/" is present and no space after it yet
+                            withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                                showSlashMenu = slashQuery != nil
+                            }
                         }
                         .padding(.vertical, 12)
-                        .padding(.horizontal, BalconyTheme.spacingMD)
 
                     Button(action: submitInput) {
                         Image(systemName: "arrow.up.circle.fill")
@@ -199,7 +241,34 @@ struct ConversationView: View {
         // Set previousText first so onChange doesn't send backspaces for the clear.
         previousText = ""
         inputText = ""
+        withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+            showSlashMenu = false
+        }
     }
+
+    /// Select a command from the slash menu: replace the "/partial" with "/command ".
+    private func selectSlashCommand(_ command: SlashCommandInfo) {
+        guard let slashIndex = inputText.lastIndex(of: "/") else { return }
+
+        // Erase everything from the "/" onward in the terminal
+        let suffixToErase = inputText[slashIndex...]
+        onSendInput?(String(repeating: "\u{7f}", count: suffixToErase.count))
+
+        // Send the full command name + trailing space
+        let replacement = command.displayName + " "
+        onSendInput?(replacement)
+
+        // Update local text: keep everything before "/" and append the command + space
+        let prefix = String(inputText[..<slashIndex])
+        let newText = prefix + replacement
+        previousText = newText
+        inputText = newText
+
+        withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+            showSlashMenu = false
+        }
+    }
+
     // MARK: - Table Grouping
 
     private enum ConversationBlock {
@@ -483,7 +552,15 @@ private struct ConversationEmptyView: View {
         ], isWrapped: false),
     ]
 
-    ConversationView(lines: sampleLines)
-        .background(BalconyTheme.background)
+    ConversationView(
+        lines: sampleLines,
+        slashCommands: [
+            .init(name: "help", description: "Get help with Claude Code", source: .builtIn),
+            .init(name: "compact", description: "Compact conversation with summary", source: .builtIn),
+            .init(name: "debug", description: "Investigate and diagnose issues", source: .global, argumentHint: "[error or file]"),
+            .init(name: "test", description: "Run tests with analysis", source: .project),
+        ]
+    )
+    .background(BalconyTheme.background)
 }
 #endif

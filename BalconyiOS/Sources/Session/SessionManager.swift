@@ -14,6 +14,9 @@ final class SessionManager: ObservableObject {
     /// Parsed conversation lines from the headless terminal parser.
     @Published var conversationLines: [TerminalLine] = []
 
+    /// Slash commands available for the active session.
+    @Published var slashCommands: [SlashCommandInfo] = []
+
     private var parser: HeadlessTerminalParser?
     private var parserCancellable: AnyCancellable?
 
@@ -51,6 +54,7 @@ final class SessionManager: ObservableObject {
         logger.info("Subscribing to session: \(session.id)")
         activeSession = session
         conversationLines = []
+        slashCommands = []
 
         let cols = Int(session.cols ?? 80)
         let rows = Int(session.rows ?? 24)
@@ -114,6 +118,8 @@ final class SessionManager: ObservableObject {
             handleSessionUpdate(message)
         case .terminalData:
             handleTerminalData(message)
+        case .slashCommands:
+            handleSlashCommands(message)
         default:
             break
         }
@@ -154,6 +160,17 @@ final class SessionManager: ObservableObject {
             logger.debug("Terminal data for \(payload.sessionId): \(payload.data.count) bytes")
         } catch {
             logger.error("Failed to decode terminal data: \(error.localizedDescription)")
+        }
+    }
+
+    private func handleSlashCommands(_ message: BalconyMessage) {
+        do {
+            let payload = try message.decodePayload(SlashCommandsPayload.self)
+            guard payload.sessionId == activeSession?.id else { return }
+            slashCommands = payload.commands
+            logger.info("Received \(payload.commands.count) slash commands")
+        } catch {
+            logger.error("Failed to decode slash commands: \(error.localizedDescription)")
         }
     }
 }

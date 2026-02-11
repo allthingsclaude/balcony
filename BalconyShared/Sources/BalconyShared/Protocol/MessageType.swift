@@ -20,6 +20,9 @@ public enum MessageType: String, Codable, Sendable {
     case terminalResize
     case userInput
 
+    // Slash commands
+    case slashCommands
+
     // Presence
     case awayStatusUpdate
 }
