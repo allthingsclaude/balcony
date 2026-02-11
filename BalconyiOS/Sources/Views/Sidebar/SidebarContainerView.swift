@@ -136,6 +136,7 @@ struct SidebarContainerView: View {
                             ConversationView(
                                 lines: sessionManager.conversationLines,
                                 slashCommands: sessionManager.slashCommands,
+                                projectFiles: sessionManager.projectFiles,
                                 activePrompt: sessionManager.activePrompt,
                                 onSendInput: { text in
                                     Task {
@@ -158,7 +159,12 @@ struct SidebarContainerView: View {
                             sidebarButton
                         }
                         ToolbarItem(placement: .navigationBarTrailing) {
-                            StatusBadge(status: sessionManager.activeSession?.status ?? session.status, compact: true)
+                            EscButton {
+                                Task {
+                                    await sessionManager.sendInput("\u{1B}", to: session)
+                                }
+                                UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                            }
                         }
                     }
                 } else {

@@ -6,6 +6,7 @@ import BalconyShared
 struct ConversationView: View {
     let lines: [TerminalLine]
     let slashCommands: [SlashCommandInfo]
+    let projectFiles: [String]
     let activePrompt: InteractivePrompt?
     var onSendInput: ((String) -> Void)?
 
@@ -14,8 +15,17 @@ struct ConversationView: View {
     @State private var isNearBottom = true
     @State private var showEmptyState = false
     @State private var showSlashMenu = false
+    @State private var showFilePicker = false
+    @State private var showBashMode = false
+    @State private var showBackgroundMode = false
     @State private var promptJustAnswered = false
     @FocusState private var inputFocused: Bool
+
+    /// Whether the input starts with "!" (bash mode prefix).
+    private var isBashMode: Bool { inputText.hasPrefix("!") }
+
+    /// Whether the input starts with "&" (background mode prefix).
+    private var isBackgroundMode: Bool { inputText.hasPrefix("&") }
 
     /// Find the last "/" in the input and return the text after it as the filter query.
     /// Returns nil if no "/" is present (meaning the menu should be hidden).
@@ -26,6 +36,15 @@ struct ConversationView: View {
         // (once a space appears, the user is done picking a command).
         if afterSlash.contains(" ") { return nil }
         return String(afterSlash)
+    }
+
+    /// Find the last "@" in the input and return the text after it as the file filter query.
+    /// Returns nil if no "@" is present (meaning the file picker should be hidden).
+    private var atQuery: String? {
+        guard let atIndex = inputText.lastIndex(of: "@") else { return nil }
+        let afterAt = inputText[inputText.index(after: atIndex)...]
+        if afterAt.contains(" ") { return nil }
+        return String(afterAt)
     }
 
     var body: some View {
@@ -119,12 +138,23 @@ struct ConversationView: View {
                 .offset(y: 100)
                 .allowsHitTesting(false)
 
-                // Interactive prompt overlay — takes priority over slash menu
+                // Interactive prompt overlay — takes priority over slash/file menus
                 if let prompt = activePrompt, !promptJustAnswered {
                     PromptOverlayView(prompt: prompt) { input in
                         promptJustAnswered = true
                         onSendInput?(input)
                     }
+                    .padding(.bottom, BalconyTheme.spacingSM)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                } else if showFilePicker, !projectFiles.isEmpty {
+                    // File picker menu — floats above the input bar
+                    FilePickerMenu(
+                        files: projectFiles,
+                        query: atQuery ?? ""
+                    ) { file in
+                        selectFile(file)
+                    }
+                    .padding(.horizontal, BalconyTheme.spacingLG)
                     .padding(.bottom, BalconyTheme.spacingSM)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                 } else if showSlashMenu, !slashCommands.isEmpty {
@@ -138,6 +168,28 @@ struct ConversationView: View {
                     .padding(.horizontal, BalconyTheme.spacingLG)
                     .padding(.bottom, BalconyTheme.spacingSM)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+
+                // Mode badge — appears above input bar when ! or & is typed
+                if showBashMode || showBackgroundMode {
+                    HStack(spacing: 6) {
+                        Image(systemName: showBashMode ? "terminal" : "moon.fill")
+                            .font(.system(size: 10, weight: .semibold))
+                        Text(showBashMode ? "Bash Mode" : "Background Mode")
+                            .font(.system(size: 11, weight: .semibold, design: .rounded))
+                    }
+                    .foregroundStyle(showBashMode ? BalconyTheme.accent : BalconyTheme.textSecondary.opacity(0.5))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(
+                        Capsule().fill(
+                            showBashMode
+                                ? BalconyTheme.accent.opacity(0.12)
+                                : BalconyTheme.textSecondary.opacity(0.12)
+                        )
+                    )
+                    .padding(.bottom, 10)
+                    .transition(.offset(y: 10).combined(with: .opacity))
                 }
 
                 // Input bar — glass pill
@@ -162,9 +214,11 @@ struct ConversationView: View {
                         .onChange(of: inputText) { newValue in
                             sendLiveKeystrokes(from: previousText, to: newValue)
                             previousText = newValue
-                            // Show/hide slash menu when "/" is present and no space after it yet
                             withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
-                                showSlashMenu = slashQuery != nil
+                                showSlashMenu = slashQuery != nil && atQuery == nil
+                                showFilePicker = atQuery != nil
+                                showBashMode = isBashMode
+                                showBackgroundMode = isBackgroundMode
                             }
                         }
                         .padding(.vertical, 12)
@@ -178,6 +232,14 @@ struct ConversationView: View {
                     .padding(.trailing, 6)
                 }
                 .modifier(LiquidGlassCapsule())
+                .overlay {
+                    // Animated orange glow with shimmer when in bash mode (! prefix)
+                    if showBashMode {
+                        BashModeGlow()
+                            .transition(.opacity)
+                    }
+                }
+                .opacity(showBackgroundMode ? 0.7 : 1.0)
                 .shadow(color: .black.opacity(0.15), radius: 12, y: 4)
                 .padding(.horizontal, BalconyTheme.spacingLG)
                 .padding(.bottom, BalconyTheme.spacingSM)
@@ -246,6 +308,9 @@ struct ConversationView: View {
         inputText = ""
         withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
             showSlashMenu = false
+            showFilePicker = false
+            showBashMode = false
+            showBackgroundMode = false
         }
     }
 
@@ -269,6 +334,30 @@ struct ConversationView: View {
 
         withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
             showSlashMenu = false
+        }
+    }
+
+    /// Select a file from the picker: replace "@partial" with "@filepath".
+    private func selectFile(_ file: String) {
+        guard let atIndex = inputText.lastIndex(of: "@") else { return }
+
+        // Erase everything after the "@" in the terminal (keep the @ itself)
+        let afterAt = inputText[inputText.index(after: atIndex)...]
+        if !afterAt.isEmpty {
+            onSendInput?(String(repeating: "\u{7f}", count: afterAt.count))
+        }
+
+        // Send the full file path (@ is already in the terminal)
+        onSendInput?(file + " ")
+
+        // Update local text: keep everything up to and including "@", append file path + space
+        let prefix = String(inputText[...atIndex])
+        let newText = prefix + file + " "
+        previousText = newText
+        inputText = newText
+
+        withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+            showFilePicker = false
         }
     }
 
@@ -478,6 +567,39 @@ struct TerminalLineView: View {
     }
 }
 
+// MARK: - Bash Mode Glow
+
+/// Animated orange glow with a shimmer that sweeps around the capsule border.
+private struct BashModeGlow: View {
+    @State private var rotation: Double = 0
+
+    var body: some View {
+        let accent = BalconyTheme.accent
+
+        Capsule()
+            .strokeBorder(
+                AngularGradient(
+                    stops: [
+                        .init(color: accent.opacity(0.15), location: 0.0),
+                        .init(color: accent.opacity(0.15), location: 0.35),
+                        .init(color: accent, location: 0.5),
+                        .init(color: accent.opacity(0.15), location: 0.65),
+                        .init(color: accent.opacity(0.15), location: 1.0),
+                    ],
+                    center: .center,
+                    angle: .degrees(rotation)
+                ),
+                lineWidth: 2
+            )
+            .shadow(color: accent.opacity(0.4), radius: 6)
+            .onAppear {
+                withAnimation(.linear(duration: 2.0).repeatForever(autoreverses: false)) {
+                    rotation = 360
+                }
+            }
+    }
+}
+
 // MARK: - Empty State
 
 private struct ConversationEmptyView: View {
@@ -553,6 +675,7 @@ private struct ConversationEmptyView: View {
             .init(name: "debug", description: "Investigate and diagnose issues", source: .global, argumentHint: "[error or file]"),
             .init(name: "test", description: "Run tests with analysis", source: .project),
         ],
+        projectFiles: ["src/auth/login.ts", "src/components/Button.tsx", "package.json"],
         activePrompt: nil
     )
     .background(BalconyTheme.background)

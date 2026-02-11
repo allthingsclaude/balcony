@@ -23,6 +23,9 @@ public enum MessageType: String, Codable, Sendable {
     // Slash commands
     case slashCommands
 
+    // File list for @ picker
+    case fileList
+
     // Presence
     case awayStatusUpdate
 }

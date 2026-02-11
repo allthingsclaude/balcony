@@ -1,6 +1,7 @@
 import Foundation
 import SwiftTerm
 import Combine
+import os
 
 /// Parses raw PTY bytes using SwiftTerm's headless `Terminal` and extracts
 /// conversation lines with styling for the SwiftUI renderer.
@@ -13,6 +14,7 @@ final class HeadlessTerminalParser: ObservableObject {
     @Published var conversationLines: [TerminalLine] = []
     @Published var activePrompt: InteractivePrompt?
 
+    private let debugLog = Logger(subsystem: "com.balcony.ios", category: "ParserDebug")
     private let terminal: Terminal
     private let delegate: MinimalTerminalDelegate
 
@@ -319,6 +321,39 @@ final class HeadlessTerminalParser: ObservableObject {
                 return i
             }
         }
+
+        // No conversation markers — empty thread. Dump buffer for debugging.
+        debugLog.warning("detectHeaderEnd: no markers. rows=\(allRows.count, privacy: .public)")
+        for i in 0..<min(allRows.count, scanLimit) {
+            let text = allRows[i].translateToString(trimRight: true)
+            let trimmed = text.trimmingCharacters(in: .whitespaces)
+            if !trimmed.isEmpty {
+                // Log hex of first 4 chars to see invisible characters.
+                let hexPrefix = trimmed.prefix(20).unicodeScalars.map { String(format: "%04X", $0.value) }.joined(separator: " ")
+                debugLog.warning("  [\(i, privacy: .public)] len=\(trimmed.count, privacy: .public) hex=\(hexPrefix, privacy: .public) text=\(trimmed.prefix(60), privacy: .public)")
+            }
+        }
+
+        // Look for "bash mode" or "to background" in ANY row (no first-char filter).
+        var lastKeyword = -1
+        for i in 0..<scanLimit {
+            let text = allRows[i].translateToString(trimRight: true)
+            let lower = text.lowercased()
+            if lower.contains("bash mode") || lower.contains("to background") {
+                lastKeyword = i
+                debugLog.warning("detectHeaderEnd: MATCH row \(i, privacy: .public)")
+            }
+        }
+
+        if lastKeyword >= 0 {
+            // No conversation markers + hint keyword found = empty thread.
+            // Skip everything — the guard (headerEnd < chromeStart) will
+            // produce empty output and the empty state will show.
+            debugLog.warning("detectHeaderEnd: keyword found, returning allRows.count \(allRows.count, privacy: .public)")
+            return allRows.count
+        }
+
+        debugLog.warning("detectHeaderEnd: no keyword found, returning 0")
         return 0
     }
 
@@ -390,7 +425,32 @@ final class HeadlessTerminalParser: ObservableObject {
             }
         }
 
-        return chromeBoundary
+        // Absorb the mode hint block that sits just above the input chrome.
+        // Walk backward from chromeBoundary, absorbing:
+        //   - blank lines
+        //   - lines starting with ! or & (hint/tip lines)
+        //   - separator lines (mostly non-alphanumeric)
+        // Then check if the Claude Code header banner is right above.
+        var adjusted = chromeBoundary
+        var k = adjusted - 1
+        while k >= 0 {
+            let text = allRows[k].translateToString(trimRight: true)
+            let trimmed = text.trimmingCharacters(in: .whitespaces)
+
+            if trimmed.isEmpty {
+                adjusted = k; k -= 1; continue
+            }
+            if let ch = trimmed.first, (ch == "!" || ch == "&"), trimmed.count < 60 {
+                adjusted = k; k -= 1; continue
+            }
+            let symbolCount = trimmed.filter { !$0.isLetter && !$0.isNumber && !$0.isWhitespace }.count
+            if trimmed.count > 5 && symbolCount * 2 > trimmed.count {
+                adjusted = k; k -= 1; continue
+            }
+            break
+        }
+
+        return adjusted
     }
 
     /// Check if a row consists mostly of box-drawing characters (─ U+2500 and similar).

@@ -17,6 +17,9 @@ final class SessionManager: ObservableObject {
     /// Slash commands available for the active session.
     @Published var slashCommands: [SlashCommandInfo] = []
 
+    /// Project files for the active session (@ file picker).
+    @Published var projectFiles: [String] = []
+
     /// Detected interactive prompt (permission or multi-option) from terminal output.
     @Published var activePrompt: InteractivePrompt?
 
@@ -59,6 +62,7 @@ final class SessionManager: ObservableObject {
         activeSession = session
         conversationLines = []
         slashCommands = []
+        projectFiles = []
 
         let cols = Int(session.cols ?? 80)
         let rows = Int(session.rows ?? 24)
@@ -93,6 +97,7 @@ final class SessionManager: ObservableObject {
             parser = nil
             conversationLines = []
             activePrompt = nil
+            projectFiles = []
         }
 
         guard let connectionManager else { return }
@@ -130,6 +135,8 @@ final class SessionManager: ObservableObject {
             handleTerminalData(message)
         case .slashCommands:
             handleSlashCommands(message)
+        case .fileList:
+            handleFileList(message)
         default:
             break
         }
@@ -181,6 +188,17 @@ final class SessionManager: ObservableObject {
             logger.info("Received \(payload.commands.count) slash commands")
         } catch {
             logger.error("Failed to decode slash commands: \(error.localizedDescription)")
+        }
+    }
+
+    private func handleFileList(_ message: BalconyMessage) {
+        do {
+            let payload = try message.decodePayload(FileListPayload.self)
+            guard payload.sessionId == activeSession?.id else { return }
+            projectFiles = payload.files
+            logger.info("Received \(payload.files.count) project files")
+        } catch {
+            logger.error("Failed to decode file list: \(error.localizedDescription)")
         }
     }
 }

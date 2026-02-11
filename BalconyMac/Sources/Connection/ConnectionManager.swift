@@ -167,6 +167,9 @@ final class ConnectionManager: ObservableObject {
 
                 // Send available slash commands for this session's project.
                 await sendSlashCommands(sessionId: sessionId, to: client)
+
+                // Send project file list for the @ file picker.
+                await sendFileList(sessionId: sessionId, to: client)
             } catch {
                 logger.error("Failed to decode session subscribe: \(error.localizedDescription)")
             }
@@ -215,6 +218,23 @@ final class ConnectionManager: ObservableObject {
             logger.info("Sent \(commands.count) slash commands for session \(sessionId)")
         } catch {
             logger.error("Failed to send slash commands: \(error.localizedDescription)")
+        }
+    }
+
+    // MARK: - File List
+
+    private func sendFileList(sessionId: String, to client: ConnectedClient) async {
+        let sessions = await ptySessionManager.getActiveSessions()
+        guard let session = sessions.first(where: { $0.id == sessionId }) else { return }
+
+        let files = ProjectFileScanner.scan(projectPath: session.projectPath)
+        do {
+            let payload = FileListPayload(sessionId: sessionId, files: files)
+            let msg = try BalconyMessage.create(type: .fileList, payload: payload)
+            await webSocketServer.send(msg, to: client)
+            logger.info("Sent \(files.count) project files for session \(sessionId)")
+        } catch {
+            logger.error("Failed to send file list: \(error.localizedDescription)")
         }
     }
 
