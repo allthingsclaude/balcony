@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @AppStorage("appearance") private var appearance: String = "system"
+    @AppStorage("appIcon") private var appIcon: String = "light"
     @AppStorage("notify.sessionEvents") private var notifySessionEvents = true
     @AppStorage("notify.toolApprovals") private var notifyToolApprovals = true
     @AppStorage("notify.sessionComplete") private var notifySessionComplete = true
@@ -19,6 +20,10 @@ struct SettingsView: View {
                 Section("Appearance") {
                     Picker("Theme", selection: $appearance) {
                         Text("System").tag("system")
+                        Text("Light").tag("light")
+                        Text("Dark").tag("dark")
+                    }
+                    Picker("App Icon", selection: $appIcon) {
                         Text("Light").tag("light")
                         Text("Dark").tag("dark")
                     }

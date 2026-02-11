@@ -16,10 +16,14 @@
 		1EE8C4879DF09145406EDB96 /* DeviceManagementView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4241CE63445459C9D9FD3C36 /* DeviceManagementView.swift */; };
 		2496CBE03C1E577AD24E7496 /* NIO in Frameworks */ = {isa = PBXBuildFile; productRef = E76BB04E002C60E874E1993D /* NIO */; };
 		2D59B119C66E821CA94AE3BC /* ModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C02C757F4FB8D345A6EFEF9 /* ModelTests.swift */; };
+		3261E64ED66B84A2877F1B55 /* AppIcon-Light@3x.png in Resources */ = {isa = PBXBuildFile; fileRef = BCD629D558A0EB0C9FFE3086 /* AppIcon-Light@3x.png */; };
 		341C959AD5EDFD51716EB1D7 /* AwayDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BEB54F3C74377613045762F /* AwayDetector.swift */; };
+		370911902C6A736936F626CC /* AppIcon-Dark@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = DBCB78142A84C2BC6966A788 /* AppIcon-Dark@2x.png */; };
 		39BA738A247CAB3676A4C7C8 /* BalconyiOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0D9E9C67B880DC32F63487B /* BalconyiOSApp.swift */; };
+		3C3D008A990E7C943ED629EA /* AppIcon-Light@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = CCD6AA2F762D1F104A03EE29 /* AppIcon-Light@2x.png */; };
 		3D79F3D2AC1738237F5FF7CB /* SessionListModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD4F94005F234CC1764797BF /* SessionListModel.swift */; };
 		421C8CC638EF49CDCB2C843F /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FF246A4A3131A5AB9E40961A /* IOKit.framework */; };
+		4E3485D895FFF52BC23DB649 /* AppIcon-Dark@3x.png in Resources */ = {isa = PBXBuildFile; fileRef = 2FB30D19FCA8885324E1C3F2 /* AppIcon-Dark@3x.png */; };
 		52EA4D3614E7CD7C01FAFCEA /* BLECentral.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63C417099683EF822F4B30DF /* BLECentral.swift */; };
 		54B68596DB033B25770224FE /* BonjourBrowser.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7DE45B3FC97C8DC7FADEB16 /* BonjourBrowser.swift */; };
 		61B35E1445E28DE6B57C9447 /* ConversationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50C657DCB9087A3FB0B1E315 /* ConversationView.swift */; };
@@ -82,6 +86,7 @@
 		29C23B5584D65228ECB8AF8D /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		2E860783542070F02AED00B7 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		2EAEA92A0B879C8CC2EF8F97 /* MessageProtocolTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageProtocolTests.swift; sourceTree = "<group>"; };
+		2FB30D19FCA8885324E1C3F2 /* AppIcon-Dark@3x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon-Dark@3x.png"; sourceTree = "<group>"; };
 		30D8A1BC1C4516A364BFA87F /* WebSocketClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSocketClient.swift; sourceTree = "<group>"; };
 		3123259349761E36C5D1B239 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		33367B0D382AADED54836B8B /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
@@ -112,14 +117,17 @@
 		A6084BF828A4001E3731C509 /* IOBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IOBridge.swift; sourceTree = "<group>"; };
 		A876093B09C95BC6B439A4EC /* PTYSessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PTYSessionManager.swift; sourceTree = "<group>"; };
 		B0D9E9C67B880DC32F63487B /* BalconyiOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BalconyiOSApp.swift; sourceTree = "<group>"; };
+		BCD629D558A0EB0C9FFE3086 /* AppIcon-Light@3x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon-Light@3x.png"; sourceTree = "<group>"; };
 		BD4F94005F234CC1764797BF /* SessionListModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionListModel.swift; sourceTree = "<group>"; };
 		C4C999A09628EB4D18E4FB4E /* QRCodePairingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRCodePairingView.swift; sourceTree = "<group>"; };
 		C7DE45B3FC97C8DC7FADEB16 /* BonjourBrowser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BonjourBrowser.swift; sourceTree = "<group>"; };
+		CCD6AA2F762D1F104A03EE29 /* AppIcon-Light@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon-Light@2x.png"; sourceTree = "<group>"; };
 		D68E9482CD96A6EAD061F6F8 /* ANSIColorMapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ANSIColorMapper.swift; sourceTree = "<group>"; };
 		D75F5677A18F7C8240B9CD91 /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
 		D952D21F5F35A1506E4A4D08 /* CryptoManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CryptoManagerTests.swift; sourceTree = "<group>"; };
 		D95B51D498D493A07AD8D145 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		DAE1288EF0CA05A15B0E30FF /* ConnectionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionManager.swift; sourceTree = "<group>"; };
+		DBCB78142A84C2BC6966A788 /* AppIcon-Dark@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon-Dark@2x.png"; sourceTree = "<group>"; };
 		DEFB8FEA08F6458F0103A0F7 /* BonjourAdvertiser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BonjourAdvertiser.swift; sourceTree = "<group>"; };
 		DF662BA7926B1B03E10B19B6 /* BalconyTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BalconyTheme.swift; sourceTree = "<group>"; };
 		E0A018E81D07F8F804A5CC03 /* Balcony.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Balcony.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -287,6 +295,7 @@
 		5259AE92D43F29CEC8C26212 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				DCA6BF545418A547B3FCD2B6 /* AlternateIcons */,
 				3123259349761E36C5D1B239 /* Assets.xcassets */,
 			);
 			path = Resources;
@@ -460,6 +469,17 @@
 			path = Resources;
 			sourceTree = "<group>";
 		};
+		DCA6BF545418A547B3FCD2B6 /* AlternateIcons */ = {
+			isa = PBXGroup;
+			children = (
+				DBCB78142A84C2BC6966A788 /* AppIcon-Dark@2x.png */,
+				2FB30D19FCA8885324E1C3F2 /* AppIcon-Dark@3x.png */,
+				CCD6AA2F762D1F104A03EE29 /* AppIcon-Light@2x.png */,
+				BCD629D558A0EB0C9FFE3086 /* AppIcon-Light@3x.png */,
+			);
+			path = AlternateIcons;
+			sourceTree = "<group>";
+		};
 		E8C3BF787DFDC63397201A4A /* Connection */ = {
 			isa = PBXGroup;
 			children = (
@@ -616,6 +636,10 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				370911902C6A736936F626CC /* AppIcon-Dark@2x.png in Resources */,
+				4E3485D895FFF52BC23DB649 /* AppIcon-Dark@3x.png in Resources */,
+				3C3D008A990E7C943ED629EA /* AppIcon-Light@2x.png in Resources */,
+				3261E64ED66B84A2877F1B55 /* AppIcon-Light@3x.png in Resources */,
 				FA3AE27251B5AA926F8955B1 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

@@ -6,6 +6,7 @@ struct BalconyiOSApp: App {
     @StateObject private var connectionManager = ConnectionManager()
     @StateObject private var sessionManager = SessionManager()
     @AppStorage("appearance") private var appearance: String = "system"
+    @AppStorage("appIcon") private var appIcon: String = "light"
 
     var body: some Scene {
         WindowGroup {
@@ -16,9 +17,13 @@ struct BalconyiOSApp: App {
                 .onAppear {
                     sessionManager.configure(connectionManager: connectionManager)
                     applyAppearance(appearance)
+                    applyIcon(appIcon)
                 }
                 .onChange(of: appearance) { newValue in
                     applyAppearance(newValue)
+                }
+                .onChange(of: appIcon) { newValue in
+                    applyIcon(newValue)
                 }
         }
     }
@@ -36,6 +41,13 @@ struct BalconyiOSApp: App {
                     window.overrideUserInterfaceStyle = style
                 }
             }
+        }
+    }
+
+    private func applyIcon(_ value: String) {
+        let iconName = value == "dark" ? "AppIcon-Dark" : "AppIcon-Light"
+        if UIApplication.shared.alternateIconName != iconName {
+            UIApplication.shared.setAlternateIconName(iconName)
         }
     }
 }
