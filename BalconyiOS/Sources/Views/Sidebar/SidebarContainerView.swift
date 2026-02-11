@@ -136,6 +136,7 @@ struct SidebarContainerView: View {
                             ConversationView(
                                 lines: sessionManager.conversationLines,
                                 slashCommands: sessionManager.slashCommands,
+                                activePrompt: sessionManager.activePrompt,
                                 onSendInput: { text in
                                     Task {
                                         await sessionManager.sendInput(text, to: session)

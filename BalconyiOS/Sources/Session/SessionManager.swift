@@ -17,8 +17,12 @@ final class SessionManager: ObservableObject {
     /// Slash commands available for the active session.
     @Published var slashCommands: [SlashCommandInfo] = []
 
+    /// Detected interactive prompt (permission or multi-option) from terminal output.
+    @Published var activePrompt: InteractivePrompt?
+
     private var parser: HeadlessTerminalParser?
     private var parserCancellable: AnyCancellable?
+    private var promptCancellable: AnyCancellable?
 
     private weak var connectionManager: ConnectionManager?
 
@@ -63,6 +67,9 @@ final class SessionManager: ObservableObject {
         parserCancellable = newParser.$conversationLines
             .receive(on: DispatchQueue.main)
             .assign(to: \.conversationLines, on: self)
+        promptCancellable = newParser.$activePrompt
+            .receive(on: DispatchQueue.main)
+            .assign(to: \.activePrompt, on: self)
 
         guard let connectionManager else { return }
         do {
@@ -81,8 +88,11 @@ final class SessionManager: ObservableObject {
             activeSession = nil
             parserCancellable?.cancel()
             parserCancellable = nil
+            promptCancellable?.cancel()
+            promptCancellable = nil
             parser = nil
             conversationLines = []
+            activePrompt = nil
         }
 
         guard let connectionManager else { return }

@@ -11,6 +11,7 @@ import Combine
 @MainActor
 final class HeadlessTerminalParser: ObservableObject {
     @Published var conversationLines: [TerminalLine] = []
+    @Published var activePrompt: InteractivePrompt?
 
     private let terminal: Terminal
     private let delegate: MinimalTerminalDelegate
@@ -278,6 +279,20 @@ final class HeadlessTerminalParser: ObservableObject {
               (last.segments.count == 1 && last.segments[0].text.trimmingCharacters(in: .whitespaces).isEmpty) {
             lines.removeLast()
             if lines.isEmpty { break }
+        }
+
+        if let result = PromptDetector.detect(in: lines) {
+            activePrompt = result.prompt
+            // Strip the prompt lines — they're shown natively via PromptOverlayView.
+            lines = Array(lines.prefix(result.stripFromIndex))
+            // Trim trailing empty lines left after stripping.
+            while let last = lines.last, last.segments.isEmpty ||
+                  (last.segments.count == 1 && last.segments[0].text.trimmingCharacters(in: .whitespaces).isEmpty) {
+                lines.removeLast()
+                if lines.isEmpty { break }
+            }
+        } else {
+            activePrompt = nil
         }
 
         conversationLines = lines

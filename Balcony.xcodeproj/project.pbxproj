@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		02F56943AC8EE99383270589 /* LiquidGlassCapsule.swift in Sources */ = {isa = PBXBuildFile; fileRef = A218A4C58E7F312AB70DC57F /* LiquidGlassCapsule.swift */; };
 		05F879B73DA8046A8D8E49A4 /* StatusBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C4666F5F2F672B0D7E53B59 /* StatusBadge.swift */; };
+		0C8B98F96BE57AE5DFEDE5D1 /* PromptDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40C32C7301A46B9456C5FCCC /* PromptDetector.swift */; };
 		0FE1BFBC4DC2490FA25064E4 /* SlashCommandMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF14263968FE5E9B5664835E /* SlashCommandMenu.swift */; };
 		0FE6915E324A2EA05EEEC639 /* SessionRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A153BA8C47D076D9BD988A08 /* SessionRowView.swift */; };
 		15406D80C0095BDC371DCAF3 /* SessionSidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04F411A79CF7264F289B6302 /* SessionSidebarView.swift */; };
@@ -42,12 +43,14 @@
 		86DFC1B0DC3BB380FFC5E540 /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D75F5677A18F7C8240B9CD91 /* AVFoundation.framework */; };
 		872CFE876EF560CB82D75436 /* SidebarContainerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F5F61E1AF4657B0B7E98424 /* SidebarContainerView.swift */; };
 		884796C6E8749F597FDFC982 /* BLEPeripheral.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2567EAF959E0FF8C09874F18 /* BLEPeripheral.swift */; };
+		8A23CFEEC72916867B22D67E /* PromptOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0737DE007E493E133BF36ACB /* PromptOverlayView.swift */; };
 		8ACEB2F730210C579A95CFEA /* SessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 160D61822B93FBE67A1C20C2 /* SessionManager.swift */; };
 		9117D5D329E9C5CB6A6E011A /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E860783542070F02AED00B7 /* SettingsView.swift */; };
 		96F2B3247DD15F44DDB1246D /* ConnectionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 783D378FB676157E04C99FC9 /* ConnectionManager.swift */; };
 		98D09ECF7A45BB7ED30B1C5F /* HeadlessTerminalParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37B5F7A0DDF8C4003E6BD6B9 /* HeadlessTerminalParser.swift */; };
 		992E8F57143B3830BA04B39D /* MessageProtocolTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EAEA92A0B879C8CC2EF8F97 /* MessageProtocolTests.swift */; };
 		9D859BDA07E92C27020D71C8 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33367B0D382AADED54836B8B /* main.swift */; };
+		9ED3CD0EAB5DEF23CC454A88 /* InteractivePrompt.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6DDE06A45D5DB609E1918B25 /* InteractivePrompt.swift */; };
 		9F156723BD078A153B7FEED7 /* ANSIColorMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = D68E9482CD96A6EAD061F6F8 /* ANSIColorMapper.swift */; };
 		A2C5F308DF137DEC43893871 /* EncryptedPipelineIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA00F9F09E1361C6366E02A8 /* EncryptedPipelineIntegrationTests.swift */; };
 		A3F3119F2BC407CF8E28230A /* IOBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6084BF828A4001E3731C509 /* IOBridge.swift */; };
@@ -80,6 +83,7 @@
 /* Begin PBXFileReference section */
 		037E15271FF9FC402D02B51B /* TerminalLine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalLine.swift; sourceTree = "<group>"; };
 		04F411A79CF7264F289B6302 /* SessionSidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionSidebarView.swift; sourceTree = "<group>"; };
+		0737DE007E493E133BF36ACB /* PromptOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromptOverlayView.swift; sourceTree = "<group>"; };
 		0C02C757F4FB8D345A6EFEF9 /* ModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelTests.swift; sourceTree = "<group>"; };
 		14954C747CB9B37EFDCE1BEA /* PreferencesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesView.swift; sourceTree = "<group>"; };
 		160D61822B93FBE67A1C20C2 /* SessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionManager.swift; sourceTree = "<group>"; };
@@ -94,6 +98,7 @@
 		33367B0D382AADED54836B8B /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		37B5F7A0DDF8C4003E6BD6B9 /* HeadlessTerminalParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeadlessTerminalParser.swift; sourceTree = "<group>"; };
 		3F5F61E1AF4657B0B7E98424 /* SidebarContainerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarContainerView.swift; sourceTree = "<group>"; };
+		40C32C7301A46B9456C5FCCC /* PromptDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromptDetector.swift; sourceTree = "<group>"; };
 		4241CE63445459C9D9FD3C36 /* DeviceManagementView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceManagementView.swift; sourceTree = "<group>"; };
 		49449E8E646DB0F7693BF3F0 /* WebSocketClientHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSocketClientHandler.swift; sourceTree = "<group>"; };
 		50C657DCB9087A3FB0B1E315 /* ConversationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationView.swift; sourceTree = "<group>"; };
@@ -103,6 +108,7 @@
 		63C417099683EF822F4B30DF /* BLECentral.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BLECentral.swift; sourceTree = "<group>"; };
 		6449B25645CA8534562C7068 /* BalconySharedTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BalconySharedTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		669BE9921928194372E5B944 /* MenuBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarView.swift; sourceTree = "<group>"; };
+		6DDE06A45D5DB609E1918B25 /* InteractivePrompt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InteractivePrompt.swift; sourceTree = "<group>"; };
 		6F43204098DB6C4D61A3C700 /* WebSocketServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSocketServer.swift; sourceTree = "<group>"; };
 		72541086349D5C7FE7CA0C64 /* QRCodeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRCodeView.swift; sourceTree = "<group>"; };
 		783D378FB676157E04C99FC9 /* ConnectionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionManager.swift; sourceTree = "<group>"; };
@@ -376,6 +382,9 @@
 				D68E9482CD96A6EAD061F6F8 /* ANSIColorMapper.swift */,
 				50C657DCB9087A3FB0B1E315 /* ConversationView.swift */,
 				37B5F7A0DDF8C4003E6BD6B9 /* HeadlessTerminalParser.swift */,
+				6DDE06A45D5DB609E1918B25 /* InteractivePrompt.swift */,
+				40C32C7301A46B9456C5FCCC /* PromptDetector.swift */,
+				0737DE007E493E133BF36ACB /* PromptOverlayView.swift */,
 				DF14263968FE5E9B5664835E /* SlashCommandMenu.swift */,
 				8AF99EBC38F153B19FDEB53A /* TerminalContainerView.swift */,
 				037E15271FF9FC402D02B51B /* TerminalLine.swift */,
@@ -675,8 +684,11 @@
 				1EE8C4879DF09145406EDB96 /* DeviceManagementView.swift in Sources */,
 				EE22BDDF9F8B09255D1A3B38 /* DiscoveryView.swift in Sources */,
 				98D09ECF7A45BB7ED30B1C5F /* HeadlessTerminalParser.swift in Sources */,
+				9ED3CD0EAB5DEF23CC454A88 /* InteractivePrompt.swift in Sources */,
 				02F56943AC8EE99383270589 /* LiquidGlassCapsule.swift in Sources */,
 				7D0244EC2C9842D09733E0E8 /* NotificationManager.swift in Sources */,
+				0C8B98F96BE57AE5DFEDE5D1 /* PromptDetector.swift in Sources */,
+				8A23CFEEC72916867B22D67E /* PromptOverlayView.swift in Sources */,
 				E988DDBE65BDB2A7E0BDBC34 /* QRScannerView.swift in Sources */,
 				BDFFEF7010DECCDDE79DAAC6 /* SessionListView.swift in Sources */,
 				8ACEB2F730210C579A95CFEA /* SessionManager.swift in Sources */,

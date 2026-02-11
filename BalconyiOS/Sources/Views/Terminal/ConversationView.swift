@@ -6,6 +6,7 @@ import BalconyShared
 struct ConversationView: View {
     let lines: [TerminalLine]
     let slashCommands: [SlashCommandInfo]
+    let activePrompt: InteractivePrompt?
     var onSendInput: ((String) -> Void)?
 
     @State private var inputText = ""
@@ -13,6 +14,7 @@ struct ConversationView: View {
     @State private var isNearBottom = true
     @State private var showEmptyState = false
     @State private var showSlashMenu = false
+    @State private var promptJustAnswered = false
     @FocusState private var inputFocused: Bool
 
     /// Find the last "/" in the input and return the text after it as the filter query.
@@ -117,8 +119,16 @@ struct ConversationView: View {
                 .offset(y: 100)
                 .allowsHitTesting(false)
 
-                // Slash command menu — floats above the input bar
-                if showSlashMenu, !slashCommands.isEmpty {
+                // Interactive prompt overlay — takes priority over slash menu
+                if let prompt = activePrompt, !promptJustAnswered {
+                    PromptOverlayView(prompt: prompt) { input in
+                        promptJustAnswered = true
+                        onSendInput?(input)
+                    }
+                    .padding(.bottom, BalconyTheme.spacingSM)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                } else if showSlashMenu, !slashCommands.isEmpty {
+                    // Slash command menu — floats above the input bar
                     SlashCommandMenu(
                         commands: slashCommands,
                         query: slashQuery ?? ""
@@ -183,6 +193,10 @@ struct ConversationView: View {
             try? await Task.sleep(nanoseconds: 300_000_000)
             guard !Task.isCancelled else { return }
             showEmptyState = true
+        }
+        .onChange(of: activePrompt) { _ in
+            // Reset the guard when the prompt changes (new prompt or cleared).
+            promptJustAnswered = false
         }
     }
 
@@ -538,7 +552,8 @@ private struct ConversationEmptyView: View {
             .init(name: "compact", description: "Compact conversation with summary", source: .builtIn),
             .init(name: "debug", description: "Investigate and diagnose issues", source: .global, argumentHint: "[error or file]"),
             .init(name: "test", description: "Run tests with analysis", source: .project),
-        ]
+        ],
+        activePrompt: nil
     )
     .background(BalconyTheme.background)
 }
