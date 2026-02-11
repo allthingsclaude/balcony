@@ -62,8 +62,10 @@ struct SlashCommandMenu: View {
 
                     if let hint = command.argumentHint {
                         Text(hint)
-                            .font(BalconyTheme.monoFont(12))
-                            .foregroundStyle(BalconyTheme.textSecondary.opacity(0.6))
+                            .font(BalconyTheme.monoFont(10))
+                            .foregroundStyle(BalconyTheme.textSecondary.opacity(0.5))
+                            .lineLimit(1)
+                            .truncationMode(.tail)
                     }
                 }
 
@@ -96,14 +98,19 @@ struct SlashCommandMenu: View {
     private func sourceBadge(_ source: SlashCommandInfo.Source) -> some View {
         switch source {
         case .builtIn:
-            EmptyView()
+            Text("claude")
+                .font(.system(size: 9, weight: .medium, design: .rounded))
+                .foregroundStyle(BalconyTheme.textSecondary.opacity(0.8))
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(BalconyTheme.textSecondary.opacity(0.1), in: Capsule())
         case .global:
             Text("global")
                 .font(.system(size: 9, weight: .medium, design: .rounded))
-                .foregroundStyle(BalconyTheme.textSecondary)
+                .foregroundStyle(BalconyTheme.textPrimary.opacity(0.8))
                 .padding(.horizontal, 6)
                 .padding(.vertical, 2)
-                .background(BalconyTheme.surfaceSecondary, in: Capsule())
+                .background(BalconyTheme.textSecondary.opacity(0.2), in: Capsule())
         case .project:
             Text("project")
                 .font(.system(size: 9, weight: .medium, design: .rounded))

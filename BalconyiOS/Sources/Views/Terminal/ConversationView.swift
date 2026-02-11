@@ -11,7 +11,6 @@ struct ConversationView: View {
     @State private var inputText = ""
     @State private var previousText = ""
     @State private var isNearBottom = true
-    @State private var showSpinner = false
     @State private var showEmptyState = false
     @State private var showSlashMenu = false
     @FocusState private var inputFocused: Bool
@@ -32,11 +31,6 @@ struct ConversationView: View {
             if lines.isEmpty && showEmptyState {
                 ConversationEmptyView()
                     .transition(.opacity.animation(.easeIn(duration: 0.5)))
-            } else if lines.isEmpty && showSpinner {
-                ProgressView()
-                    .tint(BalconyTheme.accent)
-                    .transition(.opacity.animation(.easeIn(duration: 0.2)))
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
 
             // Conversation scroll area
@@ -183,15 +177,10 @@ struct ConversationView: View {
             BalconyTheme.background.ignoresSafeArea()
         }
         .task(id: lines.isEmpty) {
-            showSpinner = false
             showEmptyState = false
             guard lines.isEmpty else { return }
-            // Small spinner after 200ms
-            try? await Task.sleep(nanoseconds: 200_000_000)
-            guard !Task.isCancelled else { return }
-            showSpinner = true
-            // Full empty state after another 1800ms (2s total)
-            try? await Task.sleep(nanoseconds: 1_800_000_000)
+            // Brief delay so the empty state doesn't flash during initial load
+            try? await Task.sleep(nanoseconds: 300_000_000)
             guard !Task.isCancelled else { return }
             showEmptyState = true
         }
@@ -478,8 +467,6 @@ struct TerminalLineView: View {
 // MARK: - Empty State
 
 private struct ConversationEmptyView: View {
-    @State private var pulse = false
-
     var body: some View {
         VStack(spacing: BalconyTheme.spacingLG) {
             ZStack {
@@ -492,25 +479,17 @@ private struct ConversationEmptyView: View {
             }
 
             VStack(spacing: BalconyTheme.spacingSM) {
-                Text("Waiting for output...")
+                Text("No messages yet")
                     .font(BalconyTheme.headingFont(18))
                     .foregroundStyle(BalconyTheme.textPrimary)
-                Text("Terminal data will appear as Claude responds.")
+                Text("Messages will appear as Claude responds.")
                     .font(BalconyTheme.bodyFont(14))
                     .foregroundStyle(BalconyTheme.textSecondary)
                     .multilineTextAlignment(.center)
             }
-
-            ProgressView()
-                .tint(BalconyTheme.accent)
-                .scaleEffect(pulse ? 1.05 : 0.95)
-                .animation(
-                    .easeInOut(duration: 1.2).repeatForever(autoreverses: true),
-                    value: pulse
-                )
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .onAppear { pulse = true }
+        .offset(y: -60)
     }
 }
 
