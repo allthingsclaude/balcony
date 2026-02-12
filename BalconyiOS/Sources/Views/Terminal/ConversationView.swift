@@ -8,6 +8,7 @@ struct ConversationView: View {
     let slashCommands: [SlashCommandInfo]
     let projectFiles: [String]
     let activePrompt: InteractivePrompt?
+    let pendingInputText: String
     var onSendInput: ((String) -> Void)?
 
     @State private var inputText = ""
@@ -262,6 +263,14 @@ struct ConversationView: View {
         .onChange(of: activePrompt) { _ in
             // Reset the guard when the prompt changes (new prompt or cleared).
             promptJustAnswered = false
+        }
+        .onChange(of: pendingInputText) { newValue in
+            // Bi-directional sync: keep iOS input in lockstep with Mac's terminal.
+            // Set previousText first so onChange(of: inputText) computes a zero diff
+            // and doesn't re-send the same keystrokes back to the Mac.
+            guard newValue != inputText else { return }
+            previousText = newValue
+            inputText = newValue
         }
     }
 
@@ -714,7 +723,8 @@ private struct ConversationEmptyView: View {
             .init(name: "test", description: "Run tests with analysis", source: .project),
         ],
         projectFiles: ["src/auth/login.ts", "src/components/Button.tsx", "package.json"],
-        activePrompt: nil
+        activePrompt: nil,
+        pendingInputText: ""
     )
     .background(BalconyTheme.background)
 }

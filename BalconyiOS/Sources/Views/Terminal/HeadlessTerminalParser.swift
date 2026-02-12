@@ -13,6 +13,10 @@ final class HeadlessTerminalParser: ObservableObject {
     @Published var conversationLines: [TerminalLine] = []
     @Published var activePrompt: InteractivePrompt?
 
+    /// Text currently typed after the ❯ prompt in the bottom chrome input box.
+    /// Used to pre-fill the iOS input composer when entering a session.
+    @Published var pendingInputText: String = ""
+
     private let terminal: Terminal
     private let delegate: MinimalTerminalDelegate
 
@@ -296,6 +300,9 @@ final class HeadlessTerminalParser: ObservableObject {
         }
 
         conversationLines = lines
+
+        // Extract text after ❯ in the chrome input box for pre-filling the iOS input.
+        pendingInputText = extractChromeInputText(allRows: allRows, chromeStart: chromeStart)
     }
 
     // MARK: - Chrome Detection
@@ -430,6 +437,36 @@ final class HeadlessTerminalParser: ObservableObject {
         }
 
         return adjusted
+    }
+
+    /// Extract the user's in-progress input from the chrome input box.
+    ///
+    /// The chrome section contains a box like:
+    /// ```
+    /// ┌──────────────────────────────┐
+    /// │ ❯ user typed text here       │
+    /// └──────────────────────────────┘
+    /// ```
+    /// This method finds the ❯ line and extracts the text after it.
+    private func extractChromeInputText(allRows: [BufferLine], chromeStart: Int) -> String {
+        guard chromeStart < allRows.count else { return "" }
+
+        for i in chromeStart..<allRows.count {
+            let text = allRows[i].translateToString(trimRight: true)
+            guard let promptIdx = text.firstIndex(of: "\u{276F}") else { continue }
+
+            var after = String(text[text.index(after: promptIdx)...])
+            // Strip the leading space after ❯.
+            if after.hasPrefix(" ") { after = String(after.dropFirst()) }
+            // Strip trailing box-drawing border (│ or ┃) and whitespace.
+            if let lastBorder = after.lastIndex(where: { $0 == "\u{2502}" || $0 == "\u{2503}" }) {
+                after = String(after[..<lastBorder])
+            }
+            after = after.trimmingCharacters(in: .whitespaces)
+            return after
+        }
+
+        return ""
     }
 
     /// Check if a row consists mostly of box-drawing characters (─ U+2500 and similar).

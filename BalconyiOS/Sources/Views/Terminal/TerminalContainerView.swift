@@ -28,6 +28,7 @@ struct TerminalContainerView: View {
                     slashCommands: sessionManager.slashCommands,
                     projectFiles: sessionManager.projectFiles,
                     activePrompt: sessionManager.activePrompt,
+                    pendingInputText: sessionManager.pendingInputText,
                     onSendInput: { text in
                         Task {
                             await sessionManager.sendInput(text, to: session)

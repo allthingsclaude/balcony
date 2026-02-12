@@ -23,9 +23,13 @@ final class SessionManager: ObservableObject {
     /// Detected interactive prompt (permission or multi-option) from terminal output.
     @Published var activePrompt: InteractivePrompt?
 
+    /// Text currently in the Mac's input box (after ❯). Used to pre-fill the iOS input.
+    @Published var pendingInputText: String = ""
+
     private var parser: HeadlessTerminalParser?
     private var parserCancellable: AnyCancellable?
     private var promptCancellable: AnyCancellable?
+    private var pendingInputCancellable: AnyCancellable?
 
     private weak var connectionManager: ConnectionManager?
 
@@ -74,6 +78,9 @@ final class SessionManager: ObservableObject {
         promptCancellable = newParser.$activePrompt
             .receive(on: DispatchQueue.main)
             .assign(to: \.activePrompt, on: self)
+        pendingInputCancellable = newParser.$pendingInputText
+            .receive(on: DispatchQueue.main)
+            .assign(to: \.pendingInputText, on: self)
 
         guard let connectionManager else { return }
         do {
@@ -94,9 +101,12 @@ final class SessionManager: ObservableObject {
             parserCancellable = nil
             promptCancellable?.cancel()
             promptCancellable = nil
+            pendingInputCancellable?.cancel()
+            pendingInputCancellable = nil
             parser = nil
             conversationLines = []
             activePrompt = nil
+            pendingInputText = ""
             projectFiles = []
         }
 
