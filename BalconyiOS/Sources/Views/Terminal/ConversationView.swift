@@ -488,6 +488,7 @@ struct TerminalLineView: View {
                     .padding(.vertical, -6)
                 }
             }
+            .padding(.vertical, parsed.marker == .user ? 6 : 0)
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityElement(children: .combine)
             .accessibilityLabel(accessibilityText(parsed: parsed))
