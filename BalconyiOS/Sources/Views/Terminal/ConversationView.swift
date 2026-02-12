@@ -204,9 +204,9 @@ struct ConversationView: View {
                         Text("/")
                             .font(.system(size: 18, weight: .semibold, design: .monospaced))
                             .foregroundStyle(showSlashMenu ? BalconyTheme.accent : BalconyTheme.textSecondary)
-                            .frame(width: 30, height: 30)
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
                     }
-                    .padding(.leading, 6)
 
                     TextField("Type a message...", text: $inputText)
                         .textFieldStyle(.plain)
@@ -229,9 +229,10 @@ struct ConversationView: View {
                         Image(systemName: "arrow.up.circle.fill")
                             .font(.system(size: 26))
                             .foregroundStyle(inputText.isEmpty ? BalconyTheme.textSecondary : BalconyTheme.accent)
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
                     }
                     .disabled(inputText.isEmpty)
-                    .padding(.trailing, 6)
                 }
                 .modifier(LiquidGlassCapsule())
                 .overlay {
