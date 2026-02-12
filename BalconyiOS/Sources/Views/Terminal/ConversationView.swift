@@ -154,8 +154,8 @@ struct ConversationView: View {
                     ) { file in
                         selectFile(file)
                     }
-                    .padding(.horizontal, BalconyTheme.spacingLG)
-                    .padding(.bottom, BalconyTheme.spacingSM)
+                    .padding(.horizontal, BalconyTheme.spacingSM)
+                    .padding(.bottom, BalconyTheme.spacingMD)
                     .transition(.menuPanel)
                 } else if showSlashMenu, !slashCommands.isEmpty {
                     // Slash command menu — floats above the input bar
@@ -165,8 +165,8 @@ struct ConversationView: View {
                     ) { command in
                         selectSlashCommand(command)
                     }
-                    .padding(.horizontal, BalconyTheme.spacingLG)
-                    .padding(.bottom, BalconyTheme.spacingSM)
+                    .padding(.horizontal, BalconyTheme.spacingSM)
+                    .padding(.bottom, BalconyTheme.spacingMD)
                     .transition(.menuPanel)
                 }
 
