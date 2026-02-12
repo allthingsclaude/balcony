@@ -92,6 +92,8 @@ struct ConversationView: View {
                     // Bottom padding so content scrolls above the input bar + fade
                     .padding(.bottom, 100)
                 }
+                .contentShape(Rectangle())
+                .onTapGesture { handleOutsideTap() }
                 .onChange(of: lines.count) { _ in
                     if isNearBottom {
                         scrollToBottom(proxy: proxy, animated: true)
@@ -311,6 +313,19 @@ struct ConversationView: View {
             showFilePicker = false
             showBashMode = false
             showBackgroundMode = false
+        }
+    }
+
+    /// Handle tapping outside the input bar / menus.
+    /// If a menu is open, close it first. Otherwise dismiss the keyboard.
+    private func handleOutsideTap() {
+        if showFilePicker || showSlashMenu {
+            withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                showFilePicker = false
+                showSlashMenu = false
+            }
+        } else {
+            inputFocused = false
         }
     }
 
