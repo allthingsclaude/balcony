@@ -72,6 +72,10 @@ final class HeadlessTerminalParser: ObservableObject {
         let headerEnd = detectHeaderEnd(allRows: allRows)
         let chromeStart = detectChromeStart(allRows: allRows)
 
+        // Always extract chrome input — even when there's no conversation content
+        // (e.g. a freshly-opened thread with only the welcome banner).
+        pendingInputText = extractChromeInputText(allRows: allRows, chromeStart: chromeStart)
+
         guard headerEnd < chromeStart else {
             conversationLines = []
             return
@@ -333,7 +337,8 @@ final class HeadlessTerminalParser: ObservableObject {
 
         conversationLines = lines
 
-        // Extract text after ❯ in the chrome input box for pre-filling the iOS input.
+        // Update chrome input — re-extract since the terminal may have changed
+        // between the early extraction and now (e.g. prompt detection stripped lines).
         pendingInputText = extractChromeInputText(allRows: allRows, chromeStart: chromeStart)
     }
 
@@ -479,45 +484,88 @@ final class HeadlessTerminalParser: ObservableObject {
     /// │ ❯ user typed text here       │
     /// └──────────────────────────────┘
     /// ```
-    /// This method finds the ❯ line and extracts the text after it.
-    /// Placeholder text (e.g. "Type a message...") is rendered with dim
-    /// styling and is ignored — only actual user-typed input is returned.
+    /// This method finds the ❯ line and reads buffer cells up to the cursor
+    /// column, which precisely marks where the user's text ends. This avoids
+    /// both trimming the user's trailing space and including box padding.
+    ///
+    /// Placeholder text (e.g. "Type a message...") uses non-default foreground
+    /// color or dim styling and is ignored — only real user input is returned.
     private func extractChromeInputText(allRows: [BufferLine], chromeStart: Int) -> String {
         guard chromeStart < allRows.count else { return "" }
 
         for i in chromeStart..<allRows.count {
             let bufLine = allRows[i]
-            let text = bufLine.translateToString(trimRight: true)
-            guard let promptIdx = text.firstIndex(of: "\u{276F}") else { continue }
-
-            // Find the column offset of ❯ in the buffer.
-            let promptCol = text.distance(from: text.startIndex, to: promptIdx)
-
-            // Walk past ❯ and the space after it to find the first content character.
-            var startCol = promptCol + 1
             let trimmedLen = bufLine.getTrimmedLength()
+
+            // Find ❯ column by scanning buffer cells.
+            var promptCol = -1
+            for col in 0..<trimmedLen {
+                let ch = terminal.getCharacter(for: bufLine[col])
+                if ch == "\u{276F}" {
+                    promptCol = col
+                    break
+                }
+            }
+            guard promptCol >= 0 else { continue }
+
+            // Skip ❯ and the space after it.
+            var startCol = promptCol + 1
             if startCol < trimmedLen {
                 let ch = terminal.getCharacter(for: bufLine[startCol])
-                if ch == " " { startCol += 1 }
+                if ch == " " || ch == "\0" { startCol += 1 }
             }
 
-            // Check if the first content character is dim (placeholder styling).
-            if startCol < trimmedLen {
-                let attr = bufLine[startCol].attribute
-                if attr.style.contains(.dim) {
+            // No content after ❯ — empty input.
+            guard startCol < trimmedLen else { return "" }
+
+            // Placeholder detection: Claude Code placeholder text (e.g.
+            // 'Try "fix lint errors"') uses mixed dim styling — some chars
+            // dim, some not. Real user input never has dim characters.
+            // Check the first several characters; if ANY are dim, it's placeholder.
+            let scanEnd = min(startCol + 10, trimmedLen)
+            for col in startCol..<scanEnd {
+                let ch = terminal.getCharacter(for: bufLine[col])
+                if ch == "\0" || ch == " " { continue }
+                if bufLine[col].attribute.style.contains(.dim) {
                     return ""
                 }
             }
 
-            var after = String(text[text.index(after: promptIdx)...])
-            // Strip the leading space after ❯.
-            if after.hasPrefix(" ") { after = String(after.dropFirst()) }
-            // Strip trailing box-drawing border (│ or ┃) and whitespace.
-            if let lastBorder = after.lastIndex(where: { $0 == "\u{2502}" || $0 == "\u{2503}" }) {
-                after = String(after[..<lastBorder])
+            // Find end of user content by locating the TUI block cursor.
+            // Claude Code renders the cursor as a cell with inverse video
+            // (style includes bit for inverse/reverse), while all user-typed
+            // text and padding have style=0. Scanning for the first cell with
+            // non-zero style gives us the exact end-of-input column, including
+            // any trailing spaces the user typed.
+            var endCol = -1
+            for col in startCol..<trimmedLen {
+                let style = bufLine[col].attribute.style
+                if style.rawValue != 0 && !style.contains(.dim) {
+                    endCol = col
+                    break
+                }
             }
-            after = after.trimmingCharacters(in: .whitespaces)
-            return after
+
+            if endCol < 0 {
+                // No TUI cursor found (cursor hidden or off-screen) — fall
+                // back to stripping trailing whitespace.
+                endCol = trimmedLen
+                while endCol > startCol {
+                    let ch = terminal.getCharacter(for: bufLine[endCol - 1])
+                    guard ch == " " || ch == "\0" else { break }
+                    endCol -= 1
+                }
+            }
+
+            guard endCol > startCol else { return "" }
+
+            // Collect characters from the buffer cells.
+            var result = ""
+            for col in startCol..<endCol {
+                let ch = terminal.getCharacter(for: bufLine[col])
+                result.append(ch == "\0" ? " " : ch)
+            }
+            return result
         }
 
         return ""
