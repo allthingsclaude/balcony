@@ -1,11 +1,22 @@
 import Foundation
 
+/// Role of the conversation marker at the start of a terminal line.
+enum MarkerRole: Equatable {
+    case user       // ❯ / › — user message start
+    case assistant  // ⏺ / · — assistant message start
+    case none       // continuation or non-message line
+}
+
 /// A single line of parsed terminal output with styled segments.
 struct TerminalLine: Identifiable {
     let id: Int
     let segments: [StyledSegment]
     let isWrapped: Bool
     var isTableRow: Bool = false
+    /// Set by the parser when the original terminal character is a known
+    /// conversation marker (❯ for user, ⏺ for assistant) with the expected
+    /// ANSI style. Spinner characters that happen to match are excluded.
+    var markerRole: MarkerRole = .none
 }
 
 /// A contiguous run of text sharing the same style.

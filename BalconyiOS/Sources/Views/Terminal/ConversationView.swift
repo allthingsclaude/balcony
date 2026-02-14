@@ -13,6 +13,10 @@ struct ConversationView: View {
 
     @State private var inputText = ""
     @State private var previousText = ""
+    /// Timestamp of the last local keystroke. While the user is actively typing
+    /// on iOS we suppress incoming `pendingInputText` sync to avoid the Mac's
+    /// echo overwriting the local input mid-edit.
+    @State private var lastLocalKeystroke: Date = .distantPast
     @State private var isNearBottom = true
     @State private var showEmptyState = false
     @State private var showSlashMenu = false
@@ -61,6 +65,9 @@ struct ConversationView: View {
                     LazyVStack(alignment: .leading, spacing: 0) {
                         ForEach(groupedBlocks, id: \.id) { block in
                             switch block {
+                            case .spacer:
+                                Color.clear
+                                    .frame(height: 18)
                             case .line(let line):
                                 TerminalLineView(line: line)
                                     .padding(.horizontal, 12)
@@ -265,10 +272,13 @@ struct ConversationView: View {
             promptJustAnswered = false
         }
         .onChange(of: pendingInputText) { newValue in
-            // Bi-directional sync: keep iOS input in lockstep with Mac's terminal.
-            // Set previousText first so onChange(of: inputText) computes a zero diff
-            // and doesn't re-send the same keystrokes back to the Mac.
+            // Sync Mac's terminal input → iOS input field.
+            // Skip if the iOS user typed recently — those updates are just echoes
+            // of keystrokes we already sent. Once typing pauses (>0.5s), resume
+            // syncing so Mac-originated edits come through.
             guard newValue != inputText else { return }
+            let elapsed = Date().timeIntervalSince(lastLocalKeystroke)
+            guard elapsed > 0.5 else { return }
             previousText = newValue
             inputText = newValue
         }
@@ -291,6 +301,9 @@ struct ConversationView: View {
 
     /// Send the diff between old and new text as live keystrokes.
     private func sendLiveKeystrokes(from oldText: String, to newText: String) {
+        guard oldText != newText else { return }
+        lastLocalKeystroke = Date()
+
         if newText.hasPrefix(oldText) && newText.count > oldText.count {
             // Characters added at end — send just the new ones.
             let added = String(newText.dropFirst(oldText.count))
@@ -299,7 +312,7 @@ struct ConversationView: View {
             // Characters deleted from end — send DEL (backspace).
             let deleteCount = oldText.count - newText.count
             onSendInput?(String(repeating: "\u{7f}", count: deleteCount))
-        } else if oldText != newText {
+        } else {
             // Complex edit (autocorrect, paste, etc.) — clear old, send new.
             if !oldText.isEmpty {
                 onSendInput?(String(repeating: "\u{7f}", count: oldText.count))
@@ -391,16 +404,26 @@ struct ConversationView: View {
     private enum ConversationBlock {
         case line(TerminalLine)
         case table([TerminalLine])
+        /// Fixed-height gap inserted before each new message group.
+        case spacer(Int)
 
         var id: Int {
             switch self {
             case .line(let l): return l.id
             case .table(let rows): return rows.first?.id ?? -1
+            case .spacer(let anchorID): return -anchorID - 2
             }
         }
     }
 
+    /// Check whether a line starts a new conversation message (set by the parser).
+    private static func lineHasMarker(_ line: TerminalLine) -> Bool {
+        line.markerRole != .none
+    }
+
     /// Group consecutive table rows so they share a single horizontal scroll view.
+    /// Inserts fixed-height spacers before message-start lines so that all items
+    /// in the LazyVStack have predictable heights (prevents layout jumping).
     private var groupedBlocks: [ConversationBlock] {
         var blocks: [ConversationBlock] = []
         var tableBuffer: [TerminalLine] = []
@@ -412,6 +435,10 @@ struct ConversationView: View {
                 if !tableBuffer.isEmpty {
                     blocks.append(.table(tableBuffer))
                     tableBuffer = []
+                }
+                // Insert a spacer before lines that start a new message group.
+                if Self.lineHasMarker(line) {
+                    blocks.append(.spacer(line.id))
                 }
                 blocks.append(.line(line))
             }
@@ -514,7 +541,6 @@ struct TerminalLineView: View {
                 }
             }
             .padding(.vertical, parsed.marker == .user ? 6 : 0)
-            .padding(.top, parsed.marker != .none ? 18 : 0)
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityElement(children: .combine)
             .accessibilityLabel(accessibilityText(parsed: parsed))
@@ -545,16 +571,20 @@ struct TerminalLineView: View {
     }
 
     /// Extract the conversation marker and remaining content segments.
+    /// Uses the parser-assigned `markerRole` (which checks the original ⏺/❯
+    /// character AND its ANSI style) instead of raw character detection.
+    /// This prevents spinner frames (✳, ⏺ with bright color) from being
+    /// misidentified as message markers.
     private func parseLine() -> (marker: LineMarker, content: [StyledSegment]) {
-        guard !line.segments.isEmpty,
-              let firstScalar = line.segments[0].text.unicodeScalars.first else {
-            return (.none, line.segments)
+        // Use the parser-assigned role — it already filtered out spinner chars.
+        let marker: LineMarker
+        switch line.markerRole {
+        case .user:      marker = .user
+        case .assistant: marker = .assistant
+        case .none:      return (.none, line.segments)
         }
 
-        let marker: LineMarker
-        if firstScalar == Unicode.Scalar(0x203A) { marker = .user }
-        else if firstScalar == Unicode.Scalar(0x00B7) { marker = .assistant }
-        else { return (.none, line.segments) }
+        guard !line.segments.isEmpty else { return (.none, line.segments) }
 
         // Strip marker character (and optional space after it) from segments.
         var segments = line.segments
@@ -689,12 +719,12 @@ private struct ConversationEmptyView: View {
         TerminalLine(id: 0, segments: [
             StyledSegment(text: "\u{203A} ", style: bold),
             StyledSegment(text: "help me fix the login bug", style: plain),
-        ], isWrapped: false),
+        ], isWrapped: false, markerRole: .user),
         TerminalLine(id: 1, segments: [], isWrapped: false),
         TerminalLine(id: 2, segments: [
             StyledSegment(text: "\u{00B7} ", style: dim),
             StyledSegment(text: "I'll look into the login flow.", style: plain),
-        ], isWrapped: false),
+        ], isWrapped: false, markerRole: .assistant),
         TerminalLine(id: 3, segments: [
             StyledSegment(text: "  Let me check the auth module first.", style: plain),
         ], isWrapped: false),
@@ -703,12 +733,12 @@ private struct ConversationEmptyView: View {
             StyledSegment(text: "\u{00B7} ", style: dim),
             StyledSegment(text: "Read", style: green),
             StyledSegment(text: " src/auth/login.ts", style: plain),
-        ], isWrapped: false),
+        ], isWrapped: false, markerRole: .assistant),
         TerminalLine(id: 6, segments: [], isWrapped: false),
         TerminalLine(id: 7, segments: [
             StyledSegment(text: "\u{00B7} ", style: dim),
             StyledSegment(text: "Found the issue — the token refresh", style: plain),
-        ], isWrapped: false),
+        ], isWrapped: false, markerRole: .assistant),
         TerminalLine(id: 8, segments: [
             StyledSegment(text: "  is using an expired secret key.", style: plain),
         ], isWrapped: false),

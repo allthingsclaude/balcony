@@ -95,10 +95,36 @@ final class HeadlessTerminalParser: ObservableObject {
         var rowIsTable = [Bool](repeating: false, count: count)
         var rowSignal = [CodeSignal](repeating: .neutral, count: count)
         var rowOrigLen = [Int](repeating: 0, count: count)
+        var rowMarker = [MarkerRole](repeating: .none, count: count)
 
         for i in 0..<count {
             let ri = headerEnd + i
             var segments = extractSegments(from: allRows[ri])
+
+            // Detect conversation markers from ORIGINAL characters before symbol
+            // replacement.  ❯ (U+276F) = user, ⏺ (U+23FA) = assistant.
+            // Spinner frames (✳ etc.) also sometimes land on ⏺, so we require
+            // the marker character to have a non-bright ANSI style: the real
+            // Claude Code markers use dim/magenta while spinners use bright
+            // colors.
+            if let first = segments.first,
+               let scalar = first.text.unicodeScalars.first {
+                let style = first.style
+                if scalar == Unicode.Scalar(0x276F) {   // ❯ user
+                    rowMarker[i] = .user
+                } else if scalar == Unicode.Scalar(0x23FA) {  // ⏺ assistant
+                    // Real assistant markers: dim, or magenta (palette 5/13),
+                    // or default fg.  Spinner ⏺ frames use bright/other colors.
+                    let isMarkerStyle = style.isDim
+                        || style.fgColor == .defaultFg
+                        || style.fgColor == .palette(5)   // magenta
+                        || style.fgColor == .palette(13)   // bright magenta
+                    if isMarkerStyle {
+                        rowMarker[i] = .assistant
+                    }
+                }
+            }
+
             segments = replaceSymbols(segments)
 
             let isTable = containsBoxDrawing(segments)
@@ -131,7 +157,8 @@ final class HeadlessTerminalParser: ObservableObject {
             let firstChar = first.text.first!
 
             // Markers (› ·) → always prose (message boundary).
-            if firstChar == "\u{203A}" || firstChar == "\u{00B7}" {
+            if rowMarker[i] != .none ||
+               firstChar == "\u{203A}" || firstChar == "\u{00B7}" {
                 rowSignal[i] = .prose
                 continue
             }
@@ -243,10 +270,12 @@ final class HeadlessTerminalParser: ObservableObject {
 
             if prevWrapped, !lines.isEmpty {
                 // Terminal soft-wrap — join without extra space (break may be mid-word).
-                var joined = lines[lines.count - 1].segments
+                let prev = lines[lines.count - 1]
+                var joined = prev.segments
                 joined.append(contentsOf: segments)
                 lines[lines.count - 1] = TerminalLine(
-                    id: lines[lines.count - 1].id, segments: joined, isWrapped: true
+                    id: prev.id, segments: joined, isWrapped: true,
+                    markerRole: prev.markerRole
                 )
             } else if !isPreformatted,
                       !lines.isEmpty,
@@ -255,7 +284,8 @@ final class HeadlessTerminalParser: ObservableObject {
                       lastOriginalLength >= cols - 15,
                       isTextContinuation(segments) {
                 // Claude's text wrap — join with space (break was at word boundary).
-                var joined = lines[lines.count - 1].segments
+                let prev = lines[lines.count - 1]
+                var joined = prev.segments
                 if let lastIdx = joined.indices.last,
                    !joined[lastIdx].text.hasSuffix(" ") {
                     joined[lastIdx] = StyledSegment(
@@ -265,12 +295,14 @@ final class HeadlessTerminalParser: ObservableObject {
                 }
                 joined.append(contentsOf: segments)
                 lines[lines.count - 1] = TerminalLine(
-                    id: lines[lines.count - 1].id, segments: joined, isWrapped: true
+                    id: prev.id, segments: joined, isWrapped: true,
+                    markerRole: prev.markerRole
                 )
             } else {
                 lines.append(TerminalLine(
                     id: lineId, segments: segments, isWrapped: false,
-                    isTableRow: isPreformatted
+                    isTableRow: isPreformatted,
+                    markerRole: rowMarker[i]
                 ))
                 lineId += 1
             }
@@ -448,12 +480,34 @@ final class HeadlessTerminalParser: ObservableObject {
     /// └──────────────────────────────┘
     /// ```
     /// This method finds the ❯ line and extracts the text after it.
+    /// Placeholder text (e.g. "Type a message...") is rendered with dim
+    /// styling and is ignored — only actual user-typed input is returned.
     private func extractChromeInputText(allRows: [BufferLine], chromeStart: Int) -> String {
         guard chromeStart < allRows.count else { return "" }
 
         for i in chromeStart..<allRows.count {
-            let text = allRows[i].translateToString(trimRight: true)
+            let bufLine = allRows[i]
+            let text = bufLine.translateToString(trimRight: true)
             guard let promptIdx = text.firstIndex(of: "\u{276F}") else { continue }
+
+            // Find the column offset of ❯ in the buffer.
+            let promptCol = text.distance(from: text.startIndex, to: promptIdx)
+
+            // Walk past ❯ and the space after it to find the first content character.
+            var startCol = promptCol + 1
+            let trimmedLen = bufLine.getTrimmedLength()
+            if startCol < trimmedLen {
+                let ch = terminal.getCharacter(for: bufLine[startCol])
+                if ch == " " { startCol += 1 }
+            }
+
+            // Check if the first content character is dim (placeholder styling).
+            if startCol < trimmedLen {
+                let attr = bufLine[startCol].attribute
+                if attr.style.contains(.dim) {
+                    return ""
+                }
+            }
 
             var after = String(text[text.index(after: promptIdx)...])
             // Strip the leading space after ❯.
@@ -493,12 +547,19 @@ final class HeadlessTerminalParser: ObservableObject {
     // MARK: - Post-Processing
 
     /// Replace emoji-style symbols with simpler Unicode equivalents for mobile.
-    /// ⏺ (U+23FA) → ● (U+25CF), ❯ (U+276F) → › (U+203A)
+    /// ⏺ (U+23FA) → · (U+00B7), ❯ (U+276F) → › (U+203A)
+    /// Also normalizes common CLI spinner characters (✳ ✴ ✵ ✶ ✷ ✸ ✹ ✺ ✻ ✼ ❊)
+    /// to · so the progress line renders at a consistent height across frames.
     private func replaceSymbols(_ segments: [StyledSegment]) -> [StyledSegment] {
         segments.map { seg in
             let replaced = seg.text
-                .replacingOccurrences(of: "\u{23FA}", with: "\u{00B7}")
-                .replacingOccurrences(of: "\u{276F}", with: "\u{203A}")
+                .replacingOccurrences(of: "\u{23FA}", with: "\u{00B7}")  // ⏺ → ·
+                .replacingOccurrences(of: "\u{276F}", with: "\u{203A}")  // ❯ → ›
+                .replacingOccurrences(of: "\u{2733}", with: "\u{00B7}")  // ✳ → ·
+                .replacingOccurrences(of: "\u{2734}", with: "\u{00B7}")  // ✴ → ·
+                .replacingOccurrences(of: "\u{2735}", with: "\u{00B7}")  // ✵ → ·
+                .replacingOccurrences(of: "\u{2736}", with: "\u{00B7}")  // ✶ → ·
+                .replacingOccurrences(of: "\u{274B}", with: "\u{00B7}")  // ❋ → ·
             guard replaced != seg.text else { return seg }
             return StyledSegment(text: replaced, style: seg.style)
         }
