@@ -513,9 +513,10 @@ struct TerminalLineView: View {
 
             HStack(alignment: .top, spacing: 4) {
                 // Marker column — fixed-width, invisible for continuation lines.
+                // Spinner characters (✳ etc.) are shown with their original color.
                 Text(parsed.marker.character)
                     .font(BalconyTheme.monoFont())
-                    .foregroundColor(parsed.marker == .user ? BalconyTheme.accent : BalconyTheme.textSecondary)
+                    .foregroundColor(markerColor(parsed.marker))
                     .opacity(parsed.marker == .none ? 0 : 1)
 
                 // Content — text flows next to marker.
@@ -547,12 +548,27 @@ struct TerminalLineView: View {
         }
     }
 
+    /// Color for the marker column character.
+    private func markerColor(_ marker: LineMarker) -> Color {
+        switch marker {
+        case .user: return BalconyTheme.accent
+        case .assistant: return BalconyTheme.textSecondary
+        case .none: return .clear
+        case .spinner:
+            // Use the ANSI color from the original first segment if available.
+            if let style = line.segments.first?.style {
+                return ANSIColorMapper.color(for: style.fgColor)
+            }
+            return BalconyTheme.textSecondary
+        }
+    }
+
     private func accessibilityText(parsed: (marker: LineMarker, content: [StyledSegment])) -> String {
         let text = parsed.content.map(\.text).joined()
         switch parsed.marker {
         case .user: return "You: \(text)"
         case .assistant: return "Claude: \(text)"
-        case .none: return text
+        case .none, .spinner: return text
         }
     }
 
@@ -560,13 +576,21 @@ struct TerminalLineView: View {
 
     private enum LineMarker: Equatable {
         case user, assistant, none
+        /// A non-marker leading symbol (e.g. spinner ✳) extracted into the
+        /// fixed-width column so text alignment stays stable across frames.
+        case spinner(String)
 
         var character: String {
             switch self {
             case .user: return "\u{203A}"      // ›
             case .assistant: return "\u{00B7}"  // ·
             case .none: return " "
+            case .spinner(let ch): return ch
             }
+        }
+
+        var isMessageStart: Bool {
+            self == .user || self == .assistant
         }
     }
 
@@ -575,19 +599,43 @@ struct TerminalLineView: View {
     /// character AND its ANSI style) instead of raw character detection.
     /// This prevents spinner frames (✳, ⏺ with bright color) from being
     /// misidentified as message markers.
+    ///
+    /// Non-marker lines that start with a single non-ASCII symbol followed
+    /// by a space (spinner/progress lines) get that symbol extracted into
+    /// the marker column so text alignment is stable across spinner frames.
     private func parseLine() -> (marker: LineMarker, content: [StyledSegment]) {
         // Use the parser-assigned role — it already filtered out spinner chars.
         let marker: LineMarker
         switch line.markerRole {
         case .user:      marker = .user
         case .assistant: marker = .assistant
-        case .none:      return (.none, line.segments)
+        case .none:
+            // Check for spinner-like leading character: non-ASCII symbol + space.
+            return extractSpinner()
         }
 
         guard !line.segments.isEmpty else { return (.none, line.segments) }
 
         // Strip marker character (and optional space after it) from segments.
-        var segments = line.segments
+        return (marker, stripLeadingChar(from: line.segments))
+    }
+
+    /// If the line starts with a single non-ASCII symbol followed by a space,
+    /// extract it as a `.spinner` marker so it renders in the fixed-width column.
+    private func extractSpinner() -> (marker: LineMarker, content: [StyledSegment]) {
+        guard let first = line.segments.first,
+              let scalar = first.text.unicodeScalars.first,
+              scalar.value > 0x7F,
+              first.text.dropFirst().first == " " else {
+            return (.none, line.segments)
+        }
+        let ch = String(first.text[first.text.startIndex...first.text.startIndex])
+        return (.spinner(ch), stripLeadingChar(from: line.segments))
+    }
+
+    /// Strip the first character (and optional trailing space) from segments.
+    private func stripLeadingChar(from original: [StyledSegment]) -> [StyledSegment] {
+        var segments = original
         var remaining = String(segments[0].text.dropFirst())
         if remaining.hasPrefix(" ") { remaining = String(remaining.dropFirst()) }
 
@@ -602,8 +650,7 @@ struct TerminalLineView: View {
         } else {
             segments[0] = StyledSegment(text: remaining, style: segments[0].style)
         }
-
-        return (marker, segments)
+        return segments
     }
 
     // MARK: - Text Building

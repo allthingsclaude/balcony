@@ -596,18 +596,11 @@ final class HeadlessTerminalParser: ObservableObject {
 
     /// Replace emoji-style symbols with simpler Unicode equivalents for mobile.
     /// ⏺ (U+23FA) → · (U+00B7), ❯ (U+276F) → › (U+203A)
-    /// Also normalizes common CLI spinner characters (✳ ✴ ✵ ✶ ✷ ✸ ✹ ✺ ✻ ✼ ❊)
-    /// to · so the progress line renders at a consistent height across frames.
     private func replaceSymbols(_ segments: [StyledSegment]) -> [StyledSegment] {
         segments.map { seg in
             let replaced = seg.text
                 .replacingOccurrences(of: "\u{23FA}", with: "\u{00B7}")  // ⏺ → ·
                 .replacingOccurrences(of: "\u{276F}", with: "\u{203A}")  // ❯ → ›
-                .replacingOccurrences(of: "\u{2733}", with: "\u{00B7}")  // ✳ → ·
-                .replacingOccurrences(of: "\u{2734}", with: "\u{00B7}")  // ✴ → ·
-                .replacingOccurrences(of: "\u{2735}", with: "\u{00B7}")  // ✵ → ·
-                .replacingOccurrences(of: "\u{2736}", with: "\u{00B7}")  // ✶ → ·
-                .replacingOccurrences(of: "\u{274B}", with: "\u{00B7}")  // ❋ → ·
             guard replaced != seg.text else { return seg }
             return StyledSegment(text: replaced, style: seg.style)
         }
