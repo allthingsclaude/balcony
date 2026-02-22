@@ -4,12 +4,14 @@ import BalconyShared
 /// Native session picker popup for /resume command.
 ///
 /// Displays available Claude Code sessions with search, formatted display,
-/// and haptic feedback. Reuses the FilePickerMenu glass material design.
+/// and haptic feedback. Drag the handle down to dismiss.
 struct SessionPickerView: View {
     let sessions: [SessionInfo]
     let onSelect: (SessionInfo) -> Void
+    let onDismiss: () -> Void
 
     @State private var searchQuery = ""
+    @State private var dragOffset: CGFloat = 0
 
     private var filteredSessions: [SessionInfo] {
         if searchQuery.isEmpty {
@@ -25,10 +27,12 @@ struct SessionPickerView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            // Drag handle
+            dragHandle
+
             // Search header
             searchField
                 .padding(.horizontal, BalconyTheme.spacingMD)
-                .padding(.top, BalconyTheme.spacingMD)
                 .padding(.bottom, BalconyTheme.spacingSM)
 
             Divider()
@@ -61,6 +65,40 @@ struct SessionPickerView: View {
                 .shadow(color: .black.opacity(0.15), radius: 16, y: -4)
         }
         .clipShape(RoundedRectangle(cornerRadius: BalconyTheme.radiusMD))
+        .offset(y: max(0, dragOffset))
+        .gesture(
+            DragGesture()
+                .onChanged { value in
+                    dragOffset = value.translation.height
+                }
+                .onEnded { value in
+                    if value.translation.height > 80 || value.predictedEndTranslation.height > 160 {
+                        BalconyTheme.hapticLight()
+                        onDismiss()
+                    } else {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                            dragOffset = 0
+                        }
+                    }
+                }
+        )
+    }
+
+    // MARK: - Drag Handle
+
+    private var dragHandle: some View {
+        VStack(spacing: 6) {
+            Capsule()
+                .fill(BalconyTheme.textSecondary.opacity(0.3))
+                .frame(width: 36, height: 5)
+                .padding(.top, 10)
+
+            Text("Resume Session")
+                .font(BalconyTheme.bodyFont(13))
+                .foregroundStyle(BalconyTheme.textSecondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.bottom, BalconyTheme.spacingSM)
     }
 
     // MARK: - Search Field
@@ -181,9 +219,11 @@ struct SessionPickerView: View {
         BalconyTheme.background
             .ignoresSafeArea()
 
-        SessionPickerView(sessions: sampleSessions) { session in
+        SessionPickerView(sessions: sampleSessions, onSelect: { session in
             print("Selected: \(session.title)")
-        }
+        }, onDismiss: {
+            print("Dismissed")
+        })
         .padding()
     }
 }

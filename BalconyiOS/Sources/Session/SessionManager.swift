@@ -162,6 +162,13 @@ final class SessionManager: ObservableObject {
         }
     }
 
+    /// Dismiss the session picker without selecting.
+    func dismissSessionPicker() {
+        showSessionPicker = false
+        availableSessions = []
+        pickerPTYSessionId = nil
+    }
+
     /// Send session picker selection back to Mac.
     func selectSession(_ session: SessionInfo) async {
         logger.info("Selecting session: \(session.id)")

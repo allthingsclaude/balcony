@@ -14,6 +14,7 @@ struct ConversationView: View {
     var onSendInput: ((String) -> Void)?
     var onSelectSession: ((SessionInfo) -> Void)?
     var onRequestSessionPicker: (() -> Void)?
+    var onDismissSessionPicker: (() -> Void)?
 
     @State private var inputText = ""
     @State private var previousText = ""
@@ -154,9 +155,11 @@ struct ConversationView: View {
 
                 // Session picker — takes priority over all other overlays
                 if showSessionPicker, !availableSessions.isEmpty {
-                    SessionPickerView(sessions: availableSessions) { session in
+                    SessionPickerView(sessions: availableSessions, onSelect: { session in
                         onSelectSession?(session)
-                    }
+                    }, onDismiss: {
+                        onDismissSessionPicker?()
+                    })
                     .padding(.horizontal, BalconyTheme.spacingSM)
                     .padding(.bottom, BalconyTheme.spacingMD)
                     .transition(.menuPanel)

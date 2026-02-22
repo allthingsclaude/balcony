@@ -155,6 +155,9 @@ struct SidebarContainerView: View {
                                     Task {
                                         await sessionManager.requestSessionPicker()
                                     }
+                                },
+                                onDismissSessionPicker: {
+                                    sessionManager.dismissSessionPicker()
                                 }
                             )
                         }

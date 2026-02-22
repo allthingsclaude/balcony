@@ -45,6 +45,9 @@ struct TerminalContainerView: View {
                         Task {
                             await sessionManager.requestSessionPicker()
                         }
+                    },
+                    onDismissSessionPicker: {
+                        sessionManager.dismissSessionPicker()
                     }
                 )
                 .transition(.opacity)
