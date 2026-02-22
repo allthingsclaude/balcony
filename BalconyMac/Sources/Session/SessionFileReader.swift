@@ -29,6 +29,11 @@ actor SessionFileReader {
             )
 
             for fileURL in files where fileURL.pathExtension == "jsonl" {
+                let filename = fileURL.deletingPathExtension().lastPathComponent
+
+                // Skip subagent sessions (e.g. agent-3f930b71.jsonl)
+                if filename.hasPrefix("agent-") { continue }
+
                 if let sessionInfo = await parseSessionFile(fileURL, projectPath: projectPath) {
                     sessions.append(sessionInfo)
                 }
@@ -47,6 +52,7 @@ actor SessionFileReader {
     // MARK: - Session File Parsing
 
     /// Parse a session JSONL file to extract metadata.
+    /// Returns nil for empty sessions (no user messages) so they're excluded from the picker.
     private func parseSessionFile(_ fileURL: URL, projectPath: String) async -> SessionInfo? {
         let sessionId = fileURL.deletingPathExtension().lastPathComponent
 
@@ -57,13 +63,19 @@ actor SessionFileReader {
             return nil
         }
 
+        // Skip empty files
+        guard fileSize > 0 else { return nil }
+
         // Extract title and branch from session content
         let (title, branch) = await extractSessionMetadata(from: fileURL)
+
+        // Skip sessions without a user message — these are empty/aborted sessions
+        guard let title else { return nil }
 
         return SessionInfo(
             id: sessionId,
             projectPath: projectPath,
-            title: title ?? sessionId, // Fall back to session ID if no title found
+            title: title,
             lastModified: modDate,
             fileSize: fileSize,
             branch: branch
@@ -122,9 +134,13 @@ actor SessionFileReader {
     }
 
     /// Extract a clean title from user message text (first line, max 60 chars).
+    /// Returns nil for system-generated messages (e.g. `<local-command-caveat>`).
     private func extractTitleFromText(_ text: String) -> String? {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
+
+        // Skip system-generated messages injected by Claude Code
+        if trimmed.hasPrefix("<") { return nil }
 
         // Take first line only
         let firstLine = trimmed.components(separatedBy: .newlines).first ?? trimmed
