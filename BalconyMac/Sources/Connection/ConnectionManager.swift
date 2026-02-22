@@ -221,6 +221,22 @@ final class ConnectionManager: ObservableObject {
                 logger.error("Failed to handle session picker selection: \(error.localizedDescription)")
             }
 
+        case .modelPickerRequest:
+            do {
+                let payload = try message.decodePayload(ModelPickerRequestPayload.self)
+                await appDelegate?.handleModelPickerRequest(ptySessionId: payload.ptySessionId)
+            } catch {
+                logger.error("Failed to handle model picker request: \(error.localizedDescription)")
+            }
+
+        case .modelPickerSelection:
+            do {
+                let payload = try message.decodePayload(ModelPickerSelectionPayload.self)
+                await handleModelSelection(payload: payload, client: client)
+            } catch {
+                logger.error("Failed to handle model picker selection: \(error.localizedDescription)")
+            }
+
         default:
             logger.debug("Unhandled client message type: \(message.type.rawValue)")
         }
@@ -297,6 +313,45 @@ final class ConnectionManager: ObservableObject {
             logger.info("Sent session picker with \(sessions.count) sessions to iOS")
         } catch {
             logger.error("Failed to send session picker: \(error.localizedDescription)")
+        }
+    }
+
+    // MARK: - Model Picker
+
+    /// Send available models to iOS for native model picker (/model command).
+    func sendModelPicker(ptySessionId: String, currentModelId: String?, models: [ModelInfo]) async {
+        do {
+            let payload = ModelPickerPayload(ptySessionId: ptySessionId, currentModelId: currentModelId, models: models)
+            let msg = try BalconyMessage.create(type: .modelPickerShow, payload: payload)
+            await webSocketServer.sendToSubscribers(of: ptySessionId, message: msg)
+            logger.info("Sent model picker with \(models.count) models to iOS")
+        } catch {
+            logger.error("Failed to send model picker: \(error.localizedDescription)")
+        }
+    }
+
+    /// Handle model selection from iOS - send the selected model ID to the terminal.
+    private func handleModelSelection(payload: ModelPickerSelectionPayload, client: ConnectedClient) async {
+        logger.info("Handling model selection: \(payload.modelId) for PTY \(payload.ptySessionId)")
+
+        let sessions = await ptySessionManager.getActiveSessions()
+        guard let activeSession = sessions.first(where: { $0.id == payload.ptySessionId }) else {
+            logger.warning("No active PTY session found for id \(payload.ptySessionId)")
+            return
+        }
+
+        // Send the /model command text first, then Enter separately.
+        let commandText = "/model \(payload.modelId)"
+        if let textData = commandText.data(using: .utf8) {
+            await ptySessionManager.sendInput(sessionId: activeSession.id, data: textData)
+        }
+
+        // Brief delay then send Enter
+        try? await Task.sleep(nanoseconds: 50_000_000) // 50ms
+
+        if let enterData = "\r".data(using: .utf8) {
+            await ptySessionManager.sendInput(sessionId: activeSession.id, data: enterData)
+            logger.info("Sent model command for model: \(payload.modelId)")
         }
     }
 

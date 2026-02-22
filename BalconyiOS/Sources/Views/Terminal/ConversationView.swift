@@ -11,10 +11,16 @@ struct ConversationView: View {
     let pendingInputText: String
     let availableSessions: [SessionInfo]
     let showSessionPicker: Bool
+    let availableModels: [ModelInfo]
+    let currentModelId: String?
+    let showModelPicker: Bool
     var onSendInput: ((String) -> Void)?
     var onSelectSession: ((SessionInfo) -> Void)?
     var onRequestSessionPicker: (() -> Void)?
     var onDismissSessionPicker: (() -> Void)?
+    var onSelectModel: ((ModelInfo) -> Void)?
+    var onRequestModelPicker: (() -> Void)?
+    var onDismissModelPicker: (() -> Void)?
 
     @State private var inputText = ""
     @State private var previousText = ""
@@ -39,6 +45,9 @@ struct ConversationView: View {
 
     /// Whether the session picker is currently shown.
     private var isSessionPickerActive: Bool { showSessionPicker && !availableSessions.isEmpty }
+
+    /// Whether the model picker is currently shown.
+    private var isModelPickerActive: Bool { showModelPicker && !availableModels.isEmpty }
 
     /// Find the last "/" in the input and return the text after it as the filter query.
     /// Returns nil if no "/" is present (meaning the menu should be hidden).
@@ -167,6 +176,18 @@ struct ConversationView: View {
                     .padding(.bottom, BalconyTheme.spacingMD)
                     .transition(.menuPanel)
                 }
+                // Model picker — takes priority over prompts and menus
+                else if showModelPicker, !availableModels.isEmpty {
+                    ModelPickerView(
+                        models: availableModels,
+                        currentModelId: currentModelId,
+                        onSelect: { model in onSelectModel?(model) },
+                        onDismiss: { onDismissModelPicker?() }
+                    )
+                    .padding(.horizontal, BalconyTheme.spacingSM)
+                    .padding(.bottom, BalconyTheme.spacingMD)
+                    .transition(.menuPanel)
+                }
                 // Interactive prompt overlay — takes priority over slash/file menus
                 else if let prompt = activePrompt, !promptJustAnswered {
                     PromptOverlayView(prompt: prompt) { input in
@@ -235,22 +256,23 @@ struct ConversationView: View {
                             .contentShape(Rectangle())
                     }
 
-                    TextField(isSessionPickerActive ? "Type to search..." : "Type a message...", text: $inputText)
+                    TextField(isSessionPickerActive ? "Type to search..." : isModelPickerActive ? "Select a model..." : "Type a message...", text: $inputText)
                         .textFieldStyle(.plain)
                         .font(BalconyTheme.monoFont(15))
                         .focused($inputFocused)
                         .onSubmit { submitInput() }
                         .onChange(of: inputText) { newValue in
-                            // When the session picker is open, input is for local search only
-                            if !isSessionPickerActive {
+                            // When a picker is open, input is for local use only
+                            if !isSessionPickerActive && !isModelPickerActive {
                                 sendLiveKeystrokes(from: previousText, to: newValue)
                             }
                             previousText = newValue
+                            let pickerActive = isSessionPickerActive || isModelPickerActive
                             withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
-                                showSlashMenu = slashQuery != nil && atQuery == nil && !isSessionPickerActive
-                                showFilePicker = atQuery != nil && !isSessionPickerActive
-                                showBashMode = isBashMode && !isSessionPickerActive
-                                showBackgroundMode = isBackgroundMode && !isSessionPickerActive
+                                showSlashMenu = slashQuery != nil && atQuery == nil && !pickerActive
+                                showFilePicker = atQuery != nil && !pickerActive
+                                showBashMode = isBashMode && !pickerActive
+                                showBackgroundMode = isBackgroundMode && !pickerActive
                             }
                         }
                         .padding(.vertical, 12)
@@ -299,9 +321,14 @@ struct ConversationView: View {
             previousText = ""
             inputText = ""
         }
+        .onChange(of: showModelPicker) { _ in
+            // Clear input when the model picker opens or closes.
+            previousText = ""
+            inputText = ""
+        }
         .onChange(of: pendingInputText) { newValue in
-            // Don't sync Mac's terminal input while the session picker search is active
-            guard !isSessionPickerActive else { return }
+            // Don't sync Mac's terminal input while a picker is active
+            guard !isSessionPickerActive && !isModelPickerActive else { return }
             // Sync Mac's terminal input → iOS input field.
             // Skip if the iOS user typed recently — those updates are just echoes
             // of keystrokes we already sent. Once typing pauses (>0.5s), resume
@@ -355,8 +382,8 @@ struct ConversationView: View {
 
     /// Submit the current input (send carriage return and clear).
     private func submitInput() {
-        // When the session picker is open, Enter is a no-op (input is for search only)
-        guard !isSessionPickerActive else { return }
+        // When a picker is open, Enter is a no-op (input is for search only)
+        guard !isSessionPickerActive && !isModelPickerActive else { return }
         guard !inputText.isEmpty else { return }
         BalconyTheme.hapticLight()
 
@@ -369,6 +396,11 @@ struct ConversationView: View {
             onSendInput?(String(repeating: "\u{7f}", count: inputText.count))
             // Request native session picker from Mac
             onRequestSessionPicker?()
+        } else if trimmed == "/model" || trimmed.hasPrefix("/model ") {
+            // Clear /model from the Mac's terminal input
+            onSendInput?(String(repeating: "\u{7f}", count: inputText.count))
+            // Request native model picker from Mac
+            onRequestModelPicker?()
         } else {
             onSendInput?("\r")
         }
@@ -848,7 +880,10 @@ private struct ConversationEmptyView: View {
         activePrompt: nil,
         pendingInputText: "",
         availableSessions: [],
-        showSessionPicker: false
+        showSessionPicker: false,
+        availableModels: [],
+        currentModelId: nil,
+        showModelPicker: false
     )
     .background(BalconyTheme.background)
 }

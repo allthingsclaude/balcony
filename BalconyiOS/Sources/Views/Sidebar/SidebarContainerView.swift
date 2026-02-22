@@ -141,6 +141,9 @@ struct SidebarContainerView: View {
                                 pendingInputText: sessionManager.pendingInputText,
                                 availableSessions: sessionManager.availableSessions,
                                 showSessionPicker: sessionManager.showSessionPicker,
+                                availableModels: sessionManager.availableModels,
+                                currentModelId: sessionManager.currentModelId,
+                                showModelPicker: sessionManager.showModelPicker,
                                 onSendInput: { text in
                                     Task {
                                         await sessionManager.sendInput(text, to: session)
@@ -158,6 +161,19 @@ struct SidebarContainerView: View {
                                 },
                                 onDismissSessionPicker: {
                                     sessionManager.dismissSessionPicker()
+                                },
+                                onSelectModel: { model in
+                                    Task {
+                                        await sessionManager.selectModel(model)
+                                    }
+                                },
+                                onRequestModelPicker: {
+                                    Task {
+                                        await sessionManager.requestModelPicker()
+                                    }
+                                },
+                                onDismissModelPicker: {
+                                    sessionManager.dismissModelPicker()
                                 }
                             )
                         }

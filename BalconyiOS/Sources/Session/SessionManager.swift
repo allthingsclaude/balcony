@@ -35,6 +35,18 @@ final class SessionManager: ObservableObject {
     /// The PTY session ID that triggered the session picker (for routing selection back).
     private var pickerPTYSessionId: String?
 
+    /// Available models for native model picker (/model command).
+    @Published var availableModels: [ModelInfo] = []
+
+    /// The currently active model ID (detected from session JSONL).
+    @Published var currentModelId: String?
+
+    /// Show the native model picker UI.
+    @Published var showModelPicker: Bool = false
+
+    /// The PTY session ID that triggered the model picker (for routing selection back).
+    private var modelPickerPTYSessionId: String?
+
     private var parser: HeadlessTerminalParser?
     private var parserCancellable: AnyCancellable?
     private var promptCancellable: AnyCancellable?
@@ -183,6 +195,48 @@ final class SessionManager: ObservableObject {
         }
     }
 
+    /// Request the model picker from Mac (triggered when user submits /model on iOS).
+    func requestModelPicker() async {
+        guard let activeSession else {
+            logger.warning("requestModelPicker: no active session")
+            return
+        }
+        guard let connectionManager else {
+            logger.warning("requestModelPicker: no connection manager")
+            return
+        }
+        logger.info("Requesting model picker for PTY session: \(activeSession.id)")
+        do {
+            let payload = ModelPickerRequestPayload(ptySessionId: activeSession.id)
+            let msg = try BalconyMessage.create(type: .modelPickerRequest, payload: payload)
+            try await connectionManager.send(msg)
+        } catch {
+            logger.error("Failed to request model picker: \(error.localizedDescription)")
+        }
+    }
+
+    /// Dismiss the model picker without selecting.
+    func dismissModelPicker() {
+        showModelPicker = false
+        availableModels = []
+        currentModelId = nil
+        modelPickerPTYSessionId = nil
+    }
+
+    /// Send model picker selection back to Mac.
+    func selectModel(_ model: ModelInfo) async {
+        logger.info("Selecting model: \(model.id)")
+        guard let connectionManager, let ptySessionId = modelPickerPTYSessionId else { return }
+        do {
+            let payload = ModelPickerSelectionPayload(modelId: model.id, ptySessionId: ptySessionId)
+            let msg = try BalconyMessage.create(type: .modelPickerSelection, payload: payload)
+            try await connectionManager.send(msg)
+            showModelPicker = false
+        } catch {
+            logger.error("Failed to send model selection: \(error.localizedDescription)")
+        }
+    }
+
     // MARK: - Message Handling
 
     private func handleMessage(_ message: BalconyMessage) {
@@ -199,6 +253,8 @@ final class SessionManager: ObservableObject {
             handleFileList(message)
         case .sessionPickerShow:
             handleSessionPicker(message)
+        case .modelPickerShow:
+            handleModelPicker(message)
         default:
             break
         }
@@ -273,6 +329,19 @@ final class SessionManager: ObservableObject {
             logger.info("Received \(payload.sessions.count) sessions for picker")
         } catch {
             logger.error("Failed to decode session picker: \(error.localizedDescription)")
+        }
+    }
+
+    private func handleModelPicker(_ message: BalconyMessage) {
+        do {
+            let payload = try message.decodePayload(ModelPickerPayload.self)
+            availableModels = payload.models
+            currentModelId = payload.currentModelId
+            modelPickerPTYSessionId = payload.ptySessionId
+            showModelPicker = true
+            logger.info("Received \(payload.models.count) models for picker (current: \(payload.currentModelId ?? "none"))")
+        } catch {
+            logger.error("Failed to decode model picker: \(error.localizedDescription)")
         }
     }
 }

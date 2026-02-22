@@ -10,6 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     lazy var connectionManager = ConnectionManager(ptySessionManager: ptySessionManager)
     let sessionListModel = SessionListModel()
     let sessionFileReader = SessionFileReader()
+    let modelListProvider = ModelListProvider()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         logger.info("BalconyMac launched")
@@ -108,6 +109,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             ptySessionId: ptySessionId,
             projectPath: projectPath,
             sessions: availableSessions
+        )
+    }
+
+    // MARK: - Model Picker
+
+    /// Handle model picker request from iOS (triggered when user submits /model on iOS).
+    @MainActor
+    func handleModelPickerRequest(ptySessionId: String) async {
+        logger.info("Model picker requested for PTY session: \(ptySessionId)")
+
+        // Get the project path for this session
+        let sessions = await ptySessionManager.getActiveSessions()
+        guard let session = sessions.first(where: { $0.id == ptySessionId }) else {
+            logger.warning("No PTY session found matching id: \(ptySessionId)")
+            return
+        }
+        let projectPath = session.cwd ?? session.projectPath
+
+        // Detect current model from JSONL files
+        let currentModelId = await modelListProvider.currentModelForProject(projectPath)
+        let models = await modelListProvider.models
+
+        logger.info("Sending \(models.count) models to iOS picker (current: \(currentModelId ?? "unknown"))")
+
+        await connectionManager.sendModelPicker(
+            ptySessionId: ptySessionId,
+            currentModelId: currentModelId,
+            models: models
         )
     }
 }

@@ -31,6 +31,11 @@ public enum MessageType: String, Codable, Sendable {
     case sessionPickerShow
     case sessionPickerSelection
 
+    // Model picker (native UI for /model)
+    case modelPickerRequest
+    case modelPickerShow
+    case modelPickerSelection
+
     // Presence
     case awayStatusUpdate
 }
