@@ -237,6 +237,14 @@ final class ConnectionManager: ObservableObject {
                 logger.error("Failed to handle model picker selection: \(error.localizedDescription)")
             }
 
+        case .rewindSelection:
+            do {
+                let payload = try message.decodePayload(RewindSelectionPayload.self)
+                await handleRewindSelection(payload: payload, client: client)
+            } catch {
+                logger.error("Failed to handle rewind selection: \(error.localizedDescription)")
+            }
+
         default:
             logger.debug("Unhandled client message type: \(message.type.rawValue)")
         }
@@ -379,6 +387,58 @@ final class ConnectionManager: ObservableObject {
         if let enterData = "\r".data(using: .utf8) {
             await ptySessionManager.sendInput(sessionId: activeSession.id, data: enterData)
             logger.info("Sent resume command for session: \(payload.sessionId)")
+        }
+    }
+
+    /// Handle rewind selection from iOS.
+    ///
+    /// The desktop `/rewind` command is a two-step interactive flow:
+    /// 1. A TUI turn picker appears (arrow keys to navigate, Enter to select)
+    /// 2. A confirmation prompt with 5 options (handled by iOS InteractivePrompt)
+    ///
+    /// We automate step 1 by sending `/rewind`, waiting for the picker to render,
+    /// navigating with up-arrow keys, and pressing Enter. The cursor starts at the
+    /// most recent turn (bottom), so we press up (turnCount - 1) times.
+    private func handleRewindSelection(payload: RewindSelectionPayload, client: ConnectedClient) async {
+        logger.info("Handling rewind selection: \(payload.turnCount) turns for PTY \(payload.ptySessionId)")
+
+        let sessions = await ptySessionManager.getActiveSessions()
+        guard let activeSession = sessions.first(where: { $0.id == payload.ptySessionId }) else {
+            logger.warning("No active PTY session found for id \(payload.ptySessionId)")
+            return
+        }
+
+        let sessionId = activeSession.id
+
+        // 1. Send /rewind + Enter to open the TUI turn picker
+        if let textData = "/rewind".data(using: .utf8) {
+            await ptySessionManager.sendInput(sessionId: sessionId, data: textData)
+        }
+        try? await Task.sleep(nanoseconds: 50_000_000) // 50ms
+        if let enterData = "\r".data(using: .utf8) {
+            await ptySessionManager.sendInput(sessionId: sessionId, data: enterData)
+        }
+
+        // 2. Wait for the TUI picker to render
+        try? await Task.sleep(nanoseconds: 500_000_000) // 500ms
+
+        // 3. Navigate: cursor starts at the most recent turn, press up for older turns
+        let arrowPresses = payload.turnCount - 1
+        if arrowPresses > 0 {
+            let upArrow = "\u{1B}[A" // ESC [ A
+            for _ in 0..<arrowPresses {
+                if let data = upArrow.data(using: .utf8) {
+                    await ptySessionManager.sendInput(sessionId: sessionId, data: data)
+                }
+                try? await Task.sleep(nanoseconds: 30_000_000) // 30ms between presses
+            }
+        }
+
+        // 4. Brief pause then press Enter to confirm selection
+        try? await Task.sleep(nanoseconds: 50_000_000) // 50ms
+        if let enterData = "\r".data(using: .utf8) {
+            await ptySessionManager.sendInput(sessionId: sessionId, data: enterData)
+            logger.info("Navigated rewind picker to \(payload.turnCount) turns back")
         }
     }
 }

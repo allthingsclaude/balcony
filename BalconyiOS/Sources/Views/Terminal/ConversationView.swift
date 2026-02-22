@@ -14,6 +14,8 @@ struct ConversationView: View {
     let availableModels: [ModelInfo]
     let currentModelId: String?
     let showModelPicker: Bool
+    let rewindTurns: [RewindTurnInfo]
+    let showRewindPicker: Bool
     var onSendInput: ((String) -> Void)?
     var onSelectSession: ((SessionInfo) -> Void)?
     var onRequestSessionPicker: (() -> Void)?
@@ -21,6 +23,9 @@ struct ConversationView: View {
     var onSelectModel: ((ModelInfo) -> Void)?
     var onRequestModelPicker: (() -> Void)?
     var onDismissModelPicker: (() -> Void)?
+    var onSelectRewind: ((RewindTurnInfo) -> Void)?
+    var onRequestRewind: (() -> Void)?
+    var onDismissRewindPicker: (() -> Void)?
 
     @State private var inputText = ""
     @State private var previousText = ""
@@ -48,6 +53,17 @@ struct ConversationView: View {
 
     /// Whether the model picker is currently shown.
     private var isModelPickerActive: Bool { showModelPicker && !availableModels.isEmpty }
+
+    /// Whether the rewind picker is currently shown.
+    private var isRewindPickerActive: Bool { showRewindPicker && !rewindTurns.isEmpty }
+
+    /// Placeholder text for the input field, adapting to active picker state.
+    private var inputPlaceholder: String {
+        if isSessionPickerActive { return "Type to search..." }
+        if isModelPickerActive { return "Select a model..." }
+        if isRewindPickerActive { return "Select a turn..." }
+        return "Type a message..."
+    }
 
     /// Find the last "/" in the input and return the text after it as the filter query.
     /// Returns nil if no "/" is present (meaning the menu should be hidden).
@@ -188,6 +204,17 @@ struct ConversationView: View {
                     .padding(.bottom, BalconyTheme.spacingMD)
                     .transition(.menuPanel)
                 }
+                // Rewind picker — takes priority over prompts and menus
+                else if showRewindPicker, !rewindTurns.isEmpty {
+                    RewindPickerView(
+                        turns: rewindTurns,
+                        onSelect: { turn in onSelectRewind?(turn) },
+                        onDismiss: { onDismissRewindPicker?() }
+                    )
+                    .padding(.horizontal, BalconyTheme.spacingSM)
+                    .padding(.bottom, BalconyTheme.spacingMD)
+                    .transition(.menuPanel)
+                }
                 // Interactive prompt overlay — takes priority over slash/file menus
                 else if let prompt = activePrompt, !promptJustAnswered {
                     PromptOverlayView(prompt: prompt) { input in
@@ -256,18 +283,18 @@ struct ConversationView: View {
                             .contentShape(Rectangle())
                     }
 
-                    TextField(isSessionPickerActive ? "Type to search..." : isModelPickerActive ? "Select a model..." : "Type a message...", text: $inputText)
+                    TextField(inputPlaceholder, text: $inputText)
                         .textFieldStyle(.plain)
                         .font(BalconyTheme.monoFont(15))
                         .focused($inputFocused)
                         .onSubmit { submitInput() }
                         .onChange(of: inputText) { newValue in
                             // When a picker is open, input is for local use only
-                            if !isSessionPickerActive && !isModelPickerActive {
+                            if !isSessionPickerActive && !isModelPickerActive && !isRewindPickerActive {
                                 sendLiveKeystrokes(from: previousText, to: newValue)
                             }
                             previousText = newValue
-                            let pickerActive = isSessionPickerActive || isModelPickerActive
+                            let pickerActive = isSessionPickerActive || isModelPickerActive || isRewindPickerActive
                             withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
                                 showSlashMenu = slashQuery != nil && atQuery == nil && !pickerActive
                                 showFilePicker = atQuery != nil && !pickerActive
@@ -326,9 +353,14 @@ struct ConversationView: View {
             previousText = ""
             inputText = ""
         }
+        .onChange(of: showRewindPicker) { _ in
+            // Clear input when the rewind picker opens or closes.
+            previousText = ""
+            inputText = ""
+        }
         .onChange(of: pendingInputText) { newValue in
             // Don't sync Mac's terminal input while a picker is active
-            guard !isSessionPickerActive && !isModelPickerActive else { return }
+            guard !isSessionPickerActive && !isModelPickerActive && !isRewindPickerActive else { return }
             // Sync Mac's terminal input → iOS input field.
             // Skip if the iOS user typed recently — those updates are just echoes
             // of keystrokes we already sent. Once typing pauses (>0.5s), resume
@@ -383,7 +415,7 @@ struct ConversationView: View {
     /// Submit the current input (send carriage return and clear).
     private func submitInput() {
         // When a picker is open, Enter is a no-op (input is for search only)
-        guard !isSessionPickerActive && !isModelPickerActive else { return }
+        guard !isSessionPickerActive && !isModelPickerActive && !isRewindPickerActive else { return }
         guard !inputText.isEmpty else { return }
         BalconyTheme.hapticLight()
 
@@ -401,6 +433,11 @@ struct ConversationView: View {
             onSendInput?(String(repeating: "\u{7f}", count: inputText.count))
             // Request native model picker from Mac
             onRequestModelPicker?()
+        } else if trimmed == "/rewind" || trimmed.hasPrefix("/rewind ") {
+            // Clear /rewind from the Mac's terminal input
+            onSendInput?(String(repeating: "\u{7f}", count: inputText.count))
+            // Show native rewind picker (computed locally, no Mac round-trip)
+            onRequestRewind?()
         } else {
             onSendInput?("\r")
         }
@@ -883,7 +920,9 @@ private struct ConversationEmptyView: View {
         showSessionPicker: false,
         availableModels: [],
         currentModelId: nil,
-        showModelPicker: false
+        showModelPicker: false,
+        rewindTurns: [],
+        showRewindPicker: false
     )
     .background(BalconyTheme.background)
 }

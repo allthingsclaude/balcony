@@ -47,6 +47,12 @@ final class SessionManager: ObservableObject {
     /// The PTY session ID that triggered the model picker (for routing selection back).
     private var modelPickerPTYSessionId: String?
 
+    /// Computed rewind turns for native rewind picker (/rewind command).
+    @Published var rewindTurns: [RewindTurnInfo] = []
+
+    /// Show the native rewind picker UI.
+    @Published var showRewindPicker: Bool = false
+
     private var parser: HeadlessTerminalParser?
     private var parserCancellable: AnyCancellable?
     private var promptCancellable: AnyCancellable?
@@ -235,6 +241,68 @@ final class SessionManager: ObservableObject {
         } catch {
             logger.error("Failed to send model selection: \(error.localizedDescription)")
         }
+    }
+
+    /// Show the rewind picker with turns computed locally from conversationLines.
+    func showRewind() {
+        rewindTurns = computeRewindTurns()
+        guard !rewindTurns.isEmpty else {
+            logger.info("No turns to rewind")
+            return
+        }
+        showRewindPicker = true
+    }
+
+    /// Dismiss the rewind picker without selecting.
+    func dismissRewindPicker() {
+        showRewindPicker = false
+        rewindTurns = []
+    }
+
+    /// Send rewind selection to Mac.
+    func selectRewind(_ turn: RewindTurnInfo) async {
+        logger.info("Selecting rewind: \(turn.id) turns")
+        guard let connectionManager, let activeSession else { return }
+        do {
+            let payload = RewindSelectionPayload(turnCount: turn.id, ptySessionId: activeSession.id)
+            let msg = try BalconyMessage.create(type: .rewindSelection, payload: payload)
+            try await connectionManager.send(msg)
+            showRewindPicker = false
+        } catch {
+            logger.error("Failed to send rewind selection: \(error.localizedDescription)")
+        }
+    }
+
+    /// Collect user turns from conversationLines for the rewind picker.
+    /// Each `.user` marker starts a new turn (matching desktop's rewind checkpoints).
+    private func computeRewindTurns() -> [RewindTurnInfo] {
+        var userTurns: [String] = []
+        let markerChars: Set<Character> = ["\u{203A}", "\u{00B7}", "\u{23FA}", "\u{276F}", " "]
+
+        // Walk forward — every .user marker is a separate rewind checkpoint
+        for line in conversationLines {
+            if line.markerRole == .user {
+                var preview = line.segments.map(\.text).joined()
+                    .trimmingCharacters(in: .whitespaces)
+                // Strip leading marker characters (›, ·, ⏺, ❯)
+                while let first = preview.first, markerChars.contains(first) {
+                    preview.removeFirst()
+                }
+                preview = preview.trimmingCharacters(in: .whitespaces)
+                userTurns.append(String(preview.prefix(80)))
+            }
+        }
+
+        // Number: most recent user turn = 1, oldest = N
+        let total = userTurns.count
+        var result: [RewindTurnInfo] = []
+        for (index, preview) in userTurns.enumerated() {
+            let turnsAgo = total - index
+            result.append(RewindTurnInfo(id: turnsAgo, role: "user", preview: preview))
+        }
+
+        // Most recent first, limit to 20
+        return Array(result.reversed().prefix(20))
     }
 
     // MARK: - Message Handling

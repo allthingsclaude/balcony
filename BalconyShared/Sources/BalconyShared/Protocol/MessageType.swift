@@ -36,6 +36,9 @@ public enum MessageType: String, Codable, Sendable {
     case modelPickerShow
     case modelPickerSelection
 
+    // Rewind picker (native UI for /rewind)
+    case rewindSelection
+
     // Presence
     case awayStatusUpdate
 }

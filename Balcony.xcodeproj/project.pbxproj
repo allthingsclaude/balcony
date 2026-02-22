@@ -12,6 +12,7 @@
 		0C8B98F96BE57AE5DFEDE5D1 /* PromptDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40C32C7301A46B9456C5FCCC /* PromptDetector.swift */; };
 		0FE1BFBC4DC2490FA25064E4 /* SlashCommandMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF14263968FE5E9B5664835E /* SlashCommandMenu.swift */; };
 		0FE6915E324A2EA05EEEC639 /* SessionRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A153BA8C47D076D9BD988A08 /* SessionRowView.swift */; };
+		150A404F73E9404284393E17 /* RewindPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE1D9639D9928840FAEEECD3 /* RewindPickerView.swift */; };
 		15406D80C0095BDC371DCAF3 /* SessionSidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04F411A79CF7264F289B6302 /* SessionSidebarView.swift */; };
 		15A28C87E7BAC5940DF63E23 /* WebSocketClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30D8A1BC1C4516A364BFA87F /* WebSocketClient.swift */; };
 		1E628833070E34E4A040D51C /* NIOWebSocket in Frameworks */ = {isa = PBXBuildFile; productRef = 6ED48EC9E94F4FC97A96DE5A /* NIOWebSocket */; };
@@ -151,6 +152,7 @@
 		D95B51D498D493A07AD8D145 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		DAE1288EF0CA05A15B0E30FF /* ConnectionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionManager.swift; sourceTree = "<group>"; };
 		DBCB78142A84C2BC6966A788 /* AppIcon-Dark@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon-Dark@2x.png"; sourceTree = "<group>"; };
+		DE1D9639D9928840FAEEECD3 /* RewindPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RewindPickerView.swift; sourceTree = "<group>"; };
 		DEFB8FEA08F6458F0103A0F7 /* BonjourAdvertiser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BonjourAdvertiser.swift; sourceTree = "<group>"; };
 		DF14263968FE5E9B5664835E /* SlashCommandMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SlashCommandMenu.swift; sourceTree = "<group>"; };
 		DF662BA7926B1B03E10B19B6 /* BalconyTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BalconyTheme.swift; sourceTree = "<group>"; };
@@ -402,6 +404,7 @@
 				384815D580E792BAFCB0E9F0 /* ModelPickerView.swift */,
 				40C32C7301A46B9456C5FCCC /* PromptDetector.swift */,
 				0737DE007E493E133BF36ACB /* PromptOverlayView.swift */,
+				DE1D9639D9928840FAEEECD3 /* RewindPickerView.swift */,
 				8A3E4297A1ED29FEAA7E6D5E /* SessionPickerView.swift */,
 				DF14263968FE5E9B5664835E /* SlashCommandMenu.swift */,
 				8AF99EBC38F153B19FDEB53A /* TerminalContainerView.swift */,
@@ -715,6 +718,7 @@
 				0C8B98F96BE57AE5DFEDE5D1 /* PromptDetector.swift in Sources */,
 				8A23CFEEC72916867B22D67E /* PromptOverlayView.swift in Sources */,
 				E988DDBE65BDB2A7E0BDBC34 /* QRScannerView.swift in Sources */,
+				150A404F73E9404284393E17 /* RewindPickerView.swift in Sources */,
 				BDFFEF7010DECCDDE79DAAC6 /* SessionListView.swift in Sources */,
 				8ACEB2F730210C579A95CFEA /* SessionManager.swift in Sources */,
 				55510F0B7A6D0C0A189E42AE /* SessionPickerView.swift in Sources */,

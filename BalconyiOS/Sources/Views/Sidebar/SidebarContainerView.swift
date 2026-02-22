@@ -144,6 +144,8 @@ struct SidebarContainerView: View {
                                 availableModels: sessionManager.availableModels,
                                 currentModelId: sessionManager.currentModelId,
                                 showModelPicker: sessionManager.showModelPicker,
+                                rewindTurns: sessionManager.rewindTurns,
+                                showRewindPicker: sessionManager.showRewindPicker,
                                 onSendInput: { text in
                                     Task {
                                         await sessionManager.sendInput(text, to: session)
@@ -174,6 +176,15 @@ struct SidebarContainerView: View {
                                 },
                                 onDismissModelPicker: {
                                     sessionManager.dismissModelPicker()
+                                },
+                                onSelectRewind: { turn in
+                                    Task { await sessionManager.selectRewind(turn) }
+                                },
+                                onRequestRewind: {
+                                    sessionManager.showRewind()
+                                },
+                                onDismissRewindPicker: {
+                                    sessionManager.dismissRewindPicker()
                                 }
                             )
                         }
