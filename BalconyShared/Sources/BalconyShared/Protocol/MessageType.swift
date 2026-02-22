@@ -26,6 +26,11 @@ public enum MessageType: String, Codable, Sendable {
     // File list for @ picker
     case fileList
 
+    // Session picker (native UI for /resume)
+    case sessionPickerRequest
+    case sessionPickerShow
+    case sessionPickerSelection
+
     // Presence
     case awayStatusUpdate
 }

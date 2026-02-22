@@ -139,9 +139,21 @@ struct SidebarContainerView: View {
                                 projectFiles: sessionManager.projectFiles,
                                 activePrompt: sessionManager.activePrompt,
                                 pendingInputText: sessionManager.pendingInputText,
+                                availableSessions: sessionManager.availableSessions,
+                                showSessionPicker: sessionManager.showSessionPicker,
                                 onSendInput: { text in
                                     Task {
                                         await sessionManager.sendInput(text, to: session)
+                                    }
+                                },
+                                onSelectSession: { session in
+                                    Task {
+                                        await sessionManager.selectSession(session)
+                                    }
+                                },
+                                onRequestSessionPicker: {
+                                    Task {
+                                        await sessionManager.requestSessionPicker()
                                     }
                                 }
                             )

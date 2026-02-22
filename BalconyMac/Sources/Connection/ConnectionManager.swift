@@ -33,6 +33,9 @@ final class ConnectionManager: ObservableObject {
     private let encoder = MessageEncoder()
     private var serverEventTask: Task<Void, Never>?
 
+    /// Weak reference to AppDelegate for session picker notifications.
+    weak var appDelegate: AppDelegate?
+
     init(
         port: Int = 29170,
         ptySessionManager: PTYSessionManager
@@ -102,6 +105,11 @@ final class ConnectionManager: ObservableObject {
         } catch {
             logger.error("Failed to forward PTY output: \(error.localizedDescription)")
         }
+    }
+
+    /// Check if any iOS clients are currently connected.
+    func hasConnectedClients() async -> Bool {
+        return !connectedDevices.isEmpty
     }
 
     // MARK: - Session Event Forwarding
@@ -197,6 +205,22 @@ final class ConnectionManager: ObservableObject {
                 logger.error("Failed to forward terminal resize: \(error.localizedDescription)")
             }
 
+        case .sessionPickerRequest:
+            do {
+                let payload = try message.decodePayload(SessionPickerRequestPayload.self)
+                await appDelegate?.handleSessionPickerRequest(ptySessionId: payload.ptySessionId)
+            } catch {
+                logger.error("Failed to handle session picker request: \(error.localizedDescription)")
+            }
+
+        case .sessionPickerSelection:
+            do {
+                let payload = try message.decodePayload(SessionPickerSelectionPayload.self)
+                await handleSessionSelection(payload: payload, client: client)
+            } catch {
+                logger.error("Failed to handle session picker selection: \(error.localizedDescription)")
+            }
+
         default:
             logger.debug("Unhandled client message type: \(message.type.rawValue)")
         }
@@ -259,6 +283,50 @@ final class ConnectionManager: ObservableObject {
             await webSocketServer.send(msg, to: client)
         } catch {
             logger.error("Failed to send session list to \(client.id): \(error.localizedDescription)")
+        }
+    }
+
+    // MARK: - Session Picker
+
+    /// Send available sessions to iOS for native session picker (/resume command).
+    func sendSessionPicker(ptySessionId: String, projectPath: String, sessions: [SessionInfo]) async {
+        do {
+            let payload = SessionPickerPayload(ptySessionId: ptySessionId, projectPath: projectPath, sessions: sessions)
+            let msg = try BalconyMessage.create(type: .sessionPickerShow, payload: payload)
+            await webSocketServer.sendToSubscribers(of: ptySessionId, message: msg)
+            logger.info("Sent session picker with \(sessions.count) sessions to iOS")
+        } catch {
+            logger.error("Failed to send session picker: \(error.localizedDescription)")
+        }
+    }
+
+    /// Handle session selection from iOS - send the selected session ID to the terminal.
+    private func handleSessionSelection(payload: SessionPickerSelectionPayload, client: ConnectedClient) async {
+        logger.info("Handling session selection: \(payload.sessionId) for PTY \(payload.ptySessionId)")
+
+        // Use the PTY session ID from the payload to route the command correctly
+        let sessions = await ptySessionManager.getActiveSessions()
+        guard let activeSession = sessions.first(where: { $0.id == payload.ptySessionId }) else {
+            logger.warning("No active PTY session found for id \(payload.ptySessionId)")
+            return
+        }
+
+        // Strategy: Send Escape to close any active picker, then send the resume command.
+        // This ensures we start from a clean state regardless of terminal picker state.
+
+        // 1. Send Escape to close the terminal picker
+        if let escapeData = "\u{1B}".data(using: .utf8) {
+            await ptySessionManager.sendInput(sessionId: activeSession.id, data: escapeData)
+
+            // Brief delay to let the escape process
+            try? await Task.sleep(nanoseconds: 50_000_000) // 50ms
+        }
+
+        // 2. Send the resume command with the selected session ID
+        let resumeCommand = "/resume \(payload.sessionId)\r"
+        if let commandData = resumeCommand.data(using: .utf8) {
+            await ptySessionManager.sendInput(sessionId: activeSession.id, data: commandData)
+            logger.info("Sent resume command for session: \(payload.sessionId)")
         }
     }
 }

@@ -9,7 +9,11 @@ struct ConversationView: View {
     let projectFiles: [String]
     let activePrompt: InteractivePrompt?
     let pendingInputText: String
+    let availableSessions: [SessionInfo]
+    let showSessionPicker: Bool
     var onSendInput: ((String) -> Void)?
+    var onSelectSession: ((SessionInfo) -> Void)?
+    var onRequestSessionPicker: (() -> Void)?
 
     @State private var inputText = ""
     @State private var previousText = ""
@@ -148,8 +152,17 @@ struct ConversationView: View {
                 .offset(y: 100)
                 .allowsHitTesting(false)
 
+                // Session picker — takes priority over all other overlays
+                if showSessionPicker, !availableSessions.isEmpty {
+                    SessionPickerView(sessions: availableSessions) { session in
+                        onSelectSession?(session)
+                    }
+                    .padding(.horizontal, BalconyTheme.spacingSM)
+                    .padding(.bottom, BalconyTheme.spacingMD)
+                    .transition(.menuPanel)
+                }
                 // Interactive prompt overlay — takes priority over slash/file menus
-                if let prompt = activePrompt, !promptJustAnswered {
+                else if let prompt = activePrompt, !promptJustAnswered {
                     PromptOverlayView(prompt: prompt) { input in
                         promptJustAnswered = true
                         onSendInput?(input)
@@ -327,7 +340,18 @@ struct ConversationView: View {
     private func submitInput() {
         guard !inputText.isEmpty else { return }
         BalconyTheme.hapticLight()
-        onSendInput?("\r")
+
+        // Intercept /resume: show native picker instead of sending to terminal
+        let trimmed = inputText.trimmingCharacters(in: .whitespaces)
+        if trimmed == "/resume" {
+            // Send Enter to terminal so Claude Code processes the command
+            onSendInput?("\r")
+            // Then request native session picker from Mac
+            onRequestSessionPicker?()
+        } else {
+            onSendInput?("\r")
+        }
+
         // Set previousText first so onChange doesn't send backspaces for the clear.
         previousText = ""
         inputText = ""
@@ -801,7 +825,9 @@ private struct ConversationEmptyView: View {
         ],
         projectFiles: ["src/auth/login.ts", "src/components/Button.tsx", "package.json"],
         activePrompt: nil,
-        pendingInputText: ""
+        pendingInputText: "",
+        availableSessions: [],
+        showSessionPicker: false
     )
     .background(BalconyTheme.background)
 }

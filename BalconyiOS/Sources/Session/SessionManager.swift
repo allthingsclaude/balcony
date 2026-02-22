@@ -26,6 +26,15 @@ final class SessionManager: ObservableObject {
     /// Text currently in the Mac's input box (after ❯). Used to pre-fill the iOS input.
     @Published var pendingInputText: String = ""
 
+    /// Available sessions for native session picker (/resume command).
+    @Published var availableSessions: [SessionInfo] = []
+
+    /// Show the native session picker UI.
+    @Published var showSessionPicker: Bool = false
+
+    /// The PTY session ID that triggered the session picker (for routing selection back).
+    private var pickerPTYSessionId: String?
+
     private var parser: HeadlessTerminalParser?
     private var parserCancellable: AnyCancellable?
     private var promptCancellable: AnyCancellable?
@@ -133,6 +142,33 @@ final class SessionManager: ObservableObject {
         }
     }
 
+    /// Request the session picker from Mac (triggered when user submits /resume on iOS).
+    func requestSessionPicker() async {
+        guard let activeSession, let connectionManager else { return }
+        logger.info("Requesting session picker for PTY session: \(activeSession.id)")
+        do {
+            let payload = SessionPickerRequestPayload(ptySessionId: activeSession.id)
+            let msg = try BalconyMessage.create(type: .sessionPickerRequest, payload: payload)
+            try await connectionManager.send(msg)
+        } catch {
+            logger.error("Failed to request session picker: \(error.localizedDescription)")
+        }
+    }
+
+    /// Send session picker selection back to Mac.
+    func selectSession(_ session: SessionInfo) async {
+        logger.info("Selecting session: \(session.id)")
+        guard let connectionManager, let ptySessionId = pickerPTYSessionId else { return }
+        do {
+            let payload = SessionPickerSelectionPayload(sessionId: session.id, ptySessionId: ptySessionId)
+            let msg = try BalconyMessage.create(type: .sessionPickerSelection, payload: payload)
+            try await connectionManager.send(msg)
+            showSessionPicker = false
+        } catch {
+            logger.error("Failed to send session selection: \(error.localizedDescription)")
+        }
+    }
+
     // MARK: - Message Handling
 
     private func handleMessage(_ message: BalconyMessage) {
@@ -147,6 +183,8 @@ final class SessionManager: ObservableObject {
             handleSlashCommands(message)
         case .fileList:
             handleFileList(message)
+        case .sessionPickerShow:
+            handleSessionPicker(message)
         default:
             break
         }
@@ -209,6 +247,18 @@ final class SessionManager: ObservableObject {
             logger.info("Received \(payload.files.count) project files")
         } catch {
             logger.error("Failed to decode file list: \(error.localizedDescription)")
+        }
+    }
+
+    private func handleSessionPicker(_ message: BalconyMessage) {
+        do {
+            let payload = try message.decodePayload(SessionPickerPayload.self)
+            availableSessions = payload.sessions
+            pickerPTYSessionId = payload.ptySessionId
+            showSessionPicker = true
+            logger.info("Received \(payload.sessions.count) sessions for picker")
+        } catch {
+            logger.error("Failed to decode session picker: \(error.localizedDescription)")
         }
     }
 }
