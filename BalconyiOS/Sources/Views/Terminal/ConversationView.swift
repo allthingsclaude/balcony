@@ -341,12 +341,14 @@ struct ConversationView: View {
         guard !inputText.isEmpty else { return }
         BalconyTheme.hapticLight()
 
-        // Intercept /resume: show native picker instead of sending to terminal
+        // Intercept /resume: show native picker instead of sending to terminal.
+        // We clear the terminal input (send backspaces) rather than sending Enter,
+        // so Claude Code never processes /resume and never shows its own terminal picker.
         let trimmed = inputText.trimmingCharacters(in: .whitespaces)
-        if trimmed == "/resume" {
-            // Send Enter to terminal so Claude Code processes the command
-            onSendInput?("\r")
-            // Then request native session picker from Mac
+        if trimmed == "/resume" || trimmed.hasPrefix("/resume ") {
+            // Clear /resume from the Mac's terminal input (send backspaces for each char)
+            onSendInput?(String(repeating: "\u{7f}", count: inputText.count))
+            // Request native session picker from Mac
             onRequestSessionPicker?()
         } else {
             onSendInput?("\r")

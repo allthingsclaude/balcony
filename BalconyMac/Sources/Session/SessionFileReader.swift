@@ -12,8 +12,10 @@ actor SessionFileReader {
         let projectHash = hashProjectPath(projectPath)
         let sessionsDir = claudeProjectsPath().appendingPathComponent(projectHash)
 
+        logger.info("Looking for sessions at: \(sessionsDir.path)")
+
         guard FileManager.default.fileExists(atPath: sessionsDir.path) else {
-            logger.debug("No sessions directory for project: \(projectPath)")
+            logger.warning("No sessions directory at: \(sessionsDir.path) (project: \(projectPath), hash: \(projectHash))")
             return []
         }
 
@@ -35,6 +37,8 @@ actor SessionFileReader {
             logger.error("Failed to read sessions directory: \(error.localizedDescription)")
             return []
         }
+
+        logger.info("Parsed \(sessions.count) sessions from \(sessionsDir.lastPathComponent)")
 
         // Sort by last modified (newest first)
         return sessions.sorted { $0.lastModified > $1.lastModified }

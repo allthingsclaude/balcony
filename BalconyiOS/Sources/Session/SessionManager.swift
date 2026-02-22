@@ -144,7 +144,14 @@ final class SessionManager: ObservableObject {
 
     /// Request the session picker from Mac (triggered when user submits /resume on iOS).
     func requestSessionPicker() async {
-        guard let activeSession, let connectionManager else { return }
+        guard let activeSession else {
+            logger.warning("requestSessionPicker: no active session")
+            return
+        }
+        guard let connectionManager else {
+            logger.warning("requestSessionPicker: no connection manager")
+            return
+        }
         logger.info("Requesting session picker for PTY session: \(activeSession.id)")
         do {
             let payload = SessionPickerRequestPayload(ptySessionId: activeSession.id)

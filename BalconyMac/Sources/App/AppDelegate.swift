@@ -80,25 +80,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Handle session picker request from iOS (triggered when user submits /resume on iOS).
     @MainActor
     func handleSessionPickerRequest(ptySessionId: String) async {
-        logger.info("Session picker requested for PTY session \(ptySessionId)")
+        logger.info("Session picker requested for PTY session: \(ptySessionId)")
 
         // Get the project path for this session
         let sessions = await ptySessionManager.getActiveSessions()
+        logger.info("Active PTY sessions: \(sessions.count) — ids: \(sessions.map(\.id).joined(separator: ", "))")
+
         guard let session = sessions.first(where: { $0.id == ptySessionId }) else {
-            logger.warning("No session found for id \(ptySessionId)")
+            logger.warning("No PTY session found matching id: \(ptySessionId)")
             return
         }
         let projectPath = session.cwd ?? session.projectPath
+        logger.info("Project path for session picker: \(projectPath)")
 
         // Read available sessions from ~/.claude/projects/
         let availableSessions = await sessionFileReader.listSessions(for: projectPath)
 
         guard !availableSessions.isEmpty else {
-            logger.info("No sessions found for project: \(projectPath)")
+            logger.warning("No Claude Code sessions found for project: \(projectPath)")
             return
         }
 
-        logger.info("Found \(availableSessions.count) sessions for picker")
+        logger.info("Sending \(availableSessions.count) sessions to iOS picker")
 
         // Send session picker to iOS
         await connectionManager.sendSessionPicker(
