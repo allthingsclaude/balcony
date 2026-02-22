@@ -311,21 +311,18 @@ final class ConnectionManager: ObservableObject {
             return
         }
 
-        // Strategy: Send Escape to close any active picker, then send the resume command.
-        // This ensures we start from a clean state regardless of terminal picker state.
-
-        // 1. Send Escape to close the terminal picker
-        if let escapeData = "\u{1B}".data(using: .utf8) {
-            await ptySessionManager.sendInput(sessionId: activeSession.id, data: escapeData)
-
-            // Brief delay to let the escape process
-            try? await Task.sleep(nanoseconds: 50_000_000) // 50ms
+        // Send the resume command text first, then Enter separately.
+        // Sending them as one chunk can cause the PTY to not process \r as submit.
+        let commandText = "/resume \(payload.sessionId)"
+        if let textData = commandText.data(using: .utf8) {
+            await ptySessionManager.sendInput(sessionId: activeSession.id, data: textData)
         }
 
-        // 2. Send the resume command with the selected session ID
-        let resumeCommand = "/resume \(payload.sessionId)\r"
-        if let commandData = resumeCommand.data(using: .utf8) {
-            await ptySessionManager.sendInput(sessionId: activeSession.id, data: commandData)
+        // Brief delay then send Enter
+        try? await Task.sleep(nanoseconds: 50_000_000) // 50ms
+
+        if let enterData = "\r".data(using: .utf8) {
+            await ptySessionManager.sendInput(sessionId: activeSession.id, data: enterData)
             logger.info("Sent resume command for session: \(payload.sessionId)")
         }
     }
