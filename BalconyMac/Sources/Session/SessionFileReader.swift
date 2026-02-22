@@ -6,106 +6,128 @@ import os
 actor SessionFileReader {
     private let logger = Logger(subsystem: "com.balcony.mac", category: "SessionFileReader")
 
-    /// List all available sessions for a given project path.
-    /// Sessions are sorted by last modified date (newest first).
+    /// Maximum sessions to return (most recent by file modification date).
+    private let maxSessions = 30
+
+    /// List available sessions for a given project path.
+    /// Pre-sorts by modification date and only parses the most recent files.
     func listSessions(for projectPath: String) async -> [SessionInfo] {
         let projectHash = hashProjectPath(projectPath)
         let sessionsDir = claudeProjectsPath().appendingPathComponent(projectHash)
 
-        logger.info("Looking for sessions at: \(sessionsDir.path)")
-
         guard FileManager.default.fileExists(atPath: sessionsDir.path) else {
-            logger.warning("No sessions directory at: \(sessionsDir.path) (project: \(projectPath), hash: \(projectHash))")
+            logger.warning("No sessions directory at: \(sessionsDir.path)")
             return []
         }
 
+        // List files and get attributes in one pass
+        guard let files = try? FileManager.default.contentsOfDirectory(
+            at: sessionsDir,
+            includingPropertiesForKeys: [.contentModificationDateKey, .fileSizeKey],
+            options: [.skipsHiddenFiles]
+        ) else {
+            return []
+        }
+
+        // Filter, get attributes, and sort by mod date — all before parsing content
+        struct Candidate {
+            let url: URL
+            let sessionId: String
+            let modDate: Date
+            let fileSize: Int64
+        }
+
+        var candidates: [Candidate] = []
+        for fileURL in files where fileURL.pathExtension == "jsonl" {
+            let name = fileURL.deletingPathExtension().lastPathComponent
+            if name.hasPrefix("agent-") { continue }
+
+            guard let values = try? fileURL.resourceValues(forKeys: [.contentModificationDateKey, .fileSizeKey]),
+                  let modDate = values.contentModificationDate,
+                  let fileSize = values.fileSize,
+                  fileSize > 0 else { continue }
+
+            candidates.append(Candidate(url: fileURL, sessionId: name, modDate: modDate, fileSize: Int64(fileSize)))
+        }
+
+        // Sort newest first and take only the top N — avoids parsing old sessions
+        candidates.sort { $0.modDate > $1.modDate }
+        let topCandidates = candidates.prefix(maxSessions)
+
+        // Parse metadata from the top candidates
         var sessions: [SessionInfo] = []
+        sessions.reserveCapacity(topCandidates.count)
 
-        do {
-            let files = try FileManager.default.contentsOfDirectory(
-                at: sessionsDir,
-                includingPropertiesForKeys: [.contentModificationDateKey, .fileSizeKey],
-                options: [.skipsHiddenFiles]
-            )
+        for c in topCandidates {
+            let (title, branch) = extractSessionMetadata(from: c.url)
+            guard let title else { continue }
 
-            for fileURL in files where fileURL.pathExtension == "jsonl" {
-                let filename = fileURL.deletingPathExtension().lastPathComponent
-
-                // Skip subagent sessions (e.g. agent-3f930b71.jsonl)
-                if filename.hasPrefix("agent-") { continue }
-
-                if let sessionInfo = await parseSessionFile(fileURL, projectPath: projectPath) {
-                    sessions.append(sessionInfo)
-                }
-            }
-        } catch {
-            logger.error("Failed to read sessions directory: \(error.localizedDescription)")
-            return []
+            sessions.append(SessionInfo(
+                id: c.sessionId,
+                projectPath: projectPath,
+                title: title,
+                lastModified: c.modDate,
+                fileSize: c.fileSize,
+                branch: branch
+            ))
         }
 
-        logger.info("Parsed \(sessions.count) sessions from \(sessionsDir.lastPathComponent)")
-
-        // Sort by last modified (newest first)
-        return sessions.sorted { $0.lastModified > $1.lastModified }
+        logger.info("Loaded \(sessions.count) sessions for picker")
+        return sessions
     }
 
     // MARK: - Session File Parsing
 
-    /// Parse a session JSONL file to extract metadata.
-    /// Returns nil for empty sessions (no user messages) so they're excluded from the picker.
-    private func parseSessionFile(_ fileURL: URL, projectPath: String) async -> SessionInfo? {
-        let sessionId = fileURL.deletingPathExtension().lastPathComponent
-
-        // Get file attributes
-        guard let attributes = try? FileManager.default.attributesOfItem(atPath: fileURL.path),
-              let modDate = attributes[.modificationDate] as? Date,
-              let fileSize = attributes[.size] as? Int64 else {
-            return nil
-        }
-
-        // Skip empty files
-        guard fileSize > 0 else { return nil }
-
-        // Extract title and branch from session content
-        let (title, branch) = await extractSessionMetadata(from: fileURL)
-
-        // Skip sessions without a user message — these are empty/aborted sessions
-        guard let title else { return nil }
-
-        return SessionInfo(
-            id: sessionId,
-            projectPath: projectPath,
-            title: title,
-            lastModified: modDate,
-            fileSize: fileSize,
-            branch: branch
-        )
-    }
-
-    /// Extract title and branch from the first few lines of a session JSONL file.
-    private func extractSessionMetadata(from fileURL: URL) async -> (title: String?, branch: String?) {
+    /// Read the first few KB of a file and extract title + branch.
+    /// Uses a single buffered read instead of byte-by-byte FileHandle access.
+    private func extractSessionMetadata(from fileURL: URL) -> (title: String?, branch: String?) {
+        // Read a small chunk from the start of the file — enough for metadata lines.
+        // Most sessions have title + branch within the first 8 KB.
         guard let fileHandle = try? FileHandle(forReadingFrom: fileURL) else {
             return (nil, nil)
         }
-
         defer { try? fileHandle.close() }
+
+        let chunkSize = 16_384 // 16 KB
+        guard let chunk = try? fileHandle.read(upToCount: chunkSize),
+              !chunk.isEmpty else {
+            return (nil, nil)
+        }
 
         var title: String?
         var branch: String?
-        var linesRead = 0
-        let maxLines = 50 // Only read first 50 lines for performance
 
-        while linesRead < maxLines {
-            guard let lineData = try? fileHandle.readLine() else { break }
-            linesRead += 1
+        // Split chunk into lines and parse each as JSON
+        chunk.withUnsafeBytes { buffer in
+            guard let base = buffer.baseAddress?.assumingMemoryBound(to: UInt8.self) else { return }
+            let count = buffer.count
+            var lineStart = 0
 
-            guard let json = try? JSONSerialization.jsonObject(with: lineData) as? [String: Any] else {
-                continue
-            }
+            for i in 0..<count {
+                guard base[i] == UInt8(ascii: "\n") else { continue }
 
-            // Extract title from first user message
-            if title == nil, let type = json["type"] as? String, type == "user" {
-                if let message = json["message"] as? [String: Any],
+                let lineLength = i - lineStart
+                guard lineLength > 0 else {
+                    lineStart = i + 1
+                    continue
+                }
+
+                let lineData = Data(bytes: base + lineStart, count: lineLength)
+                lineStart = i + 1
+
+                guard let json = try? JSONSerialization.jsonObject(with: lineData) as? [String: Any] else {
+                    continue
+                }
+
+                // Extract branch (usually in first few lines)
+                if branch == nil, let b = json["gitBranch"] as? String, !b.isEmpty {
+                    branch = b
+                }
+
+                // Extract title from first real user message
+                if title == nil,
+                   let type = json["type"] as? String, type == "user",
+                   let message = json["message"] as? [String: Any],
                    let content = message["content"] {
                     if let text = content as? String {
                         title = extractTitleFromText(text)
@@ -117,16 +139,8 @@ actor SessionFileReader {
                         title = extractTitleFromText(text)
                     }
                 }
-            }
 
-            // Extract branch from JSONL (Claude Code writes gitBranch at top level)
-            if branch == nil, let b = json["gitBranch"] as? String, !b.isEmpty {
-                branch = b
-            }
-
-            // Stop once we have both
-            if title != nil && branch != nil {
-                break
+                if title != nil && branch != nil { return }
             }
         }
 
@@ -142,10 +156,8 @@ actor SessionFileReader {
         // Skip system-generated messages injected by Claude Code
         if trimmed.hasPrefix("<") { return nil }
 
-        // Take first line only
         let firstLine = trimmed.components(separatedBy: .newlines).first ?? trimmed
 
-        // Limit to 60 characters
         if firstLine.count > 60 {
             let index = firstLine.index(firstLine.startIndex, offsetBy: 60)
             return String(firstLine[..<index]) + "..."
@@ -156,42 +168,13 @@ actor SessionFileReader {
 
     // MARK: - Path Helpers
 
-    /// Get the path to `~/.claude/projects/`.
     private func claudeProjectsPath() -> URL {
         FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent(".claude")
             .appendingPathComponent("projects")
     }
 
-    /// Convert a project path to Claude Code's directory naming convention.
-    /// Claude Code replaces "/" with "-" in the absolute path.
-    /// e.g. "/Users/alice/repos/myproject" → "-Users-alice-repos-myproject"
     private func hashProjectPath(_ path: String) -> String {
         path.replacingOccurrences(of: "/", with: "-")
-    }
-}
-
-// MARK: - FileHandle Extension
-
-extension FileHandle {
-    /// Read a single line from the file handle.
-    fileprivate func readLine() throws -> Data? {
-        var lineData = Data()
-
-        while true {
-            let byte = try read(upToCount: 1)
-
-            if byte == nil || byte?.isEmpty == true {
-                return lineData.isEmpty ? nil : lineData
-            }
-
-            if byte?[0] == UInt8(ascii: "\n") {
-                return lineData
-            }
-
-            if let byte = byte {
-                lineData.append(byte)
-            }
-        }
     }
 }
