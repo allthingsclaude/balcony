@@ -22,10 +22,10 @@ public enum ModelTier: String, Codable, Sendable, Comparable {
 
 /// Metadata about a Claude model available in Claude Code.
 public struct ModelInfo: Codable, Sendable, Identifiable {
-    /// The exact model ID that Claude Code expects (e.g., "claude-sonnet-4-20250514").
+    /// Short model name that Claude Code resolves to the latest version (e.g., "sonnet").
     public let id: String
 
-    /// Human-readable display name (e.g., "Claude Sonnet 4").
+    /// Human-readable display name (e.g., "Sonnet").
     public let displayName: String
 
     /// Short description of the model's strengths.
