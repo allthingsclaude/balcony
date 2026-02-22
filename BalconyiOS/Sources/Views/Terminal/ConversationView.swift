@@ -34,6 +34,7 @@ struct ConversationView: View {
     /// echo overwriting the local input mid-edit.
     @State private var lastLocalKeystroke: Date = .distantPast
     @State private var isNearBottom = true
+    @State private var needsInitialScroll = true
     @State private var showEmptyState = false
     @State private var showSlashMenu = false
     @State private var showFilePicker = false
@@ -126,7 +127,10 @@ struct ConversationView: View {
                         Color.clear
                             .frame(height: 1)
                             .id("bottom-anchor")
-                            .onAppear { isNearBottom = true }
+                            .onAppear {
+                                isNearBottom = true
+                                needsInitialScroll = false
+                            }
                             .onDisappear { isNearBottom = false }
                     }
                     .padding(.top, 8)
@@ -136,12 +140,19 @@ struct ConversationView: View {
                 .contentShape(Rectangle())
                 .onTapGesture { handleOutsideTap() }
                 .onChange(of: lines.count) { _ in
-                    if isNearBottom {
+                    if needsInitialScroll {
+                        scrollToBottom(proxy: proxy, animated: false)
+                    } else if isNearBottom {
                         scrollToBottom(proxy: proxy, animated: true)
                     }
                 }
                 .onAppear {
                     scrollToBottom(proxy: proxy, animated: false)
+                }
+                .onChange(of: inputFocused) { focused in
+                    if focused {
+                        scrollToBottom(proxy: proxy, animated: true)
+                    }
                 }
                 .overlay(alignment: .bottom) {
                     if !isNearBottom {
@@ -379,10 +390,10 @@ struct ConversationView: View {
         guard !lines.isEmpty else { return }
         if animated {
             withAnimation(.easeOut(duration: 0.15)) {
-                proxy.scrollTo("bottom-anchor", anchor: .bottom)
+                proxy.scrollTo("bottom-anchor", anchor: .top)
             }
         } else {
-            proxy.scrollTo("bottom-anchor", anchor: .bottom)
+            proxy.scrollTo("bottom-anchor", anchor: .top)
         }
     }
 
