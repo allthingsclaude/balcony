@@ -3,14 +3,14 @@ import BalconyShared
 
 /// Native session picker popup for /resume command.
 ///
-/// Displays available Claude Code sessions with search, formatted display,
-/// and haptic feedback. Drag the handle down to dismiss.
+/// Displays available Claude Code sessions filtered by an external search query.
+/// Drag the handle down to dismiss.
 struct SessionPickerView: View {
     let sessions: [SessionInfo]
+    let searchQuery: String
     let onSelect: (SessionInfo) -> Void
     let onDismiss: () -> Void
 
-    @State private var searchQuery = ""
     @State private var dragOffset: CGFloat = 0
 
     private var filteredSessions: [SessionInfo] {
@@ -29,11 +29,6 @@ struct SessionPickerView: View {
         VStack(spacing: 0) {
             // Drag handle
             dragHandle
-
-            // Search header
-            searchField
-                .padding(.horizontal, BalconyTheme.spacingMD)
-                .padding(.bottom, BalconyTheme.spacingSM)
 
             Divider()
                 .background(BalconyTheme.separator)
@@ -101,48 +96,15 @@ struct SessionPickerView: View {
         .padding(.bottom, BalconyTheme.spacingSM)
     }
 
-    // MARK: - Search Field
-
-    private var searchField: some View {
-        HStack(spacing: BalconyTheme.spacingSM) {
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: 14))
-                .foregroundStyle(BalconyTheme.textSecondary)
-
-            TextField("Search sessions...", text: $searchQuery)
-                .font(BalconyTheme.bodyFont(15))
-                .foregroundStyle(BalconyTheme.textPrimary)
-                .autocorrectionDisabled()
-                .textInputAutocapitalization(.never)
-
-            if !searchQuery.isEmpty {
-                Button {
-                    searchQuery = ""
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 14))
-                        .foregroundStyle(BalconyTheme.textSecondary)
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
-        .background(BalconyTheme.surfaceSecondary)
-        .clipShape(RoundedRectangle(cornerRadius: 8))
-    }
-
     // MARK: - Session Row
 
     private func sessionRow(_ session: SessionInfo) -> some View {
         HStack(spacing: BalconyTheme.spacingMD) {
-            // Session icon
             Image(systemName: "ellipsis.bubble")
                 .font(.system(size: 16))
                 .foregroundStyle(BalconyTheme.accent)
                 .frame(width: 28, height: 28)
 
-            // Title and metadata
             VStack(alignment: .leading, spacing: 3) {
                 Text(session.title)
                     .font(BalconyTheme.bodyFont(15))
@@ -157,7 +119,6 @@ struct SessionPickerView: View {
 
             Spacer()
 
-            // Chevron indicator
             Image(systemName: "chevron.right")
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(BalconyTheme.textSecondary.opacity(0.5))
@@ -176,7 +137,7 @@ struct SessionPickerView: View {
                 .foregroundStyle(BalconyTheme.textSecondary)
                 .padding(.top, BalconyTheme.spacingXL)
 
-            Text("No sessions found")
+            Text(searchQuery.isEmpty ? "No sessions found" : "No matching sessions")
                 .font(BalconyTheme.bodyFont(15))
                 .foregroundStyle(BalconyTheme.textSecondary)
                 .padding(.bottom, BalconyTheme.spacingXL)
@@ -205,21 +166,13 @@ struct SessionPickerView: View {
             fileSize: 123456,
             branch: "feature/dark-mode"
         ),
-        SessionInfo(
-            id: "ghi789",
-            projectPath: "/Users/name/repos/otherproject",
-            title: "Refactor authentication system",
-            lastModified: Date().addingTimeInterval(-172800),
-            fileSize: 234567,
-            branch: "main"
-        ),
     ]
 
     return ZStack {
         BalconyTheme.background
             .ignoresSafeArea()
 
-        SessionPickerView(sessions: sampleSessions, onSelect: { session in
+        SessionPickerView(sessions: sampleSessions, searchQuery: "", onSelect: { session in
             print("Selected: \(session.title)")
         }, onDismiss: {
             print("Dismissed")

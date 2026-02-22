@@ -37,6 +37,9 @@ struct ConversationView: View {
     /// Whether the input starts with "&" (background mode prefix).
     private var isBackgroundMode: Bool { inputText.hasPrefix("&") }
 
+    /// Whether the session picker is currently shown.
+    private var isSessionPickerActive: Bool { showSessionPicker && !availableSessions.isEmpty }
+
     /// Find the last "/" in the input and return the text after it as the filter query.
     /// Returns nil if no "/" is present (meaning the menu should be hidden).
     private var slashQuery: String? {
@@ -155,7 +158,7 @@ struct ConversationView: View {
 
                 // Session picker — takes priority over all other overlays
                 if showSessionPicker, !availableSessions.isEmpty {
-                    SessionPickerView(sessions: availableSessions, onSelect: { session in
+                    SessionPickerView(sessions: availableSessions, searchQuery: inputText, onSelect: { session in
                         onSelectSession?(session)
                     }, onDismiss: {
                         onDismissSessionPicker?()
@@ -232,19 +235,22 @@ struct ConversationView: View {
                             .contentShape(Rectangle())
                     }
 
-                    TextField("Type a message...", text: $inputText)
+                    TextField(isSessionPickerActive ? "Type to search..." : "Type a message...", text: $inputText)
                         .textFieldStyle(.plain)
                         .font(BalconyTheme.monoFont(15))
                         .focused($inputFocused)
                         .onSubmit { submitInput() }
                         .onChange(of: inputText) { newValue in
-                            sendLiveKeystrokes(from: previousText, to: newValue)
+                            // When the session picker is open, input is for local search only
+                            if !isSessionPickerActive {
+                                sendLiveKeystrokes(from: previousText, to: newValue)
+                            }
                             previousText = newValue
                             withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
-                                showSlashMenu = slashQuery != nil && atQuery == nil
-                                showFilePicker = atQuery != nil
-                                showBashMode = isBashMode
-                                showBackgroundMode = isBackgroundMode
+                                showSlashMenu = slashQuery != nil && atQuery == nil && !isSessionPickerActive
+                                showFilePicker = atQuery != nil && !isSessionPickerActive
+                                showBashMode = isBashMode && !isSessionPickerActive
+                                showBackgroundMode = isBackgroundMode && !isSessionPickerActive
                             }
                         }
                         .padding(.vertical, 12)
@@ -287,7 +293,15 @@ struct ConversationView: View {
             // Reset the guard when the prompt changes (new prompt or cleared).
             promptJustAnswered = false
         }
+        .onChange(of: showSessionPicker) { isShowing in
+            // Clear input when the picker opens or closes so search starts fresh
+            // and the field is clean when returning to normal mode.
+            previousText = ""
+            inputText = ""
+        }
         .onChange(of: pendingInputText) { newValue in
+            // Don't sync Mac's terminal input while the session picker search is active
+            guard !isSessionPickerActive else { return }
             // Sync Mac's terminal input → iOS input field.
             // Skip if the iOS user typed recently — those updates are just echoes
             // of keystrokes we already sent. Once typing pauses (>0.5s), resume
@@ -341,6 +355,8 @@ struct ConversationView: View {
 
     /// Submit the current input (send carriage return and clear).
     private func submitInput() {
+        // When the session picker is open, Enter is a no-op (input is for search only)
+        guard !isSessionPickerActive else { return }
         guard !inputText.isEmpty else { return }
         BalconyTheme.hapticLight()
 
