@@ -136,6 +136,7 @@ enum SlashCommandScanner {
         .init(name: "bug", description: "Report a bug", source: .builtIn),
         .init(name: "mcp", description: "View MCP server status", source: .builtIn),
         .init(name: "resume", description: "Resume a previous conversation", source: .builtIn, argumentHint: "[session id or name]"),
+        .init(name: "rewind", description: "Rewind conversation to an earlier point", source: .builtIn),
         .init(name: "context", description: "Visualize context window usage", source: .builtIn),
         .init(name: "theme", description: "Change color theme", source: .builtIn),
         .init(name: "todos", description: "List TODO items", source: .builtIn),

@@ -118,6 +118,8 @@ struct TerminalContainerView: View {
                         await sessionManager.sendInput("\u{1B}", to: session)
                     }
                     UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                } onDoubleTap: {
+                    sessionManager.showRewind()
                 }
             }
         }
