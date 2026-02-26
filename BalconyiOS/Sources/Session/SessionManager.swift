@@ -23,6 +23,9 @@ final class SessionManager: ObservableObject {
     /// Detected interactive prompt (permission or multi-option) from terminal output.
     @Published var activePrompt: InteractivePrompt?
 
+    /// Structured hook data for the current permission prompt (from Mac hook listener).
+    @Published var pendingHookData: HookEventPayload?
+
     /// Text currently in the Mac's input box (after ❯). Used to pre-fill the iOS input.
     @Published var pendingInputText: String = ""
 
@@ -104,7 +107,13 @@ final class SessionManager: ObservableObject {
             .assign(to: \.conversationLines, on: self)
         promptCancellable = newParser.$activePrompt
             .receive(on: DispatchQueue.main)
-            .assign(to: \.activePrompt, on: self)
+            .sink { [weak self] prompt in
+                self?.activePrompt = prompt
+                // Clear hook data when prompt disappears from terminal
+                if prompt == nil {
+                    self?.pendingHookData = nil
+                }
+            }
         pendingInputCancellable = newParser.$pendingInputText
             .receive(on: DispatchQueue.main)
             .assign(to: \.pendingInputText, on: self)
@@ -133,6 +142,7 @@ final class SessionManager: ObservableObject {
             parser = nil
             conversationLines = []
             activePrompt = nil
+            pendingHookData = nil
             pendingInputText = ""
             projectFiles = []
         }
@@ -323,6 +333,10 @@ final class SessionManager: ObservableObject {
             handleSessionPicker(message)
         case .modelPickerShow:
             handleModelPicker(message)
+        case .hookEvent:
+            handleHookEvent(message)
+        case .hookDismiss:
+            handleHookDismiss(message)
         default:
             break
         }
@@ -410,6 +424,28 @@ final class SessionManager: ObservableObject {
             logger.info("Received \(payload.models.count) models for picker (current: \(payload.currentModelId ?? "none"))")
         } catch {
             logger.error("Failed to decode model picker: \(error.localizedDescription)")
+        }
+    }
+
+    private func handleHookEvent(_ message: BalconyMessage) {
+        do {
+            let payload = try message.decodePayload(HookEventPayload.self)
+            guard payload.sessionId == activeSession?.id else { return }
+            pendingHookData = payload
+            logger.info("Received hook event: \(payload.toolName) session=\(payload.sessionId)")
+        } catch {
+            logger.error("Failed to decode hook event: \(error.localizedDescription)")
+        }
+    }
+
+    private func handleHookDismiss(_ message: BalconyMessage) {
+        do {
+            let payload = try message.decodePayload(HookDismissPayload.self)
+            guard payload.sessionId == activeSession?.id else { return }
+            pendingHookData = nil
+            logger.info("Hook prompt dismissed for session: \(payload.sessionId)")
+        } catch {
+            logger.error("Failed to decode hook dismiss: \(error.localizedDescription)")
         }
     }
 }

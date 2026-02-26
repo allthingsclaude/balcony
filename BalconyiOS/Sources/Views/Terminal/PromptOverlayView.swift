@@ -1,15 +1,18 @@
 import SwiftUI
+import BalconyShared
 
 /// Native overlay for interactive prompts, positioned above the input bar.
 /// Shows tappable buttons for permission confirmations and multi-option selections.
+/// When `hookData` is available, the permission prompt shows enriched tool info.
 struct PromptOverlayView: View {
     let prompt: InteractivePrompt
+    var hookData: HookEventPayload?
     let onSendInput: (String) -> Void
 
     var body: some View {
         switch prompt {
         case .permission(let p):
-            PermissionPromptView(prompt: p, onSendInput: onSendInput)
+            PermissionPromptView(prompt: p, hookData: hookData, onSendInput: onSendInput)
         case .multiOption(let m):
             MultiOptionPromptView(prompt: m, onSendInput: onSendInput)
         }
@@ -19,43 +22,142 @@ struct PromptOverlayView: View {
 // MARK: - Permission Prompt View
 
 /// Horizontal row of capsule buttons for permission confirmations.
+/// When hook data is present, shows an enriched card with tool info above the buttons.
 private struct PermissionPromptView: View {
     let prompt: PermissionPrompt
+    var hookData: HookEventPayload?
     let onSendInput: (String) -> Void
 
     var body: some View {
-        HStack(spacing: BalconyTheme.spacingSM) {
-            ForEach(prompt.options) { option in
-                Button {
-                    BalconyTheme.hapticMedium()
-                    onSendInput(option.inputToSend)
-                } label: {
-                    HStack(spacing: 4) {
-                        Text(option.inputToSend.uppercased())
-                            .font(.system(size: 12, weight: .bold, design: .monospaced))
-                            .opacity(0.6)
-                        Text(option.label)
-                            .font(BalconyTheme.bodyFont(14))
-                            .fontWeight(.medium)
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-                    .frame(minWidth: 60)
-                    .background(optionBackground(option))
-                    .foregroundStyle(optionForeground(option))
-                    .clipShape(Capsule())
-                    .overlay {
-                        if !option.isDefault && !option.isDestructive {
-                            Capsule()
-                                .strokeBorder(BalconyTheme.separator, lineWidth: 1)
+        VStack(spacing: BalconyTheme.spacingSM) {
+            if let hookData {
+                hookInfoCard(hookData)
+            }
+
+            HStack(spacing: BalconyTheme.spacingSM) {
+                ForEach(prompt.options) { option in
+                    Button {
+                        BalconyTheme.hapticMedium()
+                        onSendInput(option.inputToSend)
+                    } label: {
+                        HStack(spacing: 4) {
+                            Text(option.inputToSend.uppercased())
+                                .font(.system(size: 12, weight: .bold, design: .monospaced))
+                                .opacity(0.6)
+                            Text(option.label)
+                                .font(BalconyTheme.bodyFont(14))
+                                .fontWeight(.medium)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .frame(minWidth: 60)
+                        .background(optionBackground(option))
+                        .foregroundStyle(optionForeground(option))
+                        .clipShape(Capsule())
+                        .overlay {
+                            if !option.isDefault && !option.isDestructive {
+                                Capsule()
+                                    .strokeBorder(BalconyTheme.separator, lineWidth: 1)
+                            }
                         }
                     }
+                    .buttonStyle(ScaleButtonStyle())
                 }
-                .buttonStyle(ScaleButtonStyle())
             }
         }
         .padding(.horizontal, BalconyTheme.spacingLG)
         .transition(.move(edge: .bottom).combined(with: .opacity))
+    }
+
+    // MARK: - Hook Info Card
+
+    @ViewBuilder
+    private func hookInfoCard(_ data: HookEventPayload) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            // Header: icon + tool name + risk badge
+            HStack(spacing: 8) {
+                Image(systemName: toolIconName(data.toolName))
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(riskColor(data.riskLevel))
+
+                Text(data.toolName)
+                    .font(BalconyTheme.bodyFont(14))
+                    .fontWeight(.semibold)
+                    .foregroundStyle(BalconyTheme.textPrimary)
+
+                Spacer()
+
+                Text(riskLabel(data.riskLevel))
+                    .font(.system(size: 10, weight: .medium, design: .rounded))
+                    .foregroundStyle(riskColor(data.riskLevel))
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(riskColor(data.riskLevel).opacity(0.15), in: Capsule())
+            }
+
+            // Command or file path
+            if let command = data.command, !command.isEmpty {
+                let displayCommand = command.count > 200
+                    ? String(command.prefix(200)) + "..."
+                    : command
+                Text(displayCommand)
+                    .font(.system(size: 12, design: .monospaced))
+                    .foregroundStyle(BalconyTheme.textSecondary)
+                    .lineLimit(3)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            } else if let filePath = data.filePath, !filePath.isEmpty {
+                HStack(spacing: 4) {
+                    Image(systemName: "doc.text")
+                        .font(.system(size: 10))
+                        .foregroundStyle(BalconyTheme.textSecondary)
+                    Text(filePath)
+                        .font(.system(size: 12, design: .monospaced))
+                        .foregroundStyle(BalconyTheme.textSecondary)
+                        .lineLimit(2)
+                        .truncationMode(.middle)
+                }
+            }
+        }
+        .padding(12)
+        .background {
+            RoundedRectangle(cornerRadius: BalconyTheme.radiusMD)
+                .fill(.ultraThinMaterial)
+                .shadow(color: .black.opacity(0.1), radius: 8, y: -2)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: BalconyTheme.radiusMD))
+    }
+
+    // MARK: - Hook Data Helpers
+
+    private func toolIconName(_ toolName: String) -> String {
+        switch toolName {
+        case "Bash": return "terminal"
+        case "Edit": return "pencil.line"
+        case "Write": return "doc.badge.plus"
+        case "Read": return "doc.text.magnifyingglass"
+        case "Glob": return "folder.badge.questionmark"
+        case "Grep": return "magnifyingglass"
+        case "Task": return "arrow.triangle.branch"
+        default: return "gearshape"
+        }
+    }
+
+    private func riskColor(_ riskLevel: String) -> Color {
+        switch riskLevel {
+        case "normal": return BalconyTheme.statusGreen
+        case "elevated": return BalconyTheme.statusYellow
+        case "destructive": return BalconyTheme.statusRed
+        default: return BalconyTheme.statusYellow
+        }
+    }
+
+    private func riskLabel(_ riskLevel: String) -> String {
+        switch riskLevel {
+        case "normal": return "Low Risk"
+        case "elevated": return "Elevated"
+        case "destructive": return "Destructive"
+        default: return "Unknown"
+        }
     }
 
     @ViewBuilder

@@ -36,8 +36,9 @@ final class HookEventHandler: ObservableObject {
 
         logger.info("Permission prompt: \(promptInfo.toolName) risk=\(promptInfo.riskLevel.rawValue) session=\(promptInfo.sessionId)")
 
-        // Store as pending
+        // Store as pending, reset output counter
         pendingPrompts[promptInfo.sessionId] = promptInfo
+        outputSincePrompt[promptInfo.sessionId] = 0
 
         // Notify Mac UI
         onPromptReceived?(promptInfo)
@@ -46,11 +47,36 @@ final class HookEventHandler: ObservableObject {
         onForwardToiOS?(promptInfo)
     }
 
+    // MARK: - PTY Output Monitoring
+
+    /// Bytes of PTY output received per session since the prompt was shown.
+    private var outputSincePrompt: [String: Int] = [:]
+
+    /// Threshold of new PTY output bytes that indicates the prompt was answered
+    /// and Claude Code has moved on.
+    private static let dismissOutputThreshold = 200
+
+    /// Called from the PTY output callback. If a prompt is pending for this
+    /// session and enough new output has arrived, the prompt was likely answered
+    /// from the terminal — auto-dismiss.
+    func handlePTYOutput(sessionId: String, byteCount: Int) {
+        guard pendingPrompts[sessionId] != nil else { return }
+
+        let accumulated = (outputSincePrompt[sessionId] ?? 0) + byteCount
+        outputSincePrompt[sessionId] = accumulated
+
+        if accumulated >= Self.dismissOutputThreshold {
+            logger.info("Auto-dismissing prompt for session \(sessionId) — \(accumulated) bytes of new output")
+            dismissPrompt(for: sessionId)
+        }
+    }
+
     // MARK: - Dismissal
 
     /// Dismiss the pending prompt for a session (called when the prompt is answered).
     func dismissPrompt(for sessionId: String) {
         guard pendingPrompts.removeValue(forKey: sessionId) != nil else { return }
+        outputSincePrompt.removeValue(forKey: sessionId)
         logger.info("Prompt dismissed for session: \(sessionId)")
         onPromptDismissed?(sessionId)
     }

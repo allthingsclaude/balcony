@@ -8,6 +8,7 @@ struct ConversationView: View {
     let slashCommands: [SlashCommandInfo]
     let projectFiles: [String]
     let activePrompt: InteractivePrompt?
+    let pendingHookData: HookEventPayload?
     let pendingInputText: String
     let availableSessions: [SessionInfo]
     let showSessionPicker: Bool
@@ -228,7 +229,7 @@ struct ConversationView: View {
                 }
                 // Interactive prompt overlay — takes priority over slash/file menus
                 else if let prompt = activePrompt, !promptJustAnswered {
-                    PromptOverlayView(prompt: prompt) { input in
+                    PromptOverlayView(prompt: prompt, hookData: pendingHookData) { input in
                         promptJustAnswered = true
                         onSendInput?(input)
                     }
@@ -926,6 +927,7 @@ private struct ConversationEmptyView: View {
         ],
         projectFiles: ["src/auth/login.ts", "src/components/Button.tsx", "package.json"],
         activePrompt: nil,
+        pendingHookData: nil,
         pendingInputText: "",
         availableSessions: [],
         showSessionPicker: false,

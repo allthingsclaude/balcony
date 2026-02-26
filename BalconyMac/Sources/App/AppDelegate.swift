@@ -10,6 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let hookListener = HookListener()
     let hookEventHandler = HookEventHandler()
     lazy var connectionManager = ConnectionManager(ptySessionManager: ptySessionManager)
+    let promptPanelController = PromptPanelController()
     let sessionListModel = SessionListModel()
     let sessionFileReader = SessionFileReader()
     let modelListProvider = ModelListProvider()
@@ -21,6 +22,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         connectionManager.appDelegate = self
 
         // Wire hook event handler callbacks
+        hookEventHandler.onPromptReceived = { [weak self] promptInfo in
+            self?.promptPanelController.showPrompt(promptInfo)
+        }
         hookEventHandler.onForwardToiOS = { [weak self] promptInfo in
             guard let self else { return }
             Task {
@@ -29,8 +33,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         hookEventHandler.onPromptDismissed = { [weak self] sessionId in
             guard let self else { return }
+            self.promptPanelController.dismissPrompt(for: sessionId)
             Task {
                 await self.connectionManager.forwardHookDismiss(sessionId: sessionId)
+            }
+        }
+
+        // Wire panel response to PTY input
+        promptPanelController.onResponse = { [weak self] sessionId, keystroke in
+            guard let self else { return }
+            Task {
+                if let data = keystroke.data(using: .utf8) {
+                    await self.ptySessionManager.sendInput(sessionId: sessionId, data: data)
+                }
+                self.hookEventHandler.dismissPrompt(for: sessionId)
             }
         }
 
@@ -65,6 +81,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
             await ptySessionManager.setOnPTYOutput { [weak self] sessionId, data in
                 Task { @MainActor in
+                    self?.hookEventHandler.handlePTYOutput(sessionId: sessionId, byteCount: data.count)
                     await self?.connectionManager.forwardPTYOutput(sessionId: sessionId, data: data)
                 }
             }
