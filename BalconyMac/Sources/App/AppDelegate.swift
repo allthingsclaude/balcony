@@ -20,6 +20,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Wire up ConnectionManager to AppDelegate for session picker requests
         connectionManager.appDelegate = self
+        connectionManager.hookEventHandler = hookEventHandler
 
         // Wire hook event handler callbacks
         hookEventHandler.onPromptReceived = { [weak self] promptInfo in
@@ -114,6 +115,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             logger.info("PTY session discovered: \(session.id)")
         case .sessionEnded(let sessionId):
             logger.info("PTY session ended: \(sessionId)")
+            // Clean up any pending prompts for the ended session
+            hookEventHandler.sessionEnded(sessionId)
         }
 
         // Update UI model

@@ -36,6 +36,9 @@ final class ConnectionManager: ObservableObject {
     /// Weak reference to AppDelegate for session picker notifications.
     weak var appDelegate: AppDelegate?
 
+    /// Weak reference to HookEventHandler for resending pending prompts on reconnect.
+    weak var hookEventHandler: HookEventHandler?
+
     init(
         port: Int = 29170,
         ptySessionManager: PTYSessionManager
@@ -126,6 +129,19 @@ final class ConnectionManager: ObservableObject {
         }
     }
 
+    /// Resend pending hook event to a specific client (for reconnect sync).
+    private func resendPendingHookEvent(sessionId: String, to client: ConnectedClient) async {
+        guard let info = hookEventHandler?.pendingPrompt(for: sessionId) else { return }
+        do {
+            let payload = HookEventPayload(from: info)
+            let msg = try BalconyMessage.create(type: .hookEvent, payload: payload)
+            await webSocketServer.send(msg, to: client)
+            logger.info("Resent pending hook event on reconnect: \(info.toolName) session=\(sessionId)")
+        } catch {
+            logger.error("Failed to resend hook event: \(error.localizedDescription)")
+        }
+    }
+
     /// Notify iOS clients that a permission prompt was dismissed.
     func forwardHookDismiss(sessionId: String) async {
         do {
@@ -204,6 +220,11 @@ final class ConnectionManager: ObservableObject {
 
                 // Send project file list for the @ file picker.
                 await sendFileList(sessionId: sessionId, to: client)
+
+                // Resend pending hook data if a prompt is active for this session.
+                // This handles reconnect: iOS disconnects and reconnects while
+                // a permission prompt is waiting — the prompt is resent immediately.
+                await resendPendingHookEvent(sessionId: sessionId, to: client)
             } catch {
                 logger.error("Failed to decode session subscribe: \(error.localizedDescription)")
             }
