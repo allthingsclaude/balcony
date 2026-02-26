@@ -33,6 +33,18 @@ public struct HookEvent: Codable, Sendable {
     /// Tool-specific input parameters as raw JSON.
     public let toolInput: [String: AnyCodable]?
 
+    /// The full text of Claude's last assistant message (Stop events only).
+    public let lastAssistantMessage: String?
+
+    /// Human-readable notification text (Notification events only).
+    public let message: String?
+
+    /// Notification category (Notification events only): "idle_prompt" or "permission_prompt".
+    public let notificationType: String?
+
+    /// Whether this Stop was triggered by another Stop hook (anti-recursion guard).
+    public let stopHookActive: Bool?
+
     public init(
         hookEventName: String,
         sessionId: String,
@@ -40,7 +52,11 @@ public struct HookEvent: Codable, Sendable {
         cwd: String? = nil,
         permissionMode: String? = nil,
         toolName: String? = nil,
-        toolInput: [String: AnyCodable]? = nil
+        toolInput: [String: AnyCodable]? = nil,
+        lastAssistantMessage: String? = nil,
+        message: String? = nil,
+        notificationType: String? = nil,
+        stopHookActive: Bool? = nil
     ) {
         self.hookEventName = hookEventName
         self.sessionId = sessionId
@@ -49,6 +65,10 @@ public struct HookEvent: Codable, Sendable {
         self.permissionMode = permissionMode
         self.toolName = toolName
         self.toolInput = toolInput
+        self.lastAssistantMessage = lastAssistantMessage
+        self.message = message
+        self.notificationType = notificationType
+        self.stopHookActive = stopHookActive
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -59,6 +79,10 @@ public struct HookEvent: Codable, Sendable {
         case permissionMode = "permission_mode"
         case toolName = "tool_name"
         case toolInput = "tool_input"
+        case lastAssistantMessage = "last_assistant_message"
+        case message
+        case notificationType = "notification_type"
+        case stopHookActive = "stop_hook_active"
     }
 }
 
@@ -75,8 +99,14 @@ public struct PermissionPromptInfo: Sendable {
     /// The file path for file operation tools (Edit, Write, Read).
     public let filePath: String?
 
-    /// The session ID this prompt belongs to.
+    /// Additional tool-specific detail (URL, query, pattern, description).
+    public let detail: String?
+
+    /// The Claude Code session ID this prompt belongs to.
     public let sessionId: String
+
+    /// The working directory of the Claude Code session (used to resolve PTY session).
+    public let cwd: String?
 
     /// When this prompt was received.
     public let timestamp: Date
@@ -107,11 +137,13 @@ public struct PermissionPromptInfo: Sendable {
         }
     }
 
-    public init(toolName: String, command: String?, filePath: String?, sessionId: String, timestamp: Date = Date()) {
+    public init(toolName: String, command: String?, filePath: String?, detail: String? = nil, sessionId: String, cwd: String? = nil, timestamp: Date = Date()) {
         self.toolName = toolName
         self.command = command
         self.filePath = filePath
+        self.detail = detail
         self.sessionId = sessionId
+        self.cwd = cwd
         self.timestamp = timestamp
     }
 
@@ -119,16 +151,63 @@ public struct PermissionPromptInfo: Sendable {
     public static func from(_ event: HookEvent) -> PermissionPromptInfo? {
         guard let toolName = event.toolName else { return nil }
 
-        let command = event.toolInput?["command"]?.stringValue
-        let filePath = event.toolInput?["file_path"]?.stringValue
-            ?? event.toolInput?["filePath"]?.stringValue
-            ?? event.toolInput?["path"]?.stringValue
+        let input = event.toolInput
+        let command = input?["command"]?.stringValue
+        let filePath = input?["file_path"]?.stringValue
+            ?? input?["filePath"]?.stringValue
+            ?? input?["path"]?.stringValue
+
+        // Extract tool-specific detail: URL, query, pattern, description, etc.
+        let detail: String? = input?["url"]?.stringValue
+            ?? input?["query"]?.stringValue
+            ?? input?["pattern"]?.stringValue
+            ?? input?["description"]?.stringValue
+            ?? input?["prompt"]?.stringValue
 
         return PermissionPromptInfo(
             toolName: toolName,
             command: command,
             filePath: filePath,
-            sessionId: event.sessionId
+            detail: detail,
+            sessionId: event.sessionId,
+            cwd: event.cwd
+        )
+    }
+}
+
+// MARK: - Idle Prompt Info
+
+/// Structured information about Claude stopping and waiting for user input.
+/// Created by correlating a `Stop` hook event with a `Notification(idle_prompt)` event.
+public struct IdlePromptInfo: Sendable {
+    /// The Claude Code session ID this idle prompt belongs to.
+    public let sessionId: String
+
+    /// Claude's last assistant message (the question or completion text).
+    public let lastAssistantMessage: String
+
+    /// The working directory of the Claude Code session (used to resolve PTY session).
+    public let cwd: String?
+
+    /// When this idle prompt was detected.
+    public let timestamp: Date
+
+    public init(sessionId: String, lastAssistantMessage: String, cwd: String? = nil, timestamp: Date = Date()) {
+        self.sessionId = sessionId
+        self.lastAssistantMessage = lastAssistantMessage
+        self.cwd = cwd
+        self.timestamp = timestamp
+    }
+
+    /// Create from a Stop hook event.
+    public static func from(_ event: HookEvent) -> IdlePromptInfo? {
+        guard event.hookEventName == "Stop",
+              let message = event.lastAssistantMessage,
+              !message.isEmpty else { return nil }
+        return IdlePromptInfo(
+            sessionId: event.sessionId,
+            lastAssistantMessage: message,
+            cwd: event.cwd
         )
     }
 }

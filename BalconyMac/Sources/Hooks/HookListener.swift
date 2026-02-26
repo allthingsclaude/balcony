@@ -4,9 +4,12 @@ import os
 
 /// Listens for Claude Code hook events via a Unix domain socket.
 ///
-/// Claude Code's async hooks pipe JSON to a handler script's stdin.
-/// The handler script connects to this socket and writes the JSON.
-/// Each connection represents one hook event: read until EOF, parse, close.
+/// For PermissionRequest hooks (synchronous): the hook handler script sends
+/// the event JSON, shuts down its write side, and waits for a response.
+/// HookListener keeps the connection open and sends the decision back.
+///
+/// For other hooks (async): the handler sends event JSON and closes.
+/// HookListener reads until EOF, parses, and closes.
 actor HookListener {
     private let logger = Logger(subsystem: "com.balcony.mac", category: "HookListener")
 
@@ -14,6 +17,9 @@ actor HookListener {
     private var serverFD: Int32 = -1
     private var acceptSource: DispatchSourceRead?
     private let ioQueue = DispatchQueue(label: "com.balcony.mac.hooks.io", qos: .userInteractive)
+
+    /// Open hook handler connections waiting for a response, keyed by Claude session ID.
+    private var pendingResponseFDs: [String: Int32] = [:]
 
     /// Called when a hook event is received and parsed.
     private var onHookEvent: (@Sendable (HookEvent) -> Void)?
@@ -93,6 +99,12 @@ actor HookListener {
         acceptSource?.cancel()
         acceptSource = nil
 
+        // Close any pending response connections
+        for (_, fd) in pendingResponseFDs {
+            close(fd)
+        }
+        pendingResponseFDs.removeAll()
+
         if serverFD >= 0 {
             close(serverFD)
             serverFD = -1
@@ -100,6 +112,48 @@ actor HookListener {
 
         unlink(socketPath)
         logger.info("Hook socket server stopped")
+    }
+
+    // MARK: - Response Sending
+
+    /// Send a permission decision response back to the hook handler script.
+    /// This writes JSON to the open connection and closes it, unblocking the script.
+    func sendPermissionResponse(sessionId: String, decision: String) {
+        guard let fd = pendingResponseFDs.removeValue(forKey: sessionId) else {
+            logger.warning("No pending hook connection for session \(sessionId) to send response")
+            return
+        }
+
+        // Claude Code expects this exact structure from PermissionRequest hook stdout:
+        // { "hookSpecificOutput": { "hookEventName": "PermissionRequest", "decision": { "behavior": "allow"|"deny" } } }
+        let response: [String: Any] = [
+            "hookSpecificOutput": [
+                "hookEventName": "PermissionRequest",
+                "decision": [
+                    "behavior": decision
+                ]
+            ]
+        ]
+        guard let jsonData = try? JSONSerialization.data(withJSONObject: response) else {
+            logger.error("Failed to encode permission response")
+            close(fd)
+            return
+        }
+
+        logger.info("Sending permission response: \(decision) to session \(sessionId) fd=\(fd)")
+
+        // Write the response JSON and close
+        jsonData.withUnsafeBytes { bufPtr in
+            guard let base = bufPtr.baseAddress else { return }
+            var sent = 0
+            while sent < jsonData.count {
+                let n = write(fd, base + sent, jsonData.count - sent)
+                if n <= 0 { break }
+                sent += n
+            }
+        }
+
+        close(fd)
     }
 
     // MARK: - Client Handling
@@ -118,19 +172,19 @@ actor HookListener {
 
         logger.debug("Hook client connected (fd=\(clientFD))")
 
-        // Read the entire JSON payload from this connection on a background queue.
-        // Each connection = one hook event, read until EOF.
+        // Read the JSON payload on the I/O queue.
         ioQueue.async { [weak self] in
             self?.readHookEvent(fd: clientFD)
         }
     }
 
-    /// Read all data from a hook client connection until EOF, then parse as JSON.
+    /// Read all data from a hook client connection until EOF (write shutdown), then parse.
+    /// For PermissionRequest events, keep the connection open for sending a response.
     private nonisolated func readHookEvent(fd: Int32) {
         var data = Data()
         var buf = [UInt8](repeating: 0, count: 8192)
 
-        // Read until EOF or error
+        // Read until EOF or error (the client shuts down its write side after sending)
         while true {
             let n = read(fd, &buf, buf.count)
             if n > 0 {
@@ -141,18 +195,41 @@ actor HookListener {
             }
         }
 
-        close(fd)
-
-        guard !data.isEmpty else { return }
+        guard !data.isEmpty else {
+            close(fd)
+            return
+        }
 
         // Parse JSON
         do {
             let event = try JSONDecoder().decode(HookEvent.self, from: data)
-            Task { await self.handleParsedEvent(event) }
+
+            if event.hookEventName == "PermissionRequest" {
+                // Keep connection open for response — store the fd
+                Task { await self.handlePermissionEvent(event, clientFD: fd) }
+            } else {
+                // Fire-and-forget: close immediately
+                close(fd)
+                Task { await self.handleParsedEvent(event) }
+            }
         } catch {
             let preview = String(data: data.prefix(200), encoding: .utf8) ?? "<binary>"
+            close(fd)
             Task { await self.logParseError(error, preview: preview) }
         }
+    }
+
+    private func handlePermissionEvent(_ event: HookEvent, clientFD: Int32) {
+        logger.info("Hook event received (permission, fd=\(clientFD)): tool=\(event.toolName ?? "none") session=\(event.sessionId)")
+
+        // Close any previous pending connection for this session
+        if let oldFD = pendingResponseFDs.removeValue(forKey: event.sessionId) {
+            logger.warning("Closing stale hook connection for session \(event.sessionId) fd=\(oldFD)")
+            close(oldFD)
+        }
+
+        pendingResponseFDs[event.sessionId] = clientFD
+        onHookEvent?(event)
     }
 
     private func handleParsedEvent(_ event: HookEvent) {

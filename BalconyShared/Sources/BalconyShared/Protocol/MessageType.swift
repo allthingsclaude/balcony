@@ -45,4 +45,8 @@ public enum MessageType: String, Codable, Sendable {
     // Hook events (permission prompts routed from Claude Code hooks)
     case hookEvent
     case hookDismiss
+
+    // Idle prompt (Claude stopped and is waiting for user input)
+    case idlePrompt
+    case idlePromptDismiss
 }

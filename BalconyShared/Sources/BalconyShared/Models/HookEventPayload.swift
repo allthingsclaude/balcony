@@ -40,6 +40,31 @@ public struct HookEventPayload: Codable, Sendable {
     }
 }
 
+/// Payload for forwarding idle prompt events (Claude waiting for input) from Mac to iOS.
+public struct IdlePromptPayload: Codable, Sendable {
+    /// The PTY session ID.
+    public let sessionId: String
+
+    /// Claude's last assistant message (the question or summary).
+    public let lastAssistantMessage: String
+
+    /// When the idle prompt was detected.
+    public let timestamp: Date
+
+    public init(sessionId: String, lastAssistantMessage: String, timestamp: Date = Date()) {
+        self.sessionId = sessionId
+        self.lastAssistantMessage = lastAssistantMessage
+        self.timestamp = timestamp
+    }
+
+    /// Create from an IdlePromptInfo.
+    public init(from info: IdlePromptInfo) {
+        self.sessionId = info.sessionId
+        self.lastAssistantMessage = info.lastAssistantMessage
+        self.timestamp = info.timestamp
+    }
+}
+
 /// Payload for dismissing a hook event prompt on iOS.
 public struct HookDismissPayload: Codable, Sendable {
     /// The PTY session ID whose prompt was answered.

@@ -24,7 +24,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Wire hook event handler callbacks
         hookEventHandler.onPromptReceived = { [weak self] promptInfo in
-            self?.promptPanelController.showPrompt(promptInfo)
+            guard let self else { return }
+            // Eagerly resolve and register the PTY↔Claude session mapping
+            Task {
+                _ = await self.resolvePTYSessionId(claudeSessionId: promptInfo.sessionId, cwd: promptInfo.cwd)
+            }
+            self.promptPanelController.showPrompt(promptInfo)
         }
         hookEventHandler.onForwardToiOS = { [weak self] promptInfo in
             guard let self else { return }
@@ -40,13 +45,61 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
-        // Wire panel response to PTY input
+        // Wire idle prompt callbacks
+        hookEventHandler.onIdlePromptReceived = { [weak self] info in
+            guard let self else { return }
+            // Eagerly resolve and register the PTY↔Claude session mapping
+            Task {
+                _ = await self.resolvePTYSessionId(claudeSessionId: info.sessionId, cwd: info.cwd)
+            }
+            self.promptPanelController.showIdlePrompt(info)
+        }
+        hookEventHandler.onForwardIdleToiOS = { [weak self] info in
+            guard let self else { return }
+            Task {
+                await self.connectionManager.forwardIdlePrompt(info)
+            }
+        }
+        hookEventHandler.onIdlePromptDismissed = { [weak self] sessionId in
+            guard let self else { return }
+            self.promptPanelController.dismissPrompt(for: sessionId)
+            Task {
+                await self.connectionManager.forwardIdlePromptDismiss(sessionId: sessionId)
+            }
+        }
+
+        // Wire idle prompt panel text response to PTY input
+        promptPanelController.onTextResponse = { [weak self] sessionId, text in
+            guard let self else { return }
+            Task {
+                // Resolve the PTY session ID from the idle prompt's cwd
+                let cwd = self.hookEventHandler.pendingIdlePrompt(for: sessionId)?.cwd
+                let ptySessionId = await self.resolvePTYSessionId(claudeSessionId: sessionId, cwd: cwd)
+
+                // Send the text followed by Enter to the PTY
+                let fullText = text + "\r"
+                if let data = fullText.data(using: .utf8) {
+                    await self.ptySessionManager.sendInput(sessionId: ptySessionId, data: data)
+                }
+                self.hookEventHandler.dismissIdlePrompt(for: sessionId)
+            }
+        }
+
+        // Wire panel response: send decision back through the hook connection
         promptPanelController.onResponse = { [weak self] sessionId, keystroke in
             guard let self else { return }
             Task {
-                if let data = keystroke.data(using: .utf8) {
-                    await self.ptySessionManager.sendInput(sessionId: sessionId, data: data)
+                // Map keystroke to hook decision
+                let decision: String
+                switch keystroke.trimmingCharacters(in: .whitespacesAndNewlines) {
+                case "y": decision = "allow"
+                case "a": decision = "allow"
+                case "n": decision = "deny"
+                default: decision = "allow"
                 }
+
+                // Send the decision back through the hook socket (unblocks the hook handler script)
+                await self.hookListener.sendPermissionResponse(sessionId: sessionId, decision: decision)
                 self.hookEventHandler.dismissPrompt(for: sessionId)
             }
         }
@@ -82,7 +135,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
             await ptySessionManager.setOnPTYOutput { [weak self] sessionId, data in
                 Task { @MainActor in
-                    self?.hookEventHandler.handlePTYOutput(sessionId: sessionId, byteCount: data.count)
+                    self?.hookEventHandler.handlePTYOutput(ptySessionId: sessionId, byteCount: data.count)
                     await self?.connectionManager.forwardPTYOutput(sessionId: sessionId, data: data)
                 }
             }
@@ -104,6 +157,44 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             await hookListener.stop()
             await ptySessionManager.stop()
         }
+    }
+
+    // MARK: - Session ID Resolution
+
+    /// Resolve a Claude Code session ID to a PTY session ID.
+    /// Hook events use Claude Code's session ID, but PTYSessionManager uses the CLI tool's session ID.
+    /// We match by working directory since both share the same project path.
+    private func resolvePTYSessionId(claudeSessionId: String, cwd: String?) async -> String {
+        let debugLog = { (msg: String) in
+            let line = "[\(Date())] resolve: \(msg)\n"
+            if let data = line.data(using: .utf8) {
+                let fh = FileHandle(forWritingAtPath: "/tmp/balcony-debug.log") ?? {
+                    FileManager.default.createFile(atPath: "/tmp/balcony-debug.log", contents: nil)
+                    return FileHandle(forWritingAtPath: "/tmp/balcony-debug.log")!
+                }()
+                fh.seekToEndOfFile()
+                fh.write(data)
+                fh.closeFile()
+            }
+        }
+        debugLog("claudeSessionId=\(claudeSessionId) cwd=\(cwd ?? "nil")")
+
+        if let cwd, let ptyId = await ptySessionManager.findSessionIdByCwd(cwd) {
+            debugLog("cwd match → ptyId=\(ptyId)")
+            hookEventHandler.registerPTYMapping(ptySessionId: ptyId, claudeSessionId: claudeSessionId)
+            return ptyId
+        }
+        // Fallback: if only one PTY session exists, use it
+        let sessions = await ptySessionManager.getActiveSessions()
+        debugLog("no cwd match, \(sessions.count) active sessions: \(sessions.map { "\($0.id) cwd=\($0.cwd ?? "nil")" }.joined(separator: ", "))")
+        if sessions.count == 1, let only = sessions.first {
+            debugLog("single session fallback → \(only.id)")
+            hookEventHandler.registerPTYMapping(ptySessionId: only.id, claudeSessionId: claudeSessionId)
+            return only.id
+        }
+        // Last resort: return the Claude session ID as-is (will log a warning in sendInput)
+        debugLog("FAILED — returning Claude session ID as-is")
+        return claudeSessionId
     }
 
     // MARK: - Event Routing

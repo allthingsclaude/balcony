@@ -262,9 +262,11 @@ actor PTYSessionManager {
     /// Forward input from iOS to the CLI's PTY via the Unix socket.
     func sendInput(sessionId: String, data: Data) {
         guard let fd = clientFDForSession(sessionId) else {
+            debugFileLog("sendInput: No CLI connection for session \(sessionId)")
             logger.warning("No CLI connection for session \(sessionId)")
             return
         }
+        debugFileLog("sendInput: fd=\(fd) session=\(sessionId) bytes=\(data.count)")
         sendFramed(fd: fd, type: 0x02, data: data)
     }
 
@@ -289,6 +291,17 @@ actor PTYSessionManager {
         Array(sessions.values)
     }
 
+    /// Find a PTY session ID by matching the working directory.
+    /// Used to resolve Claude Code session IDs (from hooks) to PTY session IDs.
+    func findSessionIdByCwd(_ cwd: String) -> String? {
+        for (id, session) in sessions {
+            if session.cwd == cwd || session.projectPath == cwd {
+                return id
+            }
+        }
+        return nil
+    }
+
     // MARK: - Helpers
 
     private func clientFDForSession(_ sessionId: String) -> Int32? {
@@ -299,6 +312,10 @@ actor PTYSessionManager {
     }
 
     private func sendFramed(fd: Int32, type: UInt8, data: Data) {
+        // Check if fd is still valid
+        let fdCheck = fcntl(fd, F_GETFD)
+        debugFileLog("sendFramed: fd=\(fd) type=0x\(String(format: "%02x", type)) len=\(data.count) fdValid=\(fdCheck >= 0)")
+
         var header = Data(count: 5)
         header[0] = type
         let len = UInt32(data.count).bigEndian
@@ -310,9 +327,27 @@ actor PTYSessionManager {
             var sent = 0
             while sent < fullMessage.count {
                 let n = write(fd, base + sent, fullMessage.count - sent)
-                if n <= 0 { break }
+                if n <= 0 {
+                    debugFileLog("sendFramed: write failed at \(sent)/\(fullMessage.count) bytes, errno=\(errno)")
+                    break
+                }
                 sent += n
             }
+            debugFileLog("sendFramed: wrote \(sent)/\(fullMessage.count) bytes")
+        }
+    }
+
+    private nonisolated func debugFileLog(_ msg: String) {
+        let line = "[\(Date())] PTY: \(msg)\n"
+        guard let data = line.data(using: .utf8) else { return }
+        let path = "/tmp/balcony-debug.log"
+        if !FileManager.default.fileExists(atPath: path) {
+            FileManager.default.createFile(atPath: path, contents: nil)
+        }
+        if let fh = FileHandle(forWritingAtPath: path) {
+            fh.seekToEndOfFile()
+            fh.write(data)
+            fh.closeFile()
         }
     }
 }

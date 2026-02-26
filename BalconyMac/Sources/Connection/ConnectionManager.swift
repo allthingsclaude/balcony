@@ -154,6 +154,30 @@ final class ConnectionManager: ObservableObject {
         }
     }
 
+    /// Forward an idle prompt (Claude waiting for input) to subscribed iOS clients.
+    func forwardIdlePrompt(_ info: IdlePromptInfo) async {
+        do {
+            let payload = IdlePromptPayload(from: info)
+            let msg = try BalconyMessage.create(type: .idlePrompt, payload: payload)
+            await webSocketServer.sendToSubscribers(of: info.sessionId, message: msg)
+            logger.info("Forwarded idle prompt to iOS: session=\(info.sessionId)")
+        } catch {
+            logger.error("Failed to forward idle prompt: \(error.localizedDescription)")
+        }
+    }
+
+    /// Notify iOS clients that an idle prompt was dismissed.
+    func forwardIdlePromptDismiss(sessionId: String) async {
+        do {
+            let payload = HookDismissPayload(sessionId: sessionId)
+            let msg = try BalconyMessage.create(type: .idlePromptDismiss, payload: payload)
+            await webSocketServer.sendToSubscribers(of: sessionId, message: msg)
+            logger.info("Forwarded idle prompt dismiss to iOS: session=\(sessionId)")
+        } catch {
+            logger.error("Failed to forward idle prompt dismiss: \(error.localizedDescription)")
+        }
+    }
+
     // MARK: - Session Event Forwarding
 
     /// Forward a PTY session event to connected iOS clients.

@@ -44,13 +44,18 @@ final class IOBridge {
 
         // Wire up socket → PTY for remote input
         socketClient?.onMessage = { [weak self] type, data in
-            guard let self else { return }
+            guard let self else {
+                Self.debugLog("onMessage: self is nil!")
+                return
+            }
+            Self.debugLog("onMessage: type=\(type) bytes=\(data.count)")
             switch type {
             case .ptyInput:
                 // Write remote input to PTY master
                 data.withUnsafeBytes { bufPtr in
                     guard let base = bufPtr.baseAddress else { return }
-                    _ = write(self.masterFD, base, data.count)
+                    let n = write(self.masterFD, base, data.count)
+                    Self.debugLog("ptyInput: wrote \(n)/\(data.count) bytes to masterFD=\(self.masterFD) errno=\(n < 0 ? errno : 0)")
                 }
             case .resize:
                 // Parse cols/rows and resize PTY
@@ -114,6 +119,22 @@ final class IOBridge {
         stdinReadSource?.cancel()
         stdinReadSource = nil
         restoreTerminalMode()
+    }
+
+    // MARK: - Debug Logging
+
+    private static func debugLog(_ msg: String) {
+        let line = "[\(Date())] CLI: \(msg)\n"
+        guard let data = line.data(using: .utf8) else { return }
+        let path = "/tmp/balcony-debug.log"
+        if !FileManager.default.fileExists(atPath: path) {
+            FileManager.default.createFile(atPath: path, contents: nil)
+        }
+        if let fh = FileHandle(forWritingAtPath: path) {
+            fh.seekToEndOfFile()
+            fh.write(data)
+            fh.closeFile()
+        }
     }
 
     // MARK: - Raw Terminal Mode

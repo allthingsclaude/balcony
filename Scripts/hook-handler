@@ -1,50 +1,118 @@
 #!/bin/bash
-# Balcony Hook Handler
-#
-# Reads Claude Code hook JSON from stdin and sends it to
-# BalconyMac's hook listener via Unix domain socket.
-#
-# Usage in ~/.claude/settings.json:
-#   {
-#     "hooks": {
-#       "PermissionRequest": [{
-#         "type": "command",
-#         "command": "~/.balcony/hook-handler",
-#         "async": true
-#       }]
-#     }
-#   }
-#
-# Install:
-#   cp Scripts/hook-handler ~/.balcony/hook-handler
-#   chmod +x ~/.balcony/hook-handler
+# Balcony Hook Handler — bidirectional for PermissionRequest
 
 SOCKET_PATH="$HOME/.balcony/hooks.sock"
+DEBUG_LOG="/tmp/balcony-hook-debug.log"
+
+debug() {
+    echo "[$(date '+%H:%M:%S')] hook-handler: $1" >> "$DEBUG_LOG"
+}
 
 # Check if the socket exists
 if [ ! -S "$SOCKET_PATH" ]; then
+    debug "No socket at $SOCKET_PATH"
     exit 0
 fi
 
-# Read stdin and forward to the Unix socket.
-# Use socat if available (more reliable), fall back to Python.
-if command -v socat &>/dev/null; then
-    cat | socat - UNIX-CONNECT:"$SOCKET_PATH" 2>/dev/null
-elif command -v python3 &>/dev/null; then
-    python3 -c "
-import socket, sys
+# Read all stdin
+INPUT=$(cat)
+
+if [ -z "$INPUT" ]; then
+    debug "Empty stdin"
+    exit 0
+fi
+
+# Check if this is a PermissionRequest
+IS_PERMISSION=$(echo "$INPUT" | python3 -c "
+import json, sys
+try:
+    d = json.loads(sys.stdin.read())
+    print('yes' if d.get('hook_event_name') == 'PermissionRequest' else 'no')
+except:
+    print('no')
+" 2>/dev/null)
+
+debug "Event type check: IS_PERMISSION=$IS_PERMISSION"
+
+if [ "$IS_PERMISSION" = "yes" ]; then
+    debug "PermissionRequest: sending event and waiting for response..."
+
+    # PermissionRequest: send event, wait for response, output to stdout
+    RESPONSE=$(echo "$INPUT" | python3 -c "
+import socket, sys, os
+
+data = sys.stdin.buffer.read()
+if not data:
+    sys.exit(0)
+
+debug_fd = open('/tmp/balcony-hook-debug.log', 'a')
+debug_fd.write(f'[python] Sending {len(data)} bytes to socket\n')
+debug_fd.flush()
+
+s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+try:
+    s.connect(os.path.expanduser('~/.balcony/hooks.sock'))
+    s.sendall(data)
+    debug_fd.write('[python] Data sent, shutting down write side\n')
+    debug_fd.flush()
+
+    # Signal end of request
+    s.shutdown(socket.SHUT_WR)
+
+    debug_fd.write('[python] Waiting for response...\n')
+    debug_fd.flush()
+
+    # Wait for response with timeout
+    s.settimeout(30.0)
+    response = b''
+    while True:
+        try:
+            chunk = s.recv(4096)
+            if not chunk:
+                break
+            response += chunk
+        except socket.timeout:
+            debug_fd.write('[python] Timeout waiting for response\n')
+            debug_fd.flush()
+            break
+
+    debug_fd.write(f'[python] Got response: {response}\n')
+    debug_fd.flush()
+
+    if response:
+        # Output to stdout for Claude Code
+        sys.stdout.buffer.write(response)
+        sys.stdout.buffer.flush()
+except Exception as e:
+    debug_fd.write(f'[python] Error: {e}\n')
+    debug_fd.flush()
+finally:
+    s.close()
+    debug_fd.close()
+" 2>/dev/null)
+
+    debug "Response from python: '$RESPONSE'"
+    if [ -n "$RESPONSE" ]; then
+        debug "Outputting response to stdout"
+        # Output the response JSON to stdout for Claude Code to read
+        printf '%s' "$RESPONSE"
+    else
+        debug "No response received"
+    fi
+else
+    debug "Non-permission event, fire and forget"
+    # Other events: fire and forget
+    echo "$INPUT" | python3 -c "
+import socket, sys, os
 data = sys.stdin.buffer.read()
 if data:
     s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     try:
-        s.connect('$SOCKET_PATH')
+        s.connect(os.path.expanduser('~/.balcony/hooks.sock'))
         s.sendall(data)
     except:
         pass
     finally:
         s.close()
-"
-else
-    # Last resort: use /dev/tcp if available (bash only, not zsh)
-    exit 0
+" 2>/dev/null
 fi

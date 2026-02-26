@@ -387,4 +387,179 @@ final class HookEventTests: XCTestCase {
         let decodedPayload = try decoded.decodePayload(HookDismissPayload.self)
         XCTAssertEqual(decodedPayload.sessionId, "dismiss-msg-test")
     }
+
+    // MARK: - Stop / Notification Hook Events
+
+    func testDecodeStopEvent() throws {
+        let json = """
+        {
+          "hook_event_name": "Stop",
+          "session_id": "stop-session-1",
+          "transcript_path": "/path/to/transcript.jsonl",
+          "cwd": "/Users/dev/repos/myapp",
+          "permission_mode": "acceptEdits",
+          "stop_hook_active": false,
+          "last_assistant_message": "Want me to deploy this so we can see the actual error?"
+        }
+        """.data(using: .utf8)!
+
+        let event = try JSONDecoder().decode(HookEvent.self, from: json)
+
+        XCTAssertEqual(event.hookEventName, "Stop")
+        XCTAssertEqual(event.sessionId, "stop-session-1")
+        XCTAssertEqual(event.stopHookActive, false)
+        XCTAssertEqual(event.lastAssistantMessage, "Want me to deploy this so we can see the actual error?")
+        XCTAssertNil(event.toolName)
+        XCTAssertNil(event.notificationType)
+    }
+
+    func testDecodeNotificationIdlePrompt() throws {
+        let json = """
+        {
+          "hook_event_name": "Notification",
+          "session_id": "notif-session-1",
+          "transcript_path": "/path/to/transcript.jsonl",
+          "cwd": "/Users/dev/repos/myapp",
+          "message": "Claude is waiting for your input",
+          "notification_type": "idle_prompt"
+        }
+        """.data(using: .utf8)!
+
+        let event = try JSONDecoder().decode(HookEvent.self, from: json)
+
+        XCTAssertEqual(event.hookEventName, "Notification")
+        XCTAssertEqual(event.notificationType, "idle_prompt")
+        XCTAssertEqual(event.message, "Claude is waiting for your input")
+        XCTAssertNil(event.toolName)
+        XCTAssertNil(event.lastAssistantMessage)
+    }
+
+    func testDecodeNotificationPermissionPrompt() throws {
+        let json = """
+        {
+          "hook_event_name": "Notification",
+          "session_id": "notif-session-2",
+          "transcript_path": "/path/to/transcript.jsonl",
+          "cwd": "/Users/dev/repos/myapp",
+          "message": "Claude needs your permission to use Bash",
+          "notification_type": "permission_prompt"
+        }
+        """.data(using: .utf8)!
+
+        let event = try JSONDecoder().decode(HookEvent.self, from: json)
+
+        XCTAssertEqual(event.notificationType, "permission_prompt")
+        XCTAssertEqual(event.message, "Claude needs your permission to use Bash")
+    }
+
+    // MARK: - IdlePromptInfo
+
+    func testIdlePromptInfoFromStopEvent() {
+        let event = HookEvent(
+            hookEventName: "Stop",
+            sessionId: "idle-session",
+            lastAssistantMessage: "Should I refactor this function?"
+        )
+
+        let info = IdlePromptInfo.from(event)
+
+        XCTAssertNotNil(info)
+        XCTAssertEqual(info?.sessionId, "idle-session")
+        XCTAssertEqual(info?.lastAssistantMessage, "Should I refactor this function?")
+    }
+
+    func testIdlePromptInfoReturnsNilForNonStopEvent() {
+        let event = HookEvent(
+            hookEventName: "PermissionRequest",
+            sessionId: "perm-session",
+            lastAssistantMessage: "some text"
+        )
+
+        let info = IdlePromptInfo.from(event)
+        XCTAssertNil(info)
+    }
+
+    func testIdlePromptInfoReturnsNilForEmptyMessage() {
+        let event = HookEvent(
+            hookEventName: "Stop",
+            sessionId: "empty-session",
+            lastAssistantMessage: ""
+        )
+
+        let info = IdlePromptInfo.from(event)
+        XCTAssertNil(info)
+    }
+
+    func testIdlePromptInfoReturnsNilForNilMessage() {
+        let event = HookEvent(
+            hookEventName: "Stop",
+            sessionId: "nil-session"
+        )
+
+        let info = IdlePromptInfo.from(event)
+        XCTAssertNil(info)
+    }
+
+    // MARK: - IdlePromptPayload
+
+    func testIdlePromptPayloadFromInfo() {
+        let info = IdlePromptInfo(
+            sessionId: "payload-session",
+            lastAssistantMessage: "What database should we use?"
+        )
+
+        let payload = IdlePromptPayload(from: info)
+
+        XCTAssertEqual(payload.sessionId, "payload-session")
+        XCTAssertEqual(payload.lastAssistantMessage, "What database should we use?")
+    }
+
+    func testIdlePromptPayloadEncodeDecode() throws {
+        let payload = IdlePromptPayload(
+            sessionId: "encode-test",
+            lastAssistantMessage: "Ready to proceed?"
+        )
+
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let data = try encoder.encode(payload)
+
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let decoded = try decoder.decode(IdlePromptPayload.self, from: data)
+
+        XCTAssertEqual(decoded.sessionId, "encode-test")
+        XCTAssertEqual(decoded.lastAssistantMessage, "Ready to proceed?")
+    }
+
+    func testIdlePromptMessageTypeRoundTrip() throws {
+        let encoder = MessageEncoder()
+        let decoder = MessageDecoder()
+
+        let payload = IdlePromptPayload(
+            sessionId: "msg-idle-test",
+            lastAssistantMessage: "Which approach do you prefer?"
+        )
+        let message = try BalconyMessage.create(type: .idlePrompt, payload: payload)
+        let encoded = try encoder.encode(message)
+        let decoded = try decoder.decode(encoded)
+
+        XCTAssertEqual(decoded.type, .idlePrompt)
+
+        let decodedPayload = try decoded.decodePayload(IdlePromptPayload.self)
+        XCTAssertEqual(decodedPayload.sessionId, "msg-idle-test")
+        XCTAssertEqual(decodedPayload.lastAssistantMessage, "Which approach do you prefer?")
+    }
+
+    func testIdlePromptDismissMessageTypeRoundTrip() throws {
+        let encoder = MessageEncoder()
+        let decoder = MessageDecoder()
+
+        let payload = HookDismissPayload(sessionId: "idle-dismiss-test")
+        let message = try BalconyMessage.create(type: .idlePromptDismiss, payload: payload)
+        let encoded = try encoder.encode(message)
+        let decoded = try decoder.decode(encoded)
+
+        XCTAssertEqual(decoded.type, .idlePromptDismiss)
+    }
 }

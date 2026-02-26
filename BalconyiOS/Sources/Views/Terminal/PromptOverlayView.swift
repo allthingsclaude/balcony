@@ -286,6 +286,51 @@ private struct MultiOptionPromptView: View {
     }
 }
 
+// MARK: - Idle Prompt Card
+
+/// Card showing Claude's last message when it's waiting for user input.
+/// The user responds using the normal input bar below (no inline text field needed).
+struct IdlePromptCard: View {
+    let message: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: "bubble.left.and.text.bubble.right")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.blue)
+
+                Text("Claude is waiting")
+                    .font(BalconyTheme.bodyFont(14))
+                    .fontWeight(.semibold)
+                    .foregroundStyle(BalconyTheme.textPrimary)
+
+                Spacer()
+            }
+
+            Text(displayMessage)
+                .font(BalconyTheme.bodyFont(13))
+                .foregroundStyle(BalconyTheme.textSecondary)
+                .lineLimit(4)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(12)
+        .background {
+            RoundedRectangle(cornerRadius: BalconyTheme.radiusMD)
+                .fill(.ultraThinMaterial)
+                .shadow(color: .black.opacity(0.1), radius: 8, y: -2)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: BalconyTheme.radiusMD))
+    }
+
+    private var displayMessage: String {
+        let msg = message
+        return msg.count > 300
+            ? String(msg.suffix(300))
+            : msg
+    }
+}
+
 // MARK: - Preview
 
 #if DEBUG

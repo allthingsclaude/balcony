@@ -15,7 +15,54 @@ final class PromptPanelController {
     /// Called when the user clicks an action button. Passes (sessionId, keystroke).
     var onResponse: ((String, String) -> Void)?
 
+    /// Called when the user submits text from the idle prompt panel. Passes (sessionId, text).
+    var onTextResponse: ((String, String) -> Void)?
+
     // MARK: - Show / Dismiss
+
+    /// Show the prompt panel for an idle prompt (Claude waiting for user input).
+    func showIdlePrompt(_ info: IdlePromptInfo) {
+        logger.info("Showing idle prompt panel: session=\(info.sessionId)")
+
+        dismissPanel()
+        currentSessionId = info.sessionId
+
+        let panel = makePanel()
+        let hostingView = NSHostingView(
+            rootView: IdlePromptPanelView(
+                info: info,
+                onSubmit: { [weak self] text in
+                    self?.handleTextSubmit(text: text)
+                },
+                onDismiss: { [weak self] in
+                    self?.dismissPanel()
+                }
+            )
+        )
+
+        panel.contentView = hostingView
+
+        let fittingSize = hostingView.fittingSize
+        let width = max(fittingSize.width, 320)
+        let height = fittingSize.height
+
+        if let screen = NSScreen.main {
+            let screenFrame = screen.visibleFrame
+            let x = screenFrame.maxX - width - 16
+            let y = screenFrame.maxY - height - 8
+            panel.setFrame(NSRect(x: x, y: y, width: width, height: height), display: false)
+        }
+
+        panel.alphaValue = 0
+        panel.orderFrontRegardless()
+
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.2
+            panel.animator().alphaValue = 1
+        }
+
+        self.panel = panel
+    }
 
     /// Show the prompt panel for a permission request.
     func showPrompt(_ info: PermissionPromptInfo) {
@@ -115,6 +162,17 @@ final class PromptPanelController {
 
         logger.info("Panel action: keystroke='\(keystroke)' session=\(sessionId)")
         onResponse?(sessionId, keystroke)
+        dismissPanel()
+    }
+
+    private func handleTextSubmit(text: String) {
+        guard let sessionId = currentSessionId else {
+            logger.warning("Text submit received but no active session")
+            return
+        }
+
+        logger.info("Panel text submit: '\(text.prefix(50))' session=\(sessionId)")
+        onTextResponse?(sessionId, text)
         dismissPanel()
     }
 }

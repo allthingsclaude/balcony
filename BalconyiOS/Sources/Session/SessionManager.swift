@@ -26,6 +26,9 @@ final class SessionManager: ObservableObject {
     /// Structured hook data for the current permission prompt (from Mac hook listener).
     @Published var pendingHookData: HookEventPayload?
 
+    /// Idle prompt data (Claude waiting for user input, from Mac hook listener).
+    @Published var pendingIdlePrompt: IdlePromptPayload?
+
     /// Text currently in the Mac's input box (after ❯). Used to pre-fill the iOS input.
     @Published var pendingInputText: String = ""
 
@@ -143,6 +146,7 @@ final class SessionManager: ObservableObject {
             conversationLines = []
             activePrompt = nil
             pendingHookData = nil
+            pendingIdlePrompt = nil
             pendingInputText = ""
             projectFiles = []
         }
@@ -160,6 +164,10 @@ final class SessionManager: ObservableObject {
     /// Send user input to a session on the Mac.
     func sendInput(_ input: String, to session: Session) async {
         logger.info("Sending input to session: \(session.id)")
+        // Clear idle prompt when user starts responding
+        if input == "\r" && pendingIdlePrompt != nil {
+            pendingIdlePrompt = nil
+        }
         guard let connectionManager else { return }
         do {
             let payload = UserInputPayload(sessionId: session.id, text: input)
@@ -337,6 +345,10 @@ final class SessionManager: ObservableObject {
             handleHookEvent(message)
         case .hookDismiss:
             handleHookDismiss(message)
+        case .idlePrompt:
+            handleIdlePrompt(message)
+        case .idlePromptDismiss:
+            handleIdlePromptDismiss(message)
         default:
             break
         }
@@ -446,6 +458,28 @@ final class SessionManager: ObservableObject {
             logger.info("Hook prompt dismissed for session: \(payload.sessionId)")
         } catch {
             logger.error("Failed to decode hook dismiss: \(error.localizedDescription)")
+        }
+    }
+
+    private func handleIdlePrompt(_ message: BalconyMessage) {
+        do {
+            let payload = try message.decodePayload(IdlePromptPayload.self)
+            guard payload.sessionId == activeSession?.id else { return }
+            pendingIdlePrompt = payload
+            logger.info("Received idle prompt: session=\(payload.sessionId)")
+        } catch {
+            logger.error("Failed to decode idle prompt: \(error.localizedDescription)")
+        }
+    }
+
+    private func handleIdlePromptDismiss(_ message: BalconyMessage) {
+        do {
+            let payload = try message.decodePayload(HookDismissPayload.self)
+            guard payload.sessionId == activeSession?.id else { return }
+            pendingIdlePrompt = nil
+            logger.info("Idle prompt dismissed for session: \(payload.sessionId)")
+        } catch {
+            logger.error("Failed to decode idle prompt dismiss: \(error.localizedDescription)")
         }
     }
 }

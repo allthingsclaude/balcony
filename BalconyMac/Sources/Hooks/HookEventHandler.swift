@@ -29,9 +29,6 @@ struct SessionPromptQueue {
     /// Bytes of PTY output received since the current prompt became active.
     var outputSincePrompt: Int = 0
 
-    /// When the current prompt was received (for stale detection).
-    var activeSince: Date?
-
     var activeInfo: PermissionPromptInfo? { state?.info }
     var isIdle: Bool { state == nil }
 }
@@ -50,6 +47,17 @@ final class HookEventHandler: ObservableObject {
     /// Published snapshot of active prompts for any observers.
     @Published private(set) var pendingPrompts: [String: PermissionPromptInfo] = [:]
 
+    /// Buffered Stop event data per session (correlates with Notification).
+    /// Stores (message, cwd) from the Stop event.
+    private var lastStopData: [String: (message: String, cwd: String?)] = [:]
+
+    /// Active idle prompts per session (Claude waiting for user input).
+    @Published private(set) var pendingIdlePrompts: [String: IdlePromptInfo] = [:]
+
+    /// Mapping from PTY session IDs to Claude Code session IDs.
+    /// Populated when hook events arrive (using cwd to find the matching PTY session).
+    private var ptyToClaudeSessionId: [String: String] = [:]
+
     // MARK: - Callbacks
 
     /// Called when a new permission prompt should be shown on Mac.
@@ -61,30 +69,53 @@ final class HookEventHandler: ObservableObject {
     /// Called to forward hook events to iOS via WebSocket.
     var onForwardToiOS: ((PermissionPromptInfo) -> Void)?
 
-    // MARK: - Configuration
+    /// Called when Claude stops and waits for user input (idle prompt).
+    var onIdlePromptReceived: ((IdlePromptInfo) -> Void)?
 
-    /// Timeout for stale hook events that never get a response or PTY confirmation.
-    /// If a prompt is still active after this duration with no new PTY output,
-    /// it is likely a ghost event and should be discarded.
-    private static let staleHookTimeout: TimeInterval = 10.0
+    /// Called when an idle prompt is dismissed (user started typing).
+    var onIdlePromptDismissed: ((String) -> Void)?
+
+    /// Called to forward idle prompt events to iOS via WebSocket.
+    var onForwardIdleToiOS: ((IdlePromptInfo) -> Void)?
+
+    // MARK: - Configuration
 
     /// Threshold of new PTY output bytes that indicates the prompt was answered
     /// and Claude Code has moved on to producing new output.
     private static let dismissOutputThreshold = 200
 
+    // MARK: - PTY Session Mapping
+
+    /// Register a mapping from PTY session ID to Claude Code session ID.
+    /// Called by AppDelegate after resolving the PTY session for a hook event.
+    func registerPTYMapping(ptySessionId: String, claudeSessionId: String) {
+        ptyToClaudeSessionId[ptySessionId] = claudeSessionId
+    }
+
     // MARK: - Event Processing
 
     /// Handle a raw hook event from HookListener.
     func handleHookEvent(_ event: HookEvent) {
-        guard event.hookEventName == "PermissionRequest" else {
-            logger.debug("Ignoring non-permission hook event: \(event.hookEventName)")
-            return
+        switch event.hookEventName {
+        case "PermissionRequest":
+            handlePermissionRequest(event)
+        case "Stop":
+            handleStop(event)
+        case "Notification":
+            handleNotification(event)
+        default:
+            logger.debug("Ignoring hook event: \(event.hookEventName)")
         }
+    }
 
+    private func handlePermissionRequest(_ event: HookEvent) {
         guard let promptInfo = PermissionPromptInfo.from(event) else {
             logger.warning("Could not parse PermissionPromptInfo from hook event")
             return
         }
+
+        // A permission request means Claude is working, not idle — dismiss any idle prompt
+        dismissIdlePrompt(for: event.sessionId)
 
         logger.info("Permission prompt: \(promptInfo.toolName) risk=\(promptInfo.riskLevel.rawValue) session=\(promptInfo.sessionId)")
 
@@ -92,30 +123,74 @@ final class HookEventHandler: ObservableObject {
         var sq = sessionQueues[sessionId] ?? SessionPromptQueue()
 
         if sq.isIdle {
-            // No active prompt — activate immediately
             activatePrompt(promptInfo, in: &sq)
             sessionQueues[sessionId] = sq
         } else {
-            // Active prompt exists — enqueue for later
             sq.queue.append(promptInfo)
             sessionQueues[sessionId] = sq
             logger.info("Queued prompt for session \(sessionId) — queue depth: \(sq.queue.count)")
         }
     }
 
+    private func handleStop(_ event: HookEvent) {
+        // Buffer the last assistant message + cwd — Notification(idle_prompt) will correlate it
+        if let message = event.lastAssistantMessage, !message.isEmpty {
+            lastStopData[event.sessionId] = (message: message, cwd: event.cwd)
+            logger.debug("Buffered Stop message for session \(event.sessionId): \(message.prefix(80))...")
+        }
+    }
+
+    private func handleNotification(_ event: HookEvent) {
+        guard event.notificationType == "idle_prompt" else {
+            logger.debug("Ignoring notification type: \(event.notificationType ?? "nil")")
+            return
+        }
+
+        let sessionId = event.sessionId
+
+        // Don't show idle prompt if a permission prompt is active
+        guard sessionQueues[sessionId]?.isIdle ?? true else {
+            logger.debug("Skipping idle prompt — permission prompt active for session \(sessionId)")
+            return
+        }
+
+        // Use the buffered Stop message for the question text
+        let stopData = lastStopData.removeValue(forKey: sessionId)
+        guard let questionText = stopData?.message, !questionText.isEmpty else {
+            logger.debug("Idle prompt with no Stop message for session \(sessionId)")
+            return
+        }
+
+        let info = IdlePromptInfo(sessionId: sessionId, lastAssistantMessage: questionText, cwd: stopData?.cwd ?? event.cwd)
+        pendingIdlePrompts[sessionId] = info
+
+        logger.info("Idle prompt for session \(sessionId): \(questionText.prefix(80))...")
+
+        onIdlePromptReceived?(info)
+        onForwardIdleToiOS?(info)
+    }
+
     // MARK: - PTY Output Monitoring
 
-    /// Called from the PTY output callback. If a prompt is active for this session
-    /// and enough new output has arrived, the prompt was likely answered — auto-dismiss.
-    func handlePTYOutput(sessionId: String, byteCount: Int) {
-        guard var sq = sessionQueues[sessionId], sq.activeInfo != nil else { return }
+    /// Called from the PTY output callback. The sessionId here is the PTY session ID,
+    /// which we resolve to the Claude Code session ID for prompt lookup.
+    func handlePTYOutput(ptySessionId: String, byteCount: Int) {
+        // Resolve PTY session ID to Claude Code session ID
+        guard let claudeSessionId = ptyToClaudeSessionId[ptySessionId] else { return }
+
+        // Dismiss idle prompt on any PTY output (user started typing or Claude resumed)
+        if pendingIdlePrompts[claudeSessionId] != nil {
+            dismissIdlePrompt(for: claudeSessionId)
+        }
+
+        guard var sq = sessionQueues[claudeSessionId], sq.activeInfo != nil else { return }
 
         sq.outputSincePrompt += byteCount
-        sessionQueues[sessionId] = sq
+        sessionQueues[claudeSessionId] = sq
 
         if sq.outputSincePrompt >= Self.dismissOutputThreshold {
-            logger.info("Auto-dismissing prompt for session \(sessionId) — \(sq.outputSincePrompt) bytes of new output")
-            dismissPrompt(for: sessionId)
+            logger.info("Auto-dismissing prompt for session \(claudeSessionId) — \(sq.outputSincePrompt) bytes of new output")
+            dismissPrompt(for: claudeSessionId)
         }
     }
 
@@ -129,7 +204,6 @@ final class HookEventHandler: ObservableObject {
         // Transition current prompt to answered
         sq.state = .answered
         sq.outputSincePrompt = 0
-        sq.activeSince = nil
 
         pendingPrompts.removeValue(forKey: sessionId)
         logger.info("Prompt dismissed for session: \(sessionId)")
@@ -147,6 +221,15 @@ final class HookEventHandler: ObservableObject {
         }
     }
 
+    // MARK: - Idle Prompt Dismissal
+
+    /// Dismiss the idle prompt for a session (user started typing or new output arrived).
+    func dismissIdlePrompt(for sessionId: String) {
+        guard pendingIdlePrompts.removeValue(forKey: sessionId) != nil else { return }
+        logger.info("Idle prompt dismissed for session: \(sessionId)")
+        onIdlePromptDismissed?(sessionId)
+    }
+
     // MARK: - Queries
 
     /// Check if a session has an active prompt.
@@ -159,6 +242,11 @@ final class HookEventHandler: ObservableObject {
         sessionQueues[sessionId]?.activeInfo
     }
 
+    /// Get the current idle prompt info (e.g., for resending to a reconnecting iOS client).
+    func pendingIdlePrompt(for sessionId: String) -> IdlePromptInfo? {
+        pendingIdlePrompts[sessionId]
+    }
+
     // MARK: - Session Lifecycle
 
     /// Clear all prompt state for a session that has ended.
@@ -167,6 +255,8 @@ final class HookEventHandler: ObservableObject {
             pendingPrompts.removeValue(forKey: sessionId)
             logger.debug("Cleared prompt state for ended session: \(sessionId)")
         }
+        pendingIdlePrompts.removeValue(forKey: sessionId)
+        lastStopData.removeValue(forKey: sessionId)
     }
 
     // MARK: - Private
@@ -178,7 +268,6 @@ final class HookEventHandler: ObservableObject {
 
         sq.state = .active(info)
         sq.outputSincePrompt = 0
-        sq.activeSince = Date()
 
         pendingPrompts[sessionId] = info
 
@@ -187,24 +276,5 @@ final class HookEventHandler: ObservableObject {
 
         // Forward to iOS
         onForwardToiOS?(info)
-
-        // Schedule stale check
-        let activationTime = sq.activeSince!
-        Task { @MainActor [weak self] in
-            try? await Task.sleep(for: .seconds(Self.staleHookTimeout))
-            self?.checkStale(sessionId: sessionId, activationTime: activationTime)
-        }
-    }
-
-    /// If a prompt is still active with zero PTY output after the timeout,
-    /// it's likely a ghost event — discard it.
-    private func checkStale(sessionId: String, activationTime: Date) {
-        guard let sq = sessionQueues[sessionId],
-              let activeSince = sq.activeSince,
-              activeSince == activationTime,
-              sq.outputSincePrompt == 0 else { return }
-
-        logger.warning("Stale hook event discarded for session \(sessionId) — no PTY activity after \(Self.staleHookTimeout)s")
-        dismissPrompt(for: sessionId)
     }
 }

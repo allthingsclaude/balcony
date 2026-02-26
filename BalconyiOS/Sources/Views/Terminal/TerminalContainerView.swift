@@ -29,6 +29,7 @@ struct TerminalContainerView: View {
                     projectFiles: sessionManager.projectFiles,
                     activePrompt: sessionManager.activePrompt,
                     pendingHookData: sessionManager.pendingHookData,
+                    pendingIdlePrompt: sessionManager.pendingIdlePrompt,
                     pendingInputText: sessionManager.pendingInputText,
                     availableSessions: sessionManager.availableSessions,
                     showSessionPicker: sessionManager.showSessionPicker,

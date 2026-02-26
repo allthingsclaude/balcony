@@ -9,6 +9,7 @@ struct ConversationView: View {
     let projectFiles: [String]
     let activePrompt: InteractivePrompt?
     let pendingHookData: HookEventPayload?
+    let pendingIdlePrompt: IdlePromptPayload?
     let pendingInputText: String
     let availableSessions: [SessionInfo]
     let showSessionPicker: Bool
@@ -235,6 +236,13 @@ struct ConversationView: View {
                     }
                     .padding(.bottom, BalconyTheme.spacingSM)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+                // Idle prompt card — Claude is waiting for user input
+                else if let idlePrompt = pendingIdlePrompt {
+                    IdlePromptCard(message: idlePrompt.lastAssistantMessage)
+                        .padding(.horizontal, BalconyTheme.spacingLG)
+                        .padding(.bottom, BalconyTheme.spacingSM)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
                 } else if showFilePicker, !projectFiles.isEmpty {
                     // File picker menu — floats above the input bar
                     FilePickerMenu(
@@ -928,6 +936,7 @@ private struct ConversationEmptyView: View {
         projectFiles: ["src/auth/login.ts", "src/components/Button.tsx", "package.json"],
         activePrompt: nil,
         pendingHookData: nil,
+        pendingIdlePrompt: nil,
         pendingInputText: "",
         availableSessions: [],
         showSessionPicker: false,
