@@ -41,4 +41,8 @@ public enum MessageType: String, Codable, Sendable {
 
     // Presence
     case awayStatusUpdate
+
+    // Hook events (permission prompts routed from Claude Code hooks)
+    case hookEvent
+    case hookDismiss
 }

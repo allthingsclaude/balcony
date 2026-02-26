@@ -7,6 +7,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let logger = Logger(subsystem: "com.balcony.mac", category: "AppDelegate")
 
     let ptySessionManager = PTYSessionManager()
+    let hookListener = HookListener()
+    let hookEventHandler = HookEventHandler()
     lazy var connectionManager = ConnectionManager(ptySessionManager: ptySessionManager)
     let sessionListModel = SessionListModel()
     let sessionFileReader = SessionFileReader()
@@ -18,12 +20,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Wire up ConnectionManager to AppDelegate for session picker requests
         connectionManager.appDelegate = self
 
+        // Wire hook event handler callbacks
+        hookEventHandler.onForwardToiOS = { [weak self] promptInfo in
+            guard let self else { return }
+            Task {
+                await self.connectionManager.forwardHookEvent(promptInfo)
+            }
+        }
+        hookEventHandler.onPromptDismissed = { [weak self] sessionId in
+            guard let self else { return }
+            Task {
+                await self.connectionManager.forwardHookDismiss(sessionId: sessionId)
+            }
+        }
+
         Task {
             // Start PTY session manager (Unix domain socket server)
             do {
                 try await ptySessionManager.start()
             } catch {
                 logger.error("Failed to start PTY session manager: \(error.localizedDescription)")
+            }
+
+            // Start hook listener (Unix domain socket for Claude Code hooks)
+            do {
+                try await hookListener.start()
+            } catch {
+                logger.error("Failed to start hook listener: \(error.localizedDescription)")
+            }
+
+            // Wire hook events to handler
+            await hookListener.setOnHookEvent { [weak self] event in
+                Task { @MainActor in
+                    self?.hookEventHandler.handleHookEvent(event)
+                }
             }
 
             // Wire PTY session events to connection manager and UI
@@ -53,6 +83,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         Task {
             try? await connectionManager.stop()
+            await hookListener.stop()
             await ptySessionManager.stop()
         }
     }

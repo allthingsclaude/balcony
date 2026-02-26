@@ -112,6 +112,32 @@ final class ConnectionManager: ObservableObject {
         return !connectedDevices.isEmpty
     }
 
+    // MARK: - Hook Event Forwarding
+
+    /// Forward a permission prompt info to subscribed iOS clients.
+    func forwardHookEvent(_ promptInfo: PermissionPromptInfo) async {
+        do {
+            let payload = HookEventPayload(from: promptInfo)
+            let msg = try BalconyMessage.create(type: .hookEvent, payload: payload)
+            await webSocketServer.sendToSubscribers(of: promptInfo.sessionId, message: msg)
+            logger.info("Forwarded hook event to iOS: \(promptInfo.toolName) session=\(promptInfo.sessionId)")
+        } catch {
+            logger.error("Failed to forward hook event: \(error.localizedDescription)")
+        }
+    }
+
+    /// Notify iOS clients that a permission prompt was dismissed.
+    func forwardHookDismiss(sessionId: String) async {
+        do {
+            let payload = HookDismissPayload(sessionId: sessionId)
+            let msg = try BalconyMessage.create(type: .hookDismiss, payload: payload)
+            await webSocketServer.sendToSubscribers(of: sessionId, message: msg)
+            logger.info("Forwarded hook dismiss to iOS: session=\(sessionId)")
+        } catch {
+            logger.error("Failed to forward hook dismiss: \(error.localizedDescription)")
+        }
+    }
+
     // MARK: - Session Event Forwarding
 
     /// Forward a PTY session event to connected iOS clients.
