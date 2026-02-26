@@ -51,6 +51,10 @@ final class HookEventHandler: ObservableObject {
     /// Stores (message, cwd) from the Stop event.
     private var lastStopData: [String: (message: String, cwd: String?)] = [:]
 
+    /// Buffered Notification(idle_prompt) events waiting for a Stop to correlate with.
+    /// When Notification arrives before Stop, we store the cwd here.
+    private var pendingIdleNotifications: [String: String?] = [:]
+
     /// Active idle prompts per session (Claude waiting for user input).
     @Published private(set) var pendingIdlePrompts: [String: IdlePromptInfo] = [:]
 
@@ -133,10 +137,18 @@ final class HookEventHandler: ObservableObject {
     }
 
     private func handleStop(_ event: HookEvent) {
-        // Buffer the last assistant message + cwd — Notification(idle_prompt) will correlate it
-        if let message = event.lastAssistantMessage, !message.isEmpty {
-            lastStopData[event.sessionId] = (message: message, cwd: event.cwd)
-            logger.debug("Buffered Stop message for session \(event.sessionId): \(message.prefix(80))...")
+        guard let message = event.lastAssistantMessage, !message.isEmpty else { return }
+
+        let sessionId = event.sessionId
+
+        // Check if a Notification(idle_prompt) already arrived and is waiting
+        if let notifCwd = pendingIdleNotifications.removeValue(forKey: sessionId) {
+            logger.info("Stop arrived after Notification — correlating idle prompt for session \(sessionId)")
+            emitIdlePrompt(sessionId: sessionId, message: message, cwd: event.cwd ?? notifCwd)
+        } else {
+            // Buffer for when Notification arrives
+            lastStopData[sessionId] = (message: message, cwd: event.cwd)
+            logger.debug("Buffered Stop message for session \(sessionId): \(message.prefix(80))...")
         }
     }
 
@@ -154,17 +166,31 @@ final class HookEventHandler: ObservableObject {
             return
         }
 
-        // Use the buffered Stop message for the question text
-        let stopData = lastStopData.removeValue(forKey: sessionId)
-        guard let questionText = stopData?.message, !questionText.isEmpty else {
-            logger.debug("Idle prompt with no Stop message for session \(sessionId)")
-            return
-        }
+        // Try to correlate with a buffered Stop message
+        if let stopData = lastStopData.removeValue(forKey: sessionId) {
+            logger.info("Notification arrived after Stop — correlating idle prompt for session \(sessionId)")
+            emitIdlePrompt(sessionId: sessionId, message: stopData.message, cwd: stopData.cwd ?? event.cwd)
+        } else {
+            // Stop hasn't arrived yet — buffer this Notification and wait
+            pendingIdleNotifications[sessionId] = event.cwd
+            logger.debug("Buffered idle Notification for session \(sessionId) — waiting for Stop")
 
-        let info = IdlePromptInfo(sessionId: sessionId, lastAssistantMessage: questionText, cwd: stopData?.cwd ?? event.cwd)
+            // Clean up if Stop never arrives
+            Task { @MainActor [weak self] in
+                try? await Task.sleep(for: .seconds(5))
+                self?.pendingIdleNotifications.removeValue(forKey: sessionId)
+            }
+        }
+    }
+
+    // MARK: - Idle Prompt Emission
+
+    /// Create and emit an idle prompt once both Stop and Notification have been correlated.
+    private func emitIdlePrompt(sessionId: String, message: String, cwd: String?) {
+        let info = IdlePromptInfo(sessionId: sessionId, lastAssistantMessage: message, cwd: cwd)
         pendingIdlePrompts[sessionId] = info
 
-        logger.info("Idle prompt for session \(sessionId): \(questionText.prefix(80))...")
+        logger.info("Idle prompt for session \(sessionId): \(message.prefix(80))...")
 
         onIdlePromptReceived?(info)
         onForwardIdleToiOS?(info)
@@ -257,6 +283,7 @@ final class HookEventHandler: ObservableObject {
         }
         pendingIdlePrompts.removeValue(forKey: sessionId)
         lastStopData.removeValue(forKey: sessionId)
+        pendingIdleNotifications.removeValue(forKey: sessionId)
     }
 
     // MARK: - Private
