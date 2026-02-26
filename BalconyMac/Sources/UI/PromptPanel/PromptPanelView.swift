@@ -106,6 +106,13 @@ struct PromptPanelView: View {
             .buttonStyle(.bordered)
             .controlSize(.regular)
 
+            Button(action: { onAction("a") }) {
+                Text("Always")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.regular)
+
             Button(action: { onAction("y") }) {
                 Text("Allow")
                     .frame(maxWidth: .infinity)

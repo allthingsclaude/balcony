@@ -18,8 +18,14 @@ public struct HookEvent: Codable, Sendable {
     /// The Claude Code session ID.
     public let sessionId: String
 
+    /// Absolute path to the session's JSONL transcript file.
+    public let transcriptPath: String?
+
     /// Current working directory of the Claude Code session.
     public let cwd: String?
+
+    /// Current permission mode (e.g., "default", "acceptEdits").
+    public let permissionMode: String?
 
     /// The tool requesting permission (e.g., "Bash", "Edit", "Write", "Read").
     public let toolName: String?
@@ -30,13 +36,17 @@ public struct HookEvent: Codable, Sendable {
     public init(
         hookEventName: String,
         sessionId: String,
+        transcriptPath: String? = nil,
         cwd: String? = nil,
+        permissionMode: String? = nil,
         toolName: String? = nil,
         toolInput: [String: AnyCodable]? = nil
     ) {
         self.hookEventName = hookEventName
         self.sessionId = sessionId
+        self.transcriptPath = transcriptPath
         self.cwd = cwd
+        self.permissionMode = permissionMode
         self.toolName = toolName
         self.toolInput = toolInput
     }
@@ -44,7 +54,9 @@ public struct HookEvent: Codable, Sendable {
     private enum CodingKeys: String, CodingKey {
         case hookEventName = "hook_event_name"
         case sessionId = "session_id"
+        case transcriptPath = "transcript_path"
         case cwd
+        case permissionMode = "permission_mode"
         case toolName = "tool_name"
         case toolInput = "tool_input"
     }
