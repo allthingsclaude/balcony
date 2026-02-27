@@ -87,10 +87,6 @@ final class HookEventHandler: ObservableObject {
     /// and Claude Code has moved on to producing new output.
     private static let dismissOutputThreshold = 200
 
-    /// Delay after receiving a Stop event before showing the idle prompt.
-    /// If a PermissionRequest arrives within this window, the Stop is not idle — Claude is working.
-    private static let stopToIdleDelay: TimeInterval = 3.0
-
     // MARK: - PTY Session Mapping
 
     /// Register a mapping from PTY session ID to Claude Code session ID.
@@ -152,35 +148,24 @@ final class HookEventHandler: ObservableObject {
 
         let ptySessionId = event.balconyPtySessionId
 
-        // Buffer the Stop data (used by both timer-based and Notification-based paths)
-        lastStopData[sessionId] = (message: message, cwd: event.cwd, ptySessionId: ptySessionId)
-
-        // If a Notification(idle_prompt) already arrived, emit immediately
-        if let notifData = pendingIdleNotifications.removeValue(forKey: sessionId) {
-            lastStopData.removeValue(forKey: sessionId)
-            emitIdlePrompt(sessionId: sessionId, message: message, cwd: event.cwd ?? notifData.cwd, ptySessionId: ptySessionId ?? notifData.ptySessionId)
+        // Don't emit if a permission prompt is active (Claude is working, not idle)
+        guard sessionQueues[sessionId]?.isIdle ?? true else {
+            // Buffer in case a Notification arrives later
+            lastStopData[sessionId] = (message: message, cwd: event.cwd, ptySessionId: ptySessionId)
             return
         }
 
-        // Start a timer: if no PermissionRequest or Notification arrives within the delay,
-        // treat this as an idle prompt. Handles cases where Notification(idle_prompt)
-        // fires much later or not at all.
-        Task { @MainActor [weak self] in
-            try? await Task.sleep(for: .seconds(Self.stopToIdleDelay))
-            guard let self else { return }
+        // Consume any pending Notification (arrived before this Stop)
+        let notifData = pendingIdleNotifications.removeValue(forKey: sessionId)
 
-            // Check if the Stop data is still buffered (not yet consumed by a Notification)
-            guard let stopData = self.lastStopData.removeValue(forKey: sessionId) else { return }
-
-            // Don't emit if a permission prompt is now active (Claude is working, not idle)
-            guard self.sessionQueues[sessionId]?.isIdle ?? true else { return }
-
-            // Don't emit if an idle prompt is already showing
-            guard self.pendingIdlePrompts[sessionId] == nil else { return }
-
-            self.logger.info("Idle prompt (timer) for session \(sessionId)")
-            self.emitIdlePrompt(sessionId: sessionId, message: stopData.message, cwd: stopData.cwd, ptySessionId: stopData.ptySessionId)
-        }
+        // Emit immediately. If a PermissionRequest follows, it will dismiss the idle prompt.
+        logger.info("Idle prompt for session \(sessionId)")
+        emitIdlePrompt(
+            sessionId: sessionId,
+            message: message,
+            cwd: event.cwd ?? notifData?.cwd,
+            ptySessionId: ptySessionId ?? notifData?.ptySessionId
+        )
     }
 
     private func handleNotification(_ event: HookEvent) {
@@ -194,10 +179,10 @@ final class HookEventHandler: ObservableObject {
         // Don't show idle prompt if a permission prompt is active
         guard sessionQueues[sessionId]?.isIdle ?? true else { return }
 
-        // If an idle prompt is already showing (from the timer), skip
+        // If an idle prompt is already showing, skip
         guard pendingIdlePrompts[sessionId] == nil else { return }
 
-        // Try to correlate with a buffered Stop message (consumes it, cancelling the timer)
+        // Try to correlate with a buffered Stop message (buffered when permission prompt was active)
         if let stopData = lastStopData.removeValue(forKey: sessionId) {
             emitIdlePrompt(sessionId: sessionId, message: stopData.message, cwd: stopData.cwd ?? event.cwd, ptySessionId: stopData.ptySessionId ?? event.balconyPtySessionId)
         } else {
