@@ -28,6 +28,9 @@ actor PTYSessionManager {
     /// Called when raw PTY output arrives for a session.
     private var onPTYOutput: (@Sendable (String, Data) -> Void)?
 
+    /// Called when the user types in the local terminal (stdin activity detected).
+    private var onStdinActivity: (@Sendable (String) -> Void)?
+
     /// Set the session event callback.
     func setOnSessionEvent(_ handler: @escaping @Sendable (SessionEvent) -> Void) {
         onSessionEvent = handler
@@ -36,6 +39,11 @@ actor PTYSessionManager {
     /// Set the PTY output callback.
     func setOnPTYOutput(_ handler: @escaping @Sendable (String, Data) -> Void) {
         onPTYOutput = handler
+    }
+
+    /// Set the stdin activity callback.
+    func setOnStdinActivity(_ handler: @escaping @Sendable (String) -> Void) {
+        onStdinActivity = handler
     }
 
     init() {
@@ -243,6 +251,10 @@ actor PTYSessionManager {
             sessionBuffers.removeValue(forKey: sessionId)
             logger.info("PTY session ended: \(sessionId)")
             onSessionEvent?(.sessionEnded(sessionId))
+
+        case 0x06: // Stdin activity — user typed in local terminal
+            guard let state = clientFDs[fd], let sessionId = state.sessionId else { return }
+            onStdinActivity?(sessionId)
 
         default:
             break

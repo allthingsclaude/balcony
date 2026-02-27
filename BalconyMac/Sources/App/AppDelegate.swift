@@ -167,6 +167,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 }
             }
 
+            // Dismiss idle prompt when user types in the local terminal
+            await ptySessionManager.setOnStdinActivity { [weak self] ptySessionId in
+                Task { @MainActor in
+                    self?.hookEventHandler.handleStdinActivity(ptySessionId: ptySessionId)
+                }
+            }
+
             // Start connection services (WebSocket server, Bonjour, BLE)
             do {
                 try await connectionManager.start()

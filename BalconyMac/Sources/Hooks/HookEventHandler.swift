@@ -104,6 +104,8 @@ final class HookEventHandler: ObservableObject {
         switch event.hookEventName {
         case "PermissionRequest":
             handlePermissionRequest(event)
+        case "PreToolUse":
+            handlePreToolUse(event)
         case "Stop":
             handleStop(event)
         case "Notification":
@@ -111,6 +113,12 @@ final class HookEventHandler: ObservableObject {
         default:
             logger.debug("Ignoring hook event: \(event.hookEventName)")
         }
+    }
+
+    private func handlePreToolUse(_ event: HookEvent) {
+        // Claude is actively working (user must have responded) — dismiss any idle prompt
+        lastStopData.removeValue(forKey: event.sessionId)
+        dismissIdlePrompt(for: event.sessionId)
     }
 
     private func handlePermissionRequest(_ event: HookEvent) {
@@ -259,6 +267,17 @@ final class HookEventHandler: ObservableObject {
             sq.state = nil
             sessionQueues[sessionId] = sq
         }
+    }
+
+    // MARK: - Stdin Activity
+
+    /// Called when the user types in the local terminal. Resolves the PTY session ID
+    /// to the Claude session ID and dismisses any pending idle prompt.
+    func handleStdinActivity(ptySessionId: String) {
+        guard let claudeSessionId = ptyToClaudeSessionId[ptySessionId] else { return }
+        guard pendingIdlePrompts[claudeSessionId] != nil else { return }
+        logger.info("Stdin activity detected for PTY \(ptySessionId) → dismissing idle prompt for \(claudeSessionId)")
+        dismissIdlePrompt(for: claudeSessionId)
     }
 
     // MARK: - Idle Prompt Dismissal

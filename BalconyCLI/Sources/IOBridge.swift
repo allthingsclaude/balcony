@@ -101,6 +101,14 @@ final class IOBridge {
             let n = read(STDIN_FILENO, &buf, buf.count)
             if n > 0 {
                 _ = write(self.masterFD, &buf, n)
+                // Notify Mac agent on actual user input (not escape sequences).
+                // Terminal focus events (\e[I, \e[O), arrow keys, function keys
+                // all start with ESC (0x1B) — skip those.
+                if buf[0] != 0x1B {
+                    self.socketQueue.async {
+                        self.socketClient?.sendStdinActivity()
+                    }
+                }
             }
         }
         stdinSource.resume()

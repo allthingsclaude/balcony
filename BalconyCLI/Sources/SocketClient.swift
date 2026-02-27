@@ -12,6 +12,8 @@ enum SocketMessageType: UInt8 {
     case sessionInfo = 0x04
     /// Session ended: child process exited (CLI → Mac).
     case sessionEnded = 0x05
+    /// Stdin activity: user typed in the local terminal (CLI → Mac).
+    case stdinActivity = 0x06
 }
 
 /// Session metadata sent from CLI to Mac on connect.
@@ -135,6 +137,11 @@ final class SocketClient {
     /// Send raw PTY output bytes.
     func sendPTYOutput(_ data: Data) {
         send(type: .ptyOutput, data: data)
+    }
+
+    /// Notify Mac agent that the user typed in the local terminal.
+    func sendStdinActivity() {
+        send(type: .stdinActivity, data: Data())
     }
 
     // MARK: - Reading
