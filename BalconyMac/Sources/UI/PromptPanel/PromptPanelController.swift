@@ -19,7 +19,7 @@ private class DimmingView: NSView {
         super.init(frame: frame)
         wantsLayer = true
         layer?.backgroundColor = NSColor.black.cgColor
-        layer?.cornerRadius = 14
+        layer?.cornerRadius = 16
         alphaValue = 0
     }
 
@@ -196,6 +196,8 @@ final class PromptPanelController {
         // Ensure transparent background so SwiftUI rounded corners render cleanly
         hostingView.wantsLayer = true
         hostingView.layer?.backgroundColor = NSColor.clear.cgColor
+        hostingView.layer?.cornerRadius = 16
+        hostingView.layer?.masksToBounds = true
         hostingView.frame = trackingView.bounds
         hostingView.autoresizingMask = [.width, .height]
         // Insert hosting view below the dimming overlay

@@ -1,6 +1,21 @@
 import SwiftUI
 import BalconyShared
 
+// MARK: - Dark Panel Colors
+
+private enum PanelColors {
+    static let background = Color(white: 0.12)
+    static let surface = Color(white: 0.16)
+    static let contentBox = Color.white.opacity(0.05)
+    static let ghostButton = Color.white.opacity(0.1)
+    static let primaryButton = Color(red: 0.35, green: 0.38, blue: 0.95)
+    static let textPrimary = Color.white
+    static let textSecondary = Color.white.opacity(0.55)
+    static let textTertiary = Color.white.opacity(0.35)
+    static let fieldBackground = Color.white.opacity(0.08)
+    static let dismissButton = Color.white.opacity(0.1)
+}
+
 // MARK: - Permission Prompt Panel
 
 /// Notification-style view for permission requests.
@@ -9,82 +24,100 @@ struct PromptPanelView: View {
     let onAction: (String) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Header row
-            HStack(spacing: 8) {
+        VStack(spacing: 0) {
+            // Icon badge
+            ZStack {
+                Circle()
+                    .fill(riskColor.opacity(0.15))
+                    .frame(width: 48, height: 48)
+
                 Image(systemName: toolIconName)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: 20, weight: .semibold))
                     .foregroundStyle(riskColor)
+            }
+            .padding(.top, 20)
+            .padding(.bottom, 10)
 
-                Text(info.toolName)
-                    .font(.system(size: 13, weight: .semibold))
-                    .lineLimit(1)
+            // Tool name
+            Text(info.toolName)
+                .font(.system(size: 15, weight: .bold))
+                .foregroundStyle(PanelColors.textPrimary)
 
+            // Project name + risk badge
+            HStack(spacing: 6) {
                 if let projectName {
                     Text(projectName)
-                        .font(.system(size: 11))
-                        .foregroundStyle(.tertiary)
+                        .font(.system(size: 12))
+                        .foregroundStyle(PanelColors.textSecondary)
                         .lineLimit(1)
                 }
 
-                Spacer(minLength: 4)
-
                 riskBadge
             }
-            .padding(.horizontal, 14)
-            .padding(.top, 12)
-            .padding(.bottom, 8)
+            .padding(.top, 3)
 
             // Content preview
             if let content = contentPreview {
                 Text(content)
                     .font(.system(size: 11, design: .monospaced))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(PanelColors.textSecondary)
                     .lineLimit(3)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 14)
-                    .padding(.bottom, 10)
+                    .padding(10)
+                    .background(PanelColors.contentBox)
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .padding(.horizontal, 16)
+                    .padding(.top, 14)
             }
 
             // Action buttons
-            HStack(spacing: 6) {
-                Spacer()
+            HStack(spacing: 8) {
+                Button(action: { onAction("n") }) {
+                    Text("Deny")
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 36)
+                }
+                .buttonStyle(.plain)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(PanelColors.textPrimary)
+                .background(PanelColors.ghostButton)
+                .clipShape(RoundedRectangle(cornerRadius: 10))
 
-                Button("Deny") { onAction("n") }
-                    .buttonStyle(.plain)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 4)
-                    .background(Color.primary.opacity(0.06))
-                    .clipShape(RoundedRectangle(cornerRadius: 5))
+                Button(action: { onAction("a") }) {
+                    Text("Always")
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 36)
+                }
+                .buttonStyle(.plain)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(PanelColors.textPrimary)
+                .background(PanelColors.ghostButton)
+                .clipShape(RoundedRectangle(cornerRadius: 10))
 
-                Button("Always") { onAction("a") }
-                    .buttonStyle(.plain)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 4)
-                    .background(Color.primary.opacity(0.06))
-                    .clipShape(RoundedRectangle(cornerRadius: 5))
-
-                Button("Allow") { onAction("y") }
-                    .buttonStyle(.plain)
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 4)
-                    .background(Color.accentColor)
-                    .clipShape(RoundedRectangle(cornerRadius: 5))
+                Button(action: { onAction("y") }) {
+                    HStack(spacing: 4) {
+                        Text("Allow")
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 10, weight: .bold))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 36)
+                }
+                .buttonStyle(.plain)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(.white)
+                .background(PanelColors.primaryButton)
+                .clipShape(RoundedRectangle(cornerRadius: 10))
             }
-            .padding(.horizontal, 14)
-            .padding(.bottom, 12)
+            .padding(.horizontal, 16)
+            .padding(.top, 16)
+            .padding(.bottom, 18)
         }
         .frame(width: 340)
-        .background(.regularMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 14))
-        .shadow(color: .black.opacity(0.12), radius: 12, y: 4)
-        .shadow(color: .black.opacity(0.06), radius: 2, y: 1)
+        .background(PanelColors.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .shadow(color: .black.opacity(0.3), radius: 20, y: 8)
+        .shadow(color: .black.opacity(0.1), radius: 4, y: 2)
     }
 
     // MARK: - Computed
@@ -113,7 +146,7 @@ struct PromptPanelView: View {
             .font(.system(size: 10, weight: .medium))
             .padding(.horizontal, 5)
             .padding(.vertical, 2)
-            .background(riskColor.opacity(0.12))
+            .background(riskColor.opacity(0.2))
             .foregroundStyle(riskColor)
             .clipShape(Capsule())
     }
@@ -175,77 +208,88 @@ struct IdlePromptPanelView: View {
     @FocusState private var textFieldFocused: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Header row
-            HStack(spacing: 8) {
-                Image(systemName: "bubble.left.and.text.bubble.right")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(.blue)
-
-                Text("Claude is waiting")
-                    .font(.system(size: 13, weight: .semibold))
-                    .lineLimit(1)
-
-                if let projectName {
-                    Text(projectName)
-                        .font(.system(size: 11))
-                        .foregroundStyle(.tertiary)
-                        .lineLimit(1)
-                }
-
-                Spacer(minLength: 4)
-
+        VStack(spacing: 0) {
+            // Dismiss button (top-right)
+            HStack {
+                Spacer()
                 Button(action: onDismiss) {
                     Image(systemName: "xmark")
                         .font(.system(size: 9, weight: .bold))
-                        .foregroundStyle(.tertiary)
-                        .frame(width: 18, height: 18)
-                        .background(Color.primary.opacity(0.06))
+                        .foregroundStyle(PanelColors.textTertiary)
+                        .frame(width: 22, height: 22)
+                        .background(PanelColors.dismissButton)
                         .clipShape(Circle())
                 }
                 .buttonStyle(.plain)
             }
-            .padding(.horizontal, 14)
+            .padding(.trailing, 14)
             .padding(.top, 12)
-            .padding(.bottom, 8)
+
+            // Icon badge
+            ZStack {
+                Circle()
+                    .fill(Color.blue.opacity(0.15))
+                    .frame(width: 48, height: 48)
+
+                Image(systemName: "bubble.left.and.text.bubble.right")
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundStyle(.blue)
+            }
+            .padding(.bottom, 10)
+
+            // Title
+            Text("Claude is waiting")
+                .font(.system(size: 15, weight: .bold))
+                .foregroundStyle(PanelColors.textPrimary)
+
+            // Project name
+            if let projectName {
+                Text(projectName)
+                    .font(.system(size: 12))
+                    .foregroundStyle(PanelColors.textSecondary)
+                    .lineLimit(1)
+                    .padding(.top, 3)
+            }
 
             // Claude's message
             Text(displayMessage)
                 .font(.system(size: 12))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(PanelColors.textSecondary)
                 .lineLimit(4)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 14)
-                .padding(.bottom, 10)
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
 
             // Text input row
-            HStack(spacing: 6) {
+            HStack(spacing: 8) {
                 TextField("Type a response...", text: $responseText)
                     .textFieldStyle(.plain)
                     .font(.system(size: 12))
+                    .foregroundStyle(PanelColors.textPrimary)
                     .focused($textFieldFocused)
                     .onSubmit { submitResponse() }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 6)
-                    .background(Color.primary.opacity(0.04))
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
+                    .background(PanelColors.fieldBackground)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
 
                 Button(action: submitResponse) {
                     Image(systemName: "arrow.up.circle.fill")
-                        .font(.system(size: 20))
-                        .foregroundStyle(responseText.isEmpty ? Color.secondary.opacity(0.3) : .blue)
+                        .font(.system(size: 24))
+                        .foregroundStyle(responseText.isEmpty ? PanelColors.textTertiary : PanelColors.primaryButton)
                 }
                 .buttonStyle(.plain)
                 .disabled(responseText.isEmpty)
             }
-            .padding(.horizontal, 14)
-            .padding(.bottom, 12)
+            .padding(.horizontal, 16)
+            .padding(.top, 12)
+            .padding(.bottom, 18)
         }
         .frame(width: 340)
-        .background(.regularMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 14))
-        .shadow(color: .black.opacity(0.12), radius: 12, y: 4)
-        .shadow(color: .black.opacity(0.06), radius: 2, y: 1)
+        .background(PanelColors.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .shadow(color: .black.opacity(0.3), radius: 20, y: 8)
+        .shadow(color: .black.opacity(0.1), radius: 4, y: 2)
         .onAppear { textFieldFocused = true }
     }
 
