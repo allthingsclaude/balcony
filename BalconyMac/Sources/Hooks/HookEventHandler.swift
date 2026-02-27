@@ -58,8 +58,8 @@ final class HookEventHandler: ObservableObject {
     @Published private(set) var pendingIdlePrompts: [String: IdlePromptInfo] = [:]
 
     /// Mapping from PTY session IDs to Claude Code session IDs.
-    /// Populated when hook events arrive (using cwd to find the matching PTY session).
-    private var ptyToClaudeSessionId: [String: String] = [:]
+    /// One PTY session can host multiple Claude Code sessions.
+    private var ptyToClaudeSessionIds: [String: Set<String>] = [:]
 
     // MARK: - Callbacks
 
@@ -92,7 +92,7 @@ final class HookEventHandler: ObservableObject {
     /// Register a mapping from PTY session ID to Claude Code session ID.
     /// Called by AppDelegate after resolving the PTY session for a hook event.
     func registerPTYMapping(ptySessionId: String, claudeSessionId: String) {
-        ptyToClaudeSessionId[ptySessionId] = claudeSessionId
+        ptyToClaudeSessionIds[ptySessionId, default: []].insert(claudeSessionId)
     }
 
     // MARK: - Event Processing
@@ -224,21 +224,23 @@ final class HookEventHandler: ObservableObject {
     /// Called from the PTY output callback. The sessionId here is the PTY session ID,
     /// which we resolve to the Claude Code session ID for prompt lookup.
     func handlePTYOutput(ptySessionId: String, byteCount: Int) {
-        // Resolve PTY session ID to Claude Code session ID
-        guard let claudeSessionId = ptyToClaudeSessionId[ptySessionId] else { return }
+        // Resolve PTY session ID to Claude Code session IDs
+        guard let claudeSessionIds = ptyToClaudeSessionIds[ptySessionId] else { return }
 
         // Note: we do NOT auto-dismiss idle prompts on PTY output.
         // Claude Code's terminal produces output even when idle (cursor, prompt, status line).
         // Idle prompts are dismissed by: user response, new Stop, PermissionRequest, or session end.
 
-        guard var sq = sessionQueues[claudeSessionId], sq.activeInfo != nil else { return }
+        for claudeSessionId in claudeSessionIds {
+            guard var sq = sessionQueues[claudeSessionId], sq.activeInfo != nil else { continue }
 
-        sq.outputSincePrompt += byteCount
-        sessionQueues[claudeSessionId] = sq
+            sq.outputSincePrompt += byteCount
+            sessionQueues[claudeSessionId] = sq
 
-        if sq.outputSincePrompt >= Self.dismissOutputThreshold {
-            logger.info("Auto-dismissing prompt for session \(claudeSessionId) — \(sq.outputSincePrompt) bytes of new output")
-            dismissPrompt(for: claudeSessionId)
+            if sq.outputSincePrompt >= Self.dismissOutputThreshold {
+                logger.info("Auto-dismissing prompt for session \(claudeSessionId) — \(sq.outputSincePrompt) bytes of new output")
+                dismissPrompt(for: claudeSessionId)
+            }
         }
     }
 
@@ -274,10 +276,12 @@ final class HookEventHandler: ObservableObject {
     /// Called when the user types in the local terminal. Resolves the PTY session ID
     /// to the Claude session ID and dismisses any pending idle prompt.
     func handleStdinActivity(ptySessionId: String) {
-        guard let claudeSessionId = ptyToClaudeSessionId[ptySessionId] else { return }
-        guard pendingIdlePrompts[claudeSessionId] != nil else { return }
-        logger.info("Stdin activity detected for PTY \(ptySessionId) → dismissing idle prompt for \(claudeSessionId)")
-        dismissIdlePrompt(for: claudeSessionId)
+        guard let claudeSessionIds = ptyToClaudeSessionIds[ptySessionId] else { return }
+        for claudeSessionId in claudeSessionIds {
+            guard pendingIdlePrompts[claudeSessionId] != nil else { continue }
+            logger.info("Stdin activity detected for PTY \(ptySessionId) → dismissing idle prompt for \(claudeSessionId)")
+            dismissIdlePrompt(for: claudeSessionId)
+        }
     }
 
     // MARK: - Idle Prompt Dismissal

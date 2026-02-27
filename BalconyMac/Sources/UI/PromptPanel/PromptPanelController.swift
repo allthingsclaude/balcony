@@ -324,7 +324,8 @@ final class PromptPanelController {
     private func fadeOut(_ panel: NSPanel) {
         let panelRef = panel
         NSAnimationContext.runAnimationGroup({ context in
-            context.duration = 0.15
+            context.duration = 0.35
+            context.timingFunction = CAMediaTimingFunction(name: .easeIn)
             panelRef.animator().alphaValue = 0
         }, completionHandler: {
             panelRef.orderOut(nil)
