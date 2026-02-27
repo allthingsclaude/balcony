@@ -17,6 +17,19 @@ fi
 # Read all stdin
 INPUT=$(cat)
 
+# Inject BALCONY_PTY_SESSION_ID into JSON if available (set by balcony CLI wrapper)
+if [ -n "$BALCONY_PTY_SESSION_ID" ]; then
+    INPUT=$(echo "$INPUT" | python3 -c "
+import json, sys, os
+try:
+    d = json.loads(sys.stdin.read())
+    d['balcony_pty_session_id'] = os.environ['BALCONY_PTY_SESSION_ID']
+    print(json.dumps(d))
+except:
+    pass
+" 2>/dev/null || echo "$INPUT")
+fi
+
 if [ -z "$INPUT" ]; then
     debug "Empty stdin"
     exit 0

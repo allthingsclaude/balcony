@@ -48,12 +48,11 @@ final class HookEventHandler: ObservableObject {
     @Published private(set) var pendingPrompts: [String: PermissionPromptInfo] = [:]
 
     /// Buffered Stop event data per session (correlates with Notification).
-    /// Stores (message, cwd) from the Stop event.
-    private var lastStopData: [String: (message: String, cwd: String?)] = [:]
+    private var lastStopData: [String: (message: String, cwd: String?, ptySessionId: String?)] = [:]
 
     /// Buffered Notification(idle_prompt) events waiting for a Stop to correlate with.
-    /// When Notification arrives before Stop, we store the cwd here.
-    private var pendingIdleNotifications: [String: String?] = [:]
+    /// When Notification arrives before Stop, we store the cwd and ptySessionId here.
+    private var pendingIdleNotifications: [String: (cwd: String?, ptySessionId: String?)] = [:]
 
     /// Active idle prompts per session (Claude waiting for user input).
     @Published private(set) var pendingIdlePrompts: [String: IdlePromptInfo] = [:]
@@ -151,13 +150,15 @@ final class HookEventHandler: ObservableObject {
         let sessionId = event.sessionId
         logger.debug("Stop: session=\(sessionId) msg=\(message.prefix(80))...")
 
+        let ptySessionId = event.balconyPtySessionId
+
         // Buffer the Stop data (used by both timer-based and Notification-based paths)
-        lastStopData[sessionId] = (message: message, cwd: event.cwd)
+        lastStopData[sessionId] = (message: message, cwd: event.cwd, ptySessionId: ptySessionId)
 
         // If a Notification(idle_prompt) already arrived, emit immediately
-        if let notifCwd = pendingIdleNotifications.removeValue(forKey: sessionId) {
+        if let notifData = pendingIdleNotifications.removeValue(forKey: sessionId) {
             lastStopData.removeValue(forKey: sessionId)
-            emitIdlePrompt(sessionId: sessionId, message: message, cwd: event.cwd ?? notifCwd)
+            emitIdlePrompt(sessionId: sessionId, message: message, cwd: event.cwd ?? notifData.cwd, ptySessionId: ptySessionId ?? notifData.ptySessionId)
             return
         }
 
@@ -178,7 +179,7 @@ final class HookEventHandler: ObservableObject {
             guard self.pendingIdlePrompts[sessionId] == nil else { return }
 
             self.logger.info("Idle prompt (timer) for session \(sessionId)")
-            self.emitIdlePrompt(sessionId: sessionId, message: stopData.message, cwd: stopData.cwd)
+            self.emitIdlePrompt(sessionId: sessionId, message: stopData.message, cwd: stopData.cwd, ptySessionId: stopData.ptySessionId)
         }
     }
 
@@ -198,10 +199,10 @@ final class HookEventHandler: ObservableObject {
 
         // Try to correlate with a buffered Stop message (consumes it, cancelling the timer)
         if let stopData = lastStopData.removeValue(forKey: sessionId) {
-            emitIdlePrompt(sessionId: sessionId, message: stopData.message, cwd: stopData.cwd ?? event.cwd)
+            emitIdlePrompt(sessionId: sessionId, message: stopData.message, cwd: stopData.cwd ?? event.cwd, ptySessionId: stopData.ptySessionId ?? event.balconyPtySessionId)
         } else {
             // Stop hasn't arrived yet — buffer this Notification and wait
-            pendingIdleNotifications[sessionId] = event.cwd
+            pendingIdleNotifications[sessionId] = (cwd: event.cwd, ptySessionId: event.balconyPtySessionId)
             logger.debug("Buffered idle Notification for session \(sessionId) — waiting for Stop")
 
             // Clean up if Stop never arrives
@@ -215,8 +216,8 @@ final class HookEventHandler: ObservableObject {
     // MARK: - Idle Prompt Emission
 
     /// Create and emit an idle prompt once both Stop and Notification have been correlated.
-    private func emitIdlePrompt(sessionId: String, message: String, cwd: String?) {
-        let info = IdlePromptInfo(sessionId: sessionId, lastAssistantMessage: message, cwd: cwd)
+    private func emitIdlePrompt(sessionId: String, message: String, cwd: String?, ptySessionId: String? = nil) {
+        let info = IdlePromptInfo(sessionId: sessionId, lastAssistantMessage: message, cwd: cwd, ptySessionId: ptySessionId)
         pendingIdlePrompts[sessionId] = info
 
         logger.info("Idle prompt for session \(sessionId): \(message.prefix(80))...")
@@ -233,10 +234,9 @@ final class HookEventHandler: ObservableObject {
         // Resolve PTY session ID to Claude Code session ID
         guard let claudeSessionId = ptyToClaudeSessionId[ptySessionId] else { return }
 
-        // Dismiss idle prompt on any PTY output (user started typing or Claude resumed)
-        if pendingIdlePrompts[claudeSessionId] != nil {
-            dismissIdlePrompt(for: claudeSessionId)
-        }
+        // Note: we do NOT auto-dismiss idle prompts on PTY output.
+        // Claude Code's terminal produces output even when idle (cursor, prompt, status line).
+        // Idle prompts are dismissed by: user response, new Stop, PermissionRequest, or session end.
 
         guard var sq = sessionQueues[claudeSessionId], sq.activeInfo != nil else { return }
 

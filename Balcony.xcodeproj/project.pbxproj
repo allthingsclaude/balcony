@@ -27,6 +27,7 @@
 		3261E64ED66B84A2877F1B55 /* AppIcon-Light@3x.png in Resources */ = {isa = PBXBuildFile; fileRef = BCD629D558A0EB0C9FFE3086 /* AppIcon-Light@3x.png */; };
 		341C959AD5EDFD51716EB1D7 /* AwayDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BEB54F3C74377613045762F /* AwayDetector.swift */; };
 		370911902C6A736936F626CC /* AppIcon-Dark@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = DBCB78142A84C2BC6966A788 /* AppIcon-Dark@2x.png */; };
+		39672130F6211BFA094822B5 /* HookEventTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B724AECF0BADC73232DA7457 /* HookEventTests.swift */; };
 		39BA738A247CAB3676A4C7C8 /* BalconyiOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0D9E9C67B880DC32F63487B /* BalconyiOSApp.swift */; };
 		3C3D008A990E7C943ED629EA /* AppIcon-Light@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = CCD6AA2F762D1F104A03EE29 /* AppIcon-Light@2x.png */; };
 		3D79F3D2AC1738237F5FF7CB /* SessionListModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD4F94005F234CC1764797BF /* SessionListModel.swift */; };
@@ -147,6 +148,7 @@
 		A6084BF828A4001E3731C509 /* IOBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IOBridge.swift; sourceTree = "<group>"; };
 		A876093B09C95BC6B439A4EC /* PTYSessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PTYSessionManager.swift; sourceTree = "<group>"; };
 		B0D9E9C67B880DC32F63487B /* BalconyiOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BalconyiOSApp.swift; sourceTree = "<group>"; };
+		B724AECF0BADC73232DA7457 /* HookEventTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HookEventTests.swift; sourceTree = "<group>"; };
 		B8054709AEBB45731B614783 /* ModelListProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelListProvider.swift; sourceTree = "<group>"; };
 		BCD629D558A0EB0C9FFE3086 /* AppIcon-Light@3x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon-Light@3x.png"; sourceTree = "<group>"; };
 		BD4F94005F234CC1764797BF /* SessionListModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionListModel.swift; sourceTree = "<group>"; };
@@ -462,6 +464,7 @@
 			children = (
 				D952D21F5F35A1506E4A4D08 /* CryptoManagerTests.swift */,
 				EA00F9F09E1361C6366E02A8 /* EncryptedPipelineIntegrationTests.swift */,
+				B724AECF0BADC73232DA7457 /* HookEventTests.swift */,
 				2EAEA92A0B879C8CC2EF8F97 /* MessageProtocolTests.swift */,
 				F777879D3E4F998951042E36 /* MessageTypeIntegrationTests.swift */,
 				0C02C757F4FB8D345A6EFEF9 /* ModelTests.swift */,
@@ -818,6 +821,7 @@
 			files = (
 				6ADD5A55445484CB8EDF48B3 /* CryptoManagerTests.swift in Sources */,
 				A2C5F308DF137DEC43893871 /* EncryptedPipelineIntegrationTests.swift in Sources */,
+				39672130F6211BFA094822B5 /* HookEventTests.swift in Sources */,
 				992E8F57143B3830BA04B39D /* MessageProtocolTests.swift in Sources */,
 				7D0C3EACF2BF192ECEC1D05B /* MessageTypeIntegrationTests.swift in Sources */,
 				2D59B119C66E821CA94AE3BC /* ModelTests.swift in Sources */,

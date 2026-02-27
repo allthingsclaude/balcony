@@ -27,12 +27,14 @@ final class PromptPanelController {
         dismissPanel()
         currentSessionId = info.sessionId
 
+        // Capture sessionId in closures so it's stable even if currentSessionId changes.
+        let sessionId = info.sessionId
         let panel = makePanel()
         let hostingView = NSHostingView(
             rootView: IdlePromptPanelView(
                 info: info,
                 onSubmit: { [weak self] text in
-                    self?.handleTextSubmit(text: text)
+                    self?.handleTextSubmit(sessionId: sessionId, text: text)
                 },
                 onDismiss: { [weak self] in
                     self?.dismissPanel()
@@ -73,12 +75,14 @@ final class PromptPanelController {
 
         currentSessionId = info.sessionId
 
+        // Capture sessionId in closure so it's stable even if currentSessionId changes.
+        let sessionId = info.sessionId
         let panel = makePanel()
         let hostingView = NSHostingView(
             rootView: PromptPanelView(
                 info: info,
                 onAction: { [weak self] keystroke in
-                    self?.handleAction(keystroke: keystroke)
+                    self?.handleAction(sessionId: sessionId, keystroke: keystroke)
                 }
             )
         )
@@ -154,23 +158,13 @@ final class PromptPanelController {
         return panel
     }
 
-    private func handleAction(keystroke: String) {
-        guard let sessionId = currentSessionId else {
-            logger.warning("Action received but no active session")
-            return
-        }
-
+    private func handleAction(sessionId: String, keystroke: String) {
         logger.info("Panel action: keystroke='\(keystroke)' session=\(sessionId)")
         onResponse?(sessionId, keystroke)
         dismissPanel()
     }
 
-    private func handleTextSubmit(text: String) {
-        guard let sessionId = currentSessionId else {
-            logger.warning("Text submit received but no active session")
-            return
-        }
-
+    private func handleTextSubmit(sessionId: String, text: String) {
         logger.info("Panel text submit: '\(text.prefix(50))' session=\(sessionId)")
         onTextResponse?(sessionId, text)
         dismissPanel()

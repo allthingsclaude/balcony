@@ -291,13 +291,29 @@ actor PTYSessionManager {
 
     /// Find a PTY session ID by matching the working directory.
     /// Used to resolve Claude Code session IDs (from hooks) to PTY session IDs.
+    /// Normalizes paths (trailing slashes, /private prefix) for robust matching.
     func findSessionIdByCwd(_ cwd: String) -> String? {
+        let normalized = normalizePath(cwd)
         for (id, session) in sessions {
-            if session.cwd == cwd || session.projectPath == cwd {
+            if normalizePath(session.cwd ?? "") == normalized || normalizePath(session.projectPath) == normalized {
                 return id
             }
         }
         return nil
+    }
+
+    private func normalizePath(_ path: String) -> String {
+        var p = path
+        // Remove trailing slash
+        while p.hasSuffix("/") && p.count > 1 { p.removeLast() }
+        // Remove /private prefix (macOS symlink: /tmp → /private/tmp, etc.)
+        if p.hasPrefix("/private") {
+            let withoutPrivate = String(p.dropFirst("/private".count))
+            if FileManager.default.fileExists(atPath: withoutPrivate) {
+                p = withoutPrivate
+            }
+        }
+        return p
     }
 
     // MARK: - Helpers

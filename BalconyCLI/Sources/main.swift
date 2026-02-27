@@ -105,9 +105,10 @@ var remoteControlsResize = false
 // Generate a session ID
 let sessionId = UUID().uuidString
 
-// Build environment — inherit current env + set TERM
+// Build environment — inherit current env + set TERM + inject PTY session ID
 var env = ProcessInfo.processInfo.environment
 env["TERM"] = env["TERM"] ?? "xterm-256color"
+env["BALCONY_PTY_SESSION_ID"] = sessionId
 let envStrings = env.map { "\($0.key)=\($0.value)" }
 
 // Spawn claude in the PTY

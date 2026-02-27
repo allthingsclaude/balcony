@@ -45,6 +45,9 @@ public struct HookEvent: Codable, Sendable {
     /// Whether this Stop was triggered by another Stop hook (anti-recursion guard).
     public let stopHookActive: Bool?
 
+    /// PTY session ID injected by BalconyCLI wrapper (nil if not running through wrapper).
+    public let balconyPtySessionId: String?
+
     public init(
         hookEventName: String,
         sessionId: String,
@@ -56,7 +59,8 @@ public struct HookEvent: Codable, Sendable {
         lastAssistantMessage: String? = nil,
         message: String? = nil,
         notificationType: String? = nil,
-        stopHookActive: Bool? = nil
+        stopHookActive: Bool? = nil,
+        balconyPtySessionId: String? = nil
     ) {
         self.hookEventName = hookEventName
         self.sessionId = sessionId
@@ -69,6 +73,7 @@ public struct HookEvent: Codable, Sendable {
         self.message = message
         self.notificationType = notificationType
         self.stopHookActive = stopHookActive
+        self.balconyPtySessionId = balconyPtySessionId
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -83,6 +88,7 @@ public struct HookEvent: Codable, Sendable {
         case message
         case notificationType = "notification_type"
         case stopHookActive = "stop_hook_active"
+        case balconyPtySessionId = "balcony_pty_session_id"
     }
 }
 
@@ -107,6 +113,9 @@ public struct PermissionPromptInfo: Sendable {
 
     /// The working directory of the Claude Code session (used to resolve PTY session).
     public let cwd: String?
+
+    /// Direct PTY session ID from BalconyCLI wrapper (nil if not wrapped).
+    public let ptySessionId: String?
 
     /// When this prompt was received.
     public let timestamp: Date
@@ -137,13 +146,14 @@ public struct PermissionPromptInfo: Sendable {
         }
     }
 
-    public init(toolName: String, command: String?, filePath: String?, detail: String? = nil, sessionId: String, cwd: String? = nil, timestamp: Date = Date()) {
+    public init(toolName: String, command: String?, filePath: String?, detail: String? = nil, sessionId: String, cwd: String? = nil, ptySessionId: String? = nil, timestamp: Date = Date()) {
         self.toolName = toolName
         self.command = command
         self.filePath = filePath
         self.detail = detail
         self.sessionId = sessionId
         self.cwd = cwd
+        self.ptySessionId = ptySessionId
         self.timestamp = timestamp
     }
 
@@ -170,7 +180,8 @@ public struct PermissionPromptInfo: Sendable {
             filePath: filePath,
             detail: detail,
             sessionId: event.sessionId,
-            cwd: event.cwd
+            cwd: event.cwd,
+            ptySessionId: event.balconyPtySessionId
         )
     }
 }
@@ -189,13 +200,17 @@ public struct IdlePromptInfo: Sendable {
     /// The working directory of the Claude Code session (used to resolve PTY session).
     public let cwd: String?
 
+    /// Direct PTY session ID from BalconyCLI wrapper (nil if not wrapped).
+    public let ptySessionId: String?
+
     /// When this idle prompt was detected.
     public let timestamp: Date
 
-    public init(sessionId: String, lastAssistantMessage: String, cwd: String? = nil, timestamp: Date = Date()) {
+    public init(sessionId: String, lastAssistantMessage: String, cwd: String? = nil, ptySessionId: String? = nil, timestamp: Date = Date()) {
         self.sessionId = sessionId
         self.lastAssistantMessage = lastAssistantMessage
         self.cwd = cwd
+        self.ptySessionId = ptySessionId
         self.timestamp = timestamp
     }
 

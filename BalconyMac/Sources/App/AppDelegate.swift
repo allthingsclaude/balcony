@@ -15,6 +15,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let sessionFileReader = SessionFileReader()
     let modelListProvider = ModelListProvider()
 
+    /// Pre-resolved PTY session IDs for idle prompts (Claude session ID → PTY session ID).
+    /// Stored when the idle prompt is shown so text responses route to the correct PTY
+    /// even after the idle prompt info (with cwd) has been dismissed.
+    private var idlePromptPTYMapping: [String: String] = [:]
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         logger.info("BalconyMac launched")
 
@@ -27,7 +32,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard let self else { return }
             // Eagerly resolve and register the PTY↔Claude session mapping
             Task {
-                _ = await self.resolvePTYSessionId(claudeSessionId: promptInfo.sessionId, cwd: promptInfo.cwd)
+                _ = await self.resolvePTYSessionId(claudeSessionId: promptInfo.sessionId, cwd: promptInfo.cwd, ptySessionId: promptInfo.ptySessionId)
             }
             self.promptPanelController.showPrompt(promptInfo)
         }
@@ -45,23 +50,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
-        // Wire idle prompt callbacks
+        // Wire idle prompt callbacks — only show for sessions with a PTY wrapper,
+        // since text input requires the PTY bridge to deliver keystrokes.
         hookEventHandler.onIdlePromptReceived = { [weak self] info in
             guard let self else { return }
-            // Eagerly resolve and register the PTY↔Claude session mapping
-            Task {
-                _ = await self.resolvePTYSessionId(claudeSessionId: info.sessionId, cwd: info.cwd)
+
+            // Only show idle prompts for sessions running through the BalconyCLI wrapper,
+            // since text input requires the PTY bridge to deliver keystrokes.
+            guard let ptyId = info.ptySessionId else {
+                self.logger.debug("Skipping idle prompt — not a BalconyCLI-wrapped session: \(info.sessionId)")
+                self.hookEventHandler.dismissIdlePrompt(for: info.sessionId)
+                return
             }
+
+            self.idlePromptPTYMapping[info.sessionId] = ptyId
+            self.hookEventHandler.registerPTYMapping(ptySessionId: ptyId, claudeSessionId: info.sessionId)
             self.promptPanelController.showIdlePrompt(info)
         }
         hookEventHandler.onForwardIdleToiOS = { [weak self] info in
             guard let self else { return }
+            // Only forward if wrapped (ptySessionId present)
+            guard info.ptySessionId != nil else { return }
             Task {
                 await self.connectionManager.forwardIdlePrompt(info)
             }
         }
         hookEventHandler.onIdlePromptDismissed = { [weak self] sessionId in
             guard let self else { return }
+            self.idlePromptPTYMapping.removeValue(forKey: sessionId)
             self.promptPanelController.dismissPrompt(for: sessionId)
             Task {
                 await self.connectionManager.forwardIdlePromptDismiss(sessionId: sessionId)
@@ -72,9 +88,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         promptPanelController.onTextResponse = { [weak self] sessionId, text in
             guard let self else { return }
             Task {
-                // Resolve the PTY session ID from the idle prompt's cwd
-                let cwd = self.hookEventHandler.pendingIdlePrompt(for: sessionId)?.cwd
-                let ptySessionId = await self.resolvePTYSessionId(claudeSessionId: sessionId, cwd: cwd)
+                // Use the pre-resolved PTY session ID (stored when the idle prompt was shown).
+                // This avoids re-resolving at response time when cwd info may already be gone.
+                let ptySessionId: String
+                if let cached = self.idlePromptPTYMapping.removeValue(forKey: sessionId) {
+                    ptySessionId = cached
+                } else {
+                    let cwd = self.hookEventHandler.pendingIdlePrompt(for: sessionId)?.cwd
+                    ptySessionId = await self.resolvePTYSessionId(claudeSessionId: sessionId, cwd: cwd)
+                }
 
                 // Send the text first, then Enter separately after a brief delay.
                 // Writing them as one chunk causes Claude Code's TUI to treat it as
@@ -167,9 +189,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Session ID Resolution
 
     /// Resolve a Claude Code session ID to a PTY session ID.
-    /// Hook events use Claude Code's session ID, but PTYSessionManager uses the CLI tool's session ID.
-    /// We match by working directory since both share the same project path.
-    private func resolvePTYSessionId(claudeSessionId: String, cwd: String?) async -> String {
+    /// Uses the direct PTY session ID from the hook event (injected by BalconyCLI wrapper),
+    /// falls back to cwd matching and single-session heuristic.
+    private func resolvePTYSessionId(claudeSessionId: String, cwd: String?, ptySessionId: String? = nil) async -> String {
+        // Best: direct PTY session ID from BalconyCLI wrapper
+        if let ptyId = ptySessionId {
+            hookEventHandler.registerPTYMapping(ptySessionId: ptyId, claudeSessionId: claudeSessionId)
+            return ptyId
+        }
+        // Fallback: match by working directory
         if let cwd, let ptyId = await ptySessionManager.findSessionIdByCwd(cwd) {
             hookEventHandler.registerPTYMapping(ptySessionId: ptyId, claudeSessionId: claudeSessionId)
             return ptyId
