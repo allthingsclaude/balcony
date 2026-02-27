@@ -56,16 +56,19 @@ final class WebSocketFrameHandler: ChannelInboundHandler {
     private let logger = Logger(subsystem: "com.balcony.mac", category: "WebSocketFrameHandler")
     private let client: ConnectedClient
     private let onMessage: @Sendable (ConnectedClient, Data) -> Void
+    private let onPong: @Sendable (ConnectedClient) -> Void
     private let onDisconnect: @Sendable (ConnectedClient) -> Void
     private var frameBuffer = ByteBuffer()
 
     init(
         client: ConnectedClient,
         onMessage: @escaping @Sendable (ConnectedClient, Data) -> Void,
+        onPong: @escaping @Sendable (ConnectedClient) -> Void,
         onDisconnect: @escaping @Sendable (ConnectedClient) -> Void
     ) {
         self.client = client
         self.onMessage = onMessage
+        self.onPong = onPong
         self.onDisconnect = onDisconnect
     }
 
@@ -74,10 +77,15 @@ final class WebSocketFrameHandler: ChannelInboundHandler {
 
         switch frame.opcode {
         case .text, .binary:
-            // Collect frame data
             var data = frame.unmaskedData
-            let bytes = data.readBytes(length: data.readableBytes) ?? []
-            onMessage(client, Data(bytes))
+            if frame.fin {
+                let bytes = data.readBytes(length: data.readableBytes) ?? []
+                onMessage(client, Data(bytes))
+            } else {
+                // Start of fragmented message — buffer first frame
+                frameBuffer.clear()
+                frameBuffer.writeBuffer(&data)
+            }
 
         case .ping:
             // Respond with pong
@@ -85,7 +93,8 @@ final class WebSocketFrameHandler: ChannelInboundHandler {
             context.writeAndFlush(wrapOutboundOut(pongFrame), promise: nil)
 
         case .pong:
-            client.lastPongAt = Date()
+            // Route through actor to avoid data race on lastPongAt
+            onPong(client)
 
         case .connectionClose:
             logger.info("Client \(self.client.id) sent close frame")

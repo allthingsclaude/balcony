@@ -17,6 +17,8 @@ actor PTYSessionManager {
     private var clientFDs: [Int32: PTYClientState] = [:]
     private var sessions: [String: Session] = [:]
     private var sessionBuffers: [String: Data] = [:]
+    /// Maximum session buffer size (4 MB). Older output is trimmed when exceeded.
+    private static let maxBufferSize = 4 * 1024 * 1024
     private var acceptSource: DispatchSourceRead?
     private let ioQueue = DispatchQueue(label: "com.balcony.mac.pty.io", qos: .userInteractive)
 
@@ -205,6 +207,11 @@ actor PTYSessionManager {
             guard let state = clientFDs[fd], let sessionId = state.sessionId else { return }
             if sessionBuffers[sessionId] != nil {
                 sessionBuffers[sessionId]!.append(payload)
+                // Cap buffer size to prevent unbounded memory growth
+                if sessionBuffers[sessionId]!.count > Self.maxBufferSize {
+                    let excess = sessionBuffers[sessionId]!.count - Self.maxBufferSize
+                    sessionBuffers[sessionId]!.removeFirst(excess)
+                }
             } else {
                 sessionBuffers[sessionId] = payload
             }

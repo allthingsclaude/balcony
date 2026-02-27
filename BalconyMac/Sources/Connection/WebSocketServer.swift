@@ -64,6 +64,9 @@ actor WebSocketServer {
                             onMessage: { client, data in
                                 Task { await server.handleRawMessage(from: client, data: data) }
                             },
+                            onPong: { client in
+                                Task { await server.clientDidReceivePong(client) }
+                            },
                             onDisconnect: { client in
                                 Task { await server.clientDidDisconnect(client) }
                             }
@@ -335,6 +338,11 @@ actor WebSocketServer {
     }
 
     // MARK: - Connection Events
+
+    /// Update pong timestamp on the actor to avoid data race with NIO event loop.
+    private func clientDidReceivePong(_ client: ConnectedClient) {
+        client.lastPongAt = Date()
+    }
 
     private func clientDidConnect(_ client: ConnectedClient) {
         clients[client.id] = client
