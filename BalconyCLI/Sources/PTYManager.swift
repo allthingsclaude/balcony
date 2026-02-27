@@ -42,10 +42,14 @@ enum PTYManager {
     }
 
     /// Get the current terminal window size from a file descriptor.
+    /// Tries stdin, stdout, and stderr in order so that one redirected fd
+    /// doesn't cause a zero-size fallback. Returns (80, 24) if all fail.
     static func getWindowSize(fd: Int32) -> (cols: UInt16, rows: UInt16) {
-        var ws = winsize()
-        if ioctl(fd, TIOCGWINSZ, &ws) == 0 {
-            return (ws.ws_col, ws.ws_row)
+        for tryFD in [fd, STDIN_FILENO, STDERR_FILENO] {
+            var ws = winsize()
+            if ioctl(tryFD, TIOCGWINSZ, &ws) == 0, ws.ws_col > 0, ws.ws_row > 0 {
+                return (ws.ws_col, ws.ws_row)
+            }
         }
         return (80, 24)
     }

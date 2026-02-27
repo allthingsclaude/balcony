@@ -87,9 +87,7 @@ do {
 // Connect to Mac agent socket (optional — works without it)
 let socketClient = SocketClient()
 let socketConnected = socketClient.connect()
-if socketConnected {
-    fputs("[balcony] Connected to Mac agent\n", stderr)
-} else {
+if !socketConnected {
     fputs("[balcony] Mac agent not running (no socket at ~/.balcony/pty.sock)\n", stderr)
 }
 
@@ -138,7 +136,6 @@ if socketConnected {
         rows: rows
     )
     socketClient.sendSessionInfo(info)
-    fputs("[balcony] Session registered: \(sessionId)\n", stderr)
 }
 
 // Set up the I/O bridge
@@ -193,6 +190,16 @@ processSource.resume()
 
 // Start the I/O bridge
 bridge.start()
+
+// Re-check terminal size shortly after startup. Some terminal emulators
+// (split panes, new tabs) finalize TIOCGWINSZ after the child spawns,
+// so the initial read may be stale. Forward any change to the child.
+DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+    guard !remoteControlsResize else { return }
+    let (refreshCols, refreshRows) = PTYManager.getWindowSize(fd: STDOUT_FILENO)
+    PTYManager.setWindowSize(masterFD: pty.masterFD, cols: refreshCols, rows: refreshRows)
+    kill(childPID, SIGWINCH)
+}
 
 // Enter the GCD main run loop — never returns.
 // Exit happens via the process source or PTY EIO fallback calling cleanup().

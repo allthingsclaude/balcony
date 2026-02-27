@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 import BalconyShared
 import Combine
 import os
@@ -129,6 +130,40 @@ final class SessionManager: ObservableObject {
         } catch {
             logger.error("Failed to subscribe to session: \(error.localizedDescription)")
         }
+
+        // Tell the Mac to resize the PTY to match the iOS display width so that
+        // Claude renders at a column count that fits the screen. This was always
+        // the intended design ("When iOS connects it will send its own size, which
+        // takes priority" — BalconyCLI/Sources/main.swift) but was never wired up.
+        let displayCols = Self.computeDisplayCols()
+        // Only resize if the PTY isn't already at the right width. When cols is
+        // unknown (nil) we always resize. SIGWINCH is benign if size is unchanged.
+        guard session.cols.map({ $0 != displayCols }) ?? true else { return }
+        do {
+            let resizePayload = TerminalResizePayload(
+                sessionId: session.id,
+                cols: displayCols,
+                rows: UInt16(rows)
+            )
+            let resizeMsg = try BalconyMessage.create(type: .terminalResize, payload: resizePayload)
+            try await connectionManager.send(resizeMsg)
+            logger.info("Sent initial resize to \(displayCols)x\(rows) for session \(session.id)")
+        } catch {
+            logger.error("Failed to send initial resize: \(error.localizedDescription)")
+        }
+    }
+
+    /// Compute the number of terminal columns that fit the current iOS display.
+    ///
+    /// Uses the main screen width and the monospace 13pt character width used by
+    /// ConversationView. Accounts for horizontal padding (12pt × 2) and the
+    /// marker column (character + spacing, ≈ 12pt). Clamped to [60, 220].
+    private static func computeDisplayCols() -> UInt16 {
+        let screenWidth = UIScreen.main.bounds.width
+        let overhead: CGFloat = 24 + 12   // 12pt padding each side + marker column
+        let charWidth: CGFloat = 7.8      // monospace 13pt on iOS ≈ 7.8pt per glyph
+        let cols = Int((screenWidth - overhead) / charWidth)
+        return UInt16(max(60, min(220, cols)))
     }
 
     /// Unsubscribe from a session.
