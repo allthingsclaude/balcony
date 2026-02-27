@@ -221,12 +221,21 @@ final class PromptPanelController {
         // Insert new panel at the front (top of stack)
         panels.insert((sessionId: sessionId, panel: panel), at: 0)
 
+        // Start slightly below final position for slide-up entrance
+        let slideOffset: CGFloat = 8
+        var startFrame = panel.frame
+        startFrame.origin.y -= slideOffset
+        panel.setFrame(startFrame, display: false)
         panel.alphaValue = 0
         panel.orderFrontRegardless()
 
-        // Fade in the new panel
+        // Fade in + slide up
         NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.2
+            context.duration = 0.25
+            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            var endFrame = startFrame
+            endFrame.origin.y += slideOffset
+            panel.animator().setFrame(endFrame, display: true)
             panel.animator().alphaValue = 1
         }
 
@@ -323,10 +332,13 @@ final class PromptPanelController {
 
     private func fadeOut(_ panel: NSPanel) {
         let panelRef = panel
+        var targetFrame = panelRef.frame
+        targetFrame.origin.y -= 8
         NSAnimationContext.runAnimationGroup({ context in
-            context.duration = 0.35
+            context.duration = 0.25
             context.timingFunction = CAMediaTimingFunction(name: .easeIn)
             panelRef.animator().alphaValue = 0
+            panelRef.animator().setFrame(targetFrame, display: true)
         }, completionHandler: {
             panelRef.orderOut(nil)
         })
