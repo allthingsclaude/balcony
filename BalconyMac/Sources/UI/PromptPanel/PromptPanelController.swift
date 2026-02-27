@@ -3,14 +3,15 @@ import SwiftUI
 import BalconyShared
 import os
 
-/// Manages a floating NSPanel that shows permission prompt details
-/// and action buttons. The panel does not steal focus from the terminal.
+/// Manages floating NSPanels that show permission and idle prompt details.
+/// Multiple panels stack vertically from the top-right corner of the screen.
+/// Panels do not steal focus from the terminal.
 @MainActor
 final class PromptPanelController {
     private let logger = Logger(subsystem: "com.balcony.mac", category: "PromptPanelController")
 
-    private var panel: NSPanel?
-    private var currentSessionId: String?
+    /// Active panels in stack order (top to bottom). Each entry tracks the session it belongs to.
+    private var panels: [(sessionId: String, panel: NSPanel)] = []
 
     /// Called when the user clicks an action button. Passes (sessionId, keystroke).
     var onResponse: ((String, String) -> Void)?
@@ -18,16 +19,24 @@ final class PromptPanelController {
     /// Called when the user submits text from the idle prompt panel. Passes (sessionId, text).
     var onTextResponse: ((String, String) -> Void)?
 
-    // MARK: - Show / Dismiss
+    // MARK: - Layout
+
+    /// Horizontal margin from right edge of screen.
+    private static let rightMargin: CGFloat = 16
+    /// Vertical margin from top of visible screen area.
+    private static let topMargin: CGFloat = 8
+    /// Gap between stacked panels.
+    private static let stackGap: CGFloat = 8
+
+    // MARK: - Show
 
     /// Show the prompt panel for an idle prompt (Claude waiting for user input).
     func showIdlePrompt(_ info: IdlePromptInfo) {
         logger.info("Showing idle prompt panel: session=\(info.sessionId)")
 
-        dismissPanel()
-        currentSessionId = info.sessionId
+        // If a panel for this session already exists, dismiss it first
+        dismissPrompt(for: info.sessionId)
 
-        // Capture sessionId in closures so it's stable even if currentSessionId changes.
         let sessionId = info.sessionId
         let panel = makePanel()
         let hostingView = NSHostingView(
@@ -37,45 +46,22 @@ final class PromptPanelController {
                     self?.handleTextSubmit(sessionId: sessionId, text: text)
                 },
                 onDismiss: { [weak self] in
-                    self?.dismissPanel()
+                    self?.dismissPrompt(for: sessionId)
                 }
             )
         )
 
         panel.contentView = hostingView
-
-        let fittingSize = hostingView.fittingSize
-        let width = max(fittingSize.width, 320)
-        let height = fittingSize.height
-
-        if let screen = NSScreen.main {
-            let screenFrame = screen.visibleFrame
-            let x = screenFrame.maxX - width - 16
-            let y = screenFrame.maxY - height - 8
-            panel.setFrame(NSRect(x: x, y: y, width: width, height: height), display: false)
-        }
-
-        panel.alphaValue = 0
-        panel.orderFrontRegardless()
-
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.2
-            panel.animator().alphaValue = 1
-        }
-
-        self.panel = panel
+        configureAndShow(panel: panel, hostingView: hostingView, sessionId: sessionId)
     }
 
     /// Show the prompt panel for a permission request.
     func showPrompt(_ info: PermissionPromptInfo) {
         logger.info("Showing prompt panel: \(info.toolName) session=\(info.sessionId)")
 
-        // Dismiss existing panel if any
-        dismissPanel()
+        // If a panel for this session already exists, dismiss it first
+        dismissPrompt(for: info.sessionId)
 
-        currentSessionId = info.sessionId
-
-        // Capture sessionId in closure so it's stable even if currentSessionId changes.
         let sessionId = info.sessionId
         let panel = makePanel()
         let hostingView = NSHostingView(
@@ -88,55 +74,97 @@ final class PromptPanelController {
         )
 
         panel.contentView = hostingView
+        configureAndShow(panel: panel, hostingView: hostingView, sessionId: sessionId)
+    }
 
-        // Size to fit content
+    // MARK: - Dismiss
+
+    /// Dismiss the prompt panel for a specific session.
+    func dismissPrompt(for sessionId: String) {
+        guard let index = panels.firstIndex(where: { $0.sessionId == sessionId }) else { return }
+
+        let entry = panels.remove(at: index)
+        fadeOut(entry.panel)
+
+        // Animate remaining panels to close the gap
+        repositionPanels(animated: true)
+    }
+
+    /// Dismiss all panels (e.g., on app termination).
+    func dismissAllPanels() {
+        for entry in panels {
+            fadeOut(entry.panel)
+        }
+        panels.removeAll()
+    }
+
+    // MARK: - Private — Panel Setup
+
+    private func configureAndShow(panel: NSPanel, hostingView: NSHostingView<some View>, sessionId: String) {
         let fittingSize = hostingView.fittingSize
         let width = max(fittingSize.width, 320)
         let height = fittingSize.height
 
-        // Position near top-right of the main screen
+        // Calculate Y position: below all existing panels
+        let y = nextPanelY(forHeight: height)
+
         if let screen = NSScreen.main {
             let screenFrame = screen.visibleFrame
-            let x = screenFrame.maxX - width - 16
-            let y = screenFrame.maxY - height - 8
+            let x = screenFrame.maxX - width - Self.rightMargin
             panel.setFrame(NSRect(x: x, y: y, width: width, height: height), display: false)
         }
+
+        panels.append((sessionId: sessionId, panel: panel))
 
         panel.alphaValue = 0
         panel.orderFrontRegardless()
 
-        // Fade in
         NSAnimationContext.runAnimationGroup { context in
             context.duration = 0.2
             panel.animator().alphaValue = 1
         }
-
-        self.panel = panel
     }
 
-    /// Dismiss the prompt panel for a specific session.
-    func dismissPrompt(for sessionId: String) {
-        guard currentSessionId == sessionId else { return }
-        dismissPanel()
+    /// Calculate Y position for the next panel in the stack.
+    private func nextPanelY(forHeight height: CGFloat) -> CGFloat {
+        guard let screen = NSScreen.main else { return 100 }
+        let screenFrame = screen.visibleFrame
+
+        // Start from top
+        var y = screenFrame.maxY - Self.topMargin
+
+        // Walk down through existing panels
+        for entry in panels {
+            y -= entry.panel.frame.height + Self.stackGap
+        }
+
+        // Position this panel's top edge at y
+        return y - height
     }
 
-    /// Dismiss the current prompt panel regardless of session.
-    func dismissPanel() {
-        guard let panel else { return }
-        let panelRef = panel
-        self.panel = nil
-        self.currentSessionId = nil
+    /// Reposition all panels in stack order (top to bottom).
+    private func repositionPanels(animated: Bool) {
+        guard let screen = NSScreen.main else { return }
+        let screenFrame = screen.visibleFrame
 
-        // Fade out
-        NSAnimationContext.runAnimationGroup({ context in
-            context.duration = 0.15
-            panelRef.animator().alphaValue = 0
-        }, completionHandler: {
-            panelRef.orderOut(nil)
-        })
+        var y = screenFrame.maxY - Self.topMargin
+
+        for entry in panels {
+            let frame = entry.panel.frame
+            y -= frame.height
+            let newFrame = NSRect(x: frame.origin.x, y: y, width: frame.width, height: frame.height)
+            y -= Self.stackGap
+
+            if animated {
+                NSAnimationContext.runAnimationGroup { context in
+                    context.duration = 0.2
+                    entry.panel.animator().setFrame(newFrame, display: true)
+                }
+            } else {
+                entry.panel.setFrame(newFrame, display: true)
+            }
+        }
     }
-
-    // MARK: - Private
 
     private func makePanel() -> NSPanel {
         let panel = NSPanel(
@@ -158,15 +186,27 @@ final class PromptPanelController {
         return panel
     }
 
+    private func fadeOut(_ panel: NSPanel) {
+        let panelRef = panel
+        NSAnimationContext.runAnimationGroup({ context in
+            context.duration = 0.15
+            panelRef.animator().alphaValue = 0
+        }, completionHandler: {
+            panelRef.orderOut(nil)
+        })
+    }
+
+    // MARK: - Private — Callbacks
+
     private func handleAction(sessionId: String, keystroke: String) {
         logger.info("Panel action: keystroke='\(keystroke)' session=\(sessionId)")
         onResponse?(sessionId, keystroke)
-        dismissPanel()
+        dismissPrompt(for: sessionId)
     }
 
     private func handleTextSubmit(sessionId: String, text: String) {
         logger.info("Panel text submit: '\(text.prefix(50))' session=\(sessionId)")
         onTextResponse?(sessionId, text)
-        dismissPanel()
+        dismissPrompt(for: sessionId)
     }
 }
