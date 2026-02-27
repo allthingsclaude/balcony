@@ -76,10 +76,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 let cwd = self.hookEventHandler.pendingIdlePrompt(for: sessionId)?.cwd
                 let ptySessionId = await self.resolvePTYSessionId(claudeSessionId: sessionId, cwd: cwd)
 
-                // Send the text followed by Enter to the PTY
-                let fullText = text + "\r"
-                if let data = fullText.data(using: .utf8) {
-                    await self.ptySessionManager.sendInput(sessionId: ptySessionId, data: data)
+                // Send the text first, then Enter separately after a brief delay.
+                // Writing them as one chunk causes Claude Code's TUI to treat it as
+                // a paste event and not process \r as a submit action.
+                if let textData = text.data(using: .utf8) {
+                    await self.ptySessionManager.sendInput(sessionId: ptySessionId, data: textData)
+                }
+                try? await Task.sleep(for: .milliseconds(50))
+                if let enterData = Data([0x0D]) as Data? {
+                    await self.ptySessionManager.sendInput(sessionId: ptySessionId, data: enterData)
                 }
                 self.hookEventHandler.dismissIdlePrompt(for: sessionId)
             }
@@ -165,35 +170,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Hook events use Claude Code's session ID, but PTYSessionManager uses the CLI tool's session ID.
     /// We match by working directory since both share the same project path.
     private func resolvePTYSessionId(claudeSessionId: String, cwd: String?) async -> String {
-        let debugLog = { (msg: String) in
-            let line = "[\(Date())] resolve: \(msg)\n"
-            if let data = line.data(using: .utf8) {
-                let fh = FileHandle(forWritingAtPath: "/tmp/balcony-debug.log") ?? {
-                    FileManager.default.createFile(atPath: "/tmp/balcony-debug.log", contents: nil)
-                    return FileHandle(forWritingAtPath: "/tmp/balcony-debug.log")!
-                }()
-                fh.seekToEndOfFile()
-                fh.write(data)
-                fh.closeFile()
-            }
-        }
-        debugLog("claudeSessionId=\(claudeSessionId) cwd=\(cwd ?? "nil")")
-
         if let cwd, let ptyId = await ptySessionManager.findSessionIdByCwd(cwd) {
-            debugLog("cwd match → ptyId=\(ptyId)")
             hookEventHandler.registerPTYMapping(ptySessionId: ptyId, claudeSessionId: claudeSessionId)
             return ptyId
         }
         // Fallback: if only one PTY session exists, use it
         let sessions = await ptySessionManager.getActiveSessions()
-        debugLog("no cwd match, \(sessions.count) active sessions: \(sessions.map { "\($0.id) cwd=\($0.cwd ?? "nil")" }.joined(separator: ", "))")
         if sessions.count == 1, let only = sessions.first {
-            debugLog("single session fallback → \(only.id)")
             hookEventHandler.registerPTYMapping(ptySessionId: only.id, claudeSessionId: claudeSessionId)
             return only.id
         }
-        // Last resort: return the Claude session ID as-is (will log a warning in sendInput)
-        debugLog("FAILED — returning Claude session ID as-is")
+        // Last resort: return the Claude session ID as-is
+        logger.debug("Could not resolve PTY session for Claude session \(claudeSessionId)")
         return claudeSessionId
     }
 

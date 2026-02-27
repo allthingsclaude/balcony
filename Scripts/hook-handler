@@ -22,17 +22,27 @@ if [ -z "$INPUT" ]; then
     exit 0
 fi
 
-# Check if this is a PermissionRequest
-IS_PERMISSION=$(echo "$INPUT" | python3 -c "
+# Parse event type
+EVENT_INFO=$(echo "$INPUT" | python3 -c "
 import json, sys
 try:
     d = json.loads(sys.stdin.read())
-    print('yes' if d.get('hook_event_name') == 'PermissionRequest' else 'no')
+    name = d.get('hook_event_name', 'unknown')
+    ntype = d.get('notification_type', '')
+    has_msg = 'yes' if d.get('last_assistant_message') else 'no'
+    print(f'{name}|{ntype}|{has_msg}')
 except:
-    print('no')
+    print('unknown||no')
 " 2>/dev/null)
 
-debug "Event type check: IS_PERMISSION=$IS_PERMISSION"
+EVENT_NAME=$(echo "$EVENT_INFO" | cut -d'|' -f1)
+NOTIF_TYPE=$(echo "$EVENT_INFO" | cut -d'|' -f2)
+HAS_MSG=$(echo "$EVENT_INFO" | cut -d'|' -f3)
+
+IS_PERMISSION="no"
+[ "$EVENT_NAME" = "PermissionRequest" ] && IS_PERMISSION="yes"
+
+debug "Event: name=$EVENT_NAME notif_type=$NOTIF_TYPE has_last_msg=$HAS_MSG is_permission=$IS_PERMISSION"
 
 if [ "$IS_PERMISSION" = "yes" ]; then
     debug "PermissionRequest: sending event and waiting for response..."
@@ -100,19 +110,25 @@ finally:
         debug "No response received"
     fi
 else
-    debug "Non-permission event, fire and forget"
+    debug "Non-permission event ($EVENT_NAME), fire and forget"
     # Other events: fire and forget
     echo "$INPUT" | python3 -c "
 import socket, sys, os
 data = sys.stdin.buffer.read()
+debug_fd = open('/tmp/balcony-hook-debug.log', 'a')
 if data:
     s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     try:
         s.connect(os.path.expanduser('~/.balcony/hooks.sock'))
         s.sendall(data)
-    except:
-        pass
+        s.shutdown(socket.SHUT_WR)
+        debug_fd.write(f'[python] fire-and-forget: sent {len(data)} bytes OK\n')
+    except Exception as e:
+        debug_fd.write(f'[python] fire-and-forget ERROR: {e}\n')
     finally:
         s.close()
+else:
+    debug_fd.write('[python] fire-and-forget: no data to send\n')
+debug_fd.close()
 " 2>/dev/null
 fi

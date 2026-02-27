@@ -16,7 +16,10 @@ actor HookListener {
     private let socketPath: String
     private var serverFD: Int32 = -1
     private var acceptSource: DispatchSourceRead?
-    private let ioQueue = DispatchQueue(label: "com.balcony.mac.hooks.io", qos: .userInteractive)
+    /// Serial queue for accept() calls only — never blocks.
+    private let acceptQueue = DispatchQueue(label: "com.balcony.mac.hooks.accept", qos: .userInteractive)
+    /// Concurrent queue for blocking read() calls — multiple connections read in parallel.
+    private let readQueue = DispatchQueue(label: "com.balcony.mac.hooks.read", qos: .userInteractive, attributes: .concurrent)
 
     /// Open hook handler connections waiting for a response, keyed by Claude session ID.
     private var pendingResponseFDs: [String: Int32] = [:]
@@ -78,7 +81,7 @@ actor HookListener {
             throw POSIXError(.init(rawValue: errno) ?? .EADDRINUSE)
         }
 
-        guard listen(serverFD, 5) == 0 else {
+        guard listen(serverFD, 16) == 0 else {
             close(serverFD)
             serverFD = -1
             throw POSIXError(.init(rawValue: errno) ?? .EOPNOTSUPP)
@@ -86,9 +89,9 @@ actor HookListener {
 
         logger.info("Hook socket server listening at \(self.socketPath)")
 
-        let source = DispatchSource.makeReadSource(fileDescriptor: serverFD, queue: ioQueue)
+        let source = DispatchSource.makeReadSource(fileDescriptor: serverFD, queue: acceptQueue)
         source.setEventHandler { [weak self] in
-            Task { await self?.acceptClient() }
+            Task { await self?.acceptClients() }
         }
         source.resume()
         acceptSource = source
@@ -158,23 +161,26 @@ actor HookListener {
 
     // MARK: - Client Handling
 
-    private func acceptClient() {
-        var clientAddr = sockaddr_un()
-        var addrLen = socklen_t(MemoryLayout<sockaddr_un>.size)
+    /// Accept all pending connections (multiple hooks can fire simultaneously).
+    private func acceptClients() {
+        while true {
+            var clientAddr = sockaddr_un()
+            var addrLen = socklen_t(MemoryLayout<sockaddr_un>.size)
 
-        let clientFD = withUnsafeMutablePointer(to: &clientAddr) { ptr in
-            ptr.withMemoryRebound(to: sockaddr.self, capacity: 1) { sockPtr in
-                accept(serverFD, sockPtr, &addrLen)
+            let clientFD = withUnsafeMutablePointer(to: &clientAddr) { ptr in
+                ptr.withMemoryRebound(to: sockaddr.self, capacity: 1) { sockPtr in
+                    accept(serverFD, sockPtr, &addrLen)
+                }
             }
-        }
 
-        guard clientFD >= 0 else { return }
+            guard clientFD >= 0 else { break }
 
-        logger.debug("Hook client connected (fd=\(clientFD))")
+            logger.debug("Hook client connected (fd=\(clientFD))")
 
-        // Read the JSON payload on the I/O queue.
-        ioQueue.async { [weak self] in
-            self?.readHookEvent(fd: clientFD)
+            // Read on concurrent queue so one blocking read doesn't prevent others.
+            readQueue.async { [weak self] in
+                self?.readHookEvent(fd: clientFD)
+            }
         }
     }
 

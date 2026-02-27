@@ -88,6 +88,10 @@ final class HookEventHandler: ObservableObject {
     /// and Claude Code has moved on to producing new output.
     private static let dismissOutputThreshold = 200
 
+    /// Delay after receiving a Stop event before showing the idle prompt.
+    /// If a PermissionRequest arrives within this window, the Stop is not idle — Claude is working.
+    private static let stopToIdleDelay: TimeInterval = 3.0
+
     // MARK: - PTY Session Mapping
 
     /// Register a mapping from PTY session ID to Claude Code session ID.
@@ -100,6 +104,8 @@ final class HookEventHandler: ObservableObject {
 
     /// Handle a raw hook event from HookListener.
     func handleHookEvent(_ event: HookEvent) {
+        logger.info("Hook event: \(event.hookEventName) session=\(event.sessionId)")
+
         switch event.hookEventName {
         case "PermissionRequest":
             handlePermissionRequest(event)
@@ -118,7 +124,10 @@ final class HookEventHandler: ObservableObject {
             return
         }
 
-        // A permission request means Claude is working, not idle — dismiss any idle prompt
+        // A permission request means Claude is working, not idle
+        // Clear any buffered Stop data (cancels the timer-based idle detection)
+        lastStopData.removeValue(forKey: event.sessionId)
+        // Dismiss any active idle prompt
         dismissIdlePrompt(for: event.sessionId)
 
         logger.info("Permission prompt: \(promptInfo.toolName) risk=\(promptInfo.riskLevel.rawValue) session=\(promptInfo.sessionId)")
@@ -140,15 +149,36 @@ final class HookEventHandler: ObservableObject {
         guard let message = event.lastAssistantMessage, !message.isEmpty else { return }
 
         let sessionId = event.sessionId
+        logger.debug("Stop: session=\(sessionId) msg=\(message.prefix(80))...")
 
-        // Check if a Notification(idle_prompt) already arrived and is waiting
+        // Buffer the Stop data (used by both timer-based and Notification-based paths)
+        lastStopData[sessionId] = (message: message, cwd: event.cwd)
+
+        // If a Notification(idle_prompt) already arrived, emit immediately
         if let notifCwd = pendingIdleNotifications.removeValue(forKey: sessionId) {
-            logger.info("Stop arrived after Notification — correlating idle prompt for session \(sessionId)")
+            lastStopData.removeValue(forKey: sessionId)
             emitIdlePrompt(sessionId: sessionId, message: message, cwd: event.cwd ?? notifCwd)
-        } else {
-            // Buffer for when Notification arrives
-            lastStopData[sessionId] = (message: message, cwd: event.cwd)
-            logger.debug("Buffered Stop message for session \(sessionId): \(message.prefix(80))...")
+            return
+        }
+
+        // Start a timer: if no PermissionRequest or Notification arrives within the delay,
+        // treat this as an idle prompt. Handles cases where Notification(idle_prompt)
+        // fires much later or not at all.
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(Self.stopToIdleDelay))
+            guard let self else { return }
+
+            // Check if the Stop data is still buffered (not yet consumed by a Notification)
+            guard let stopData = self.lastStopData.removeValue(forKey: sessionId) else { return }
+
+            // Don't emit if a permission prompt is now active (Claude is working, not idle)
+            guard self.sessionQueues[sessionId]?.isIdle ?? true else { return }
+
+            // Don't emit if an idle prompt is already showing
+            guard self.pendingIdlePrompts[sessionId] == nil else { return }
+
+            self.logger.info("Idle prompt (timer) for session \(sessionId)")
+            self.emitIdlePrompt(sessionId: sessionId, message: stopData.message, cwd: stopData.cwd)
         }
     }
 
@@ -161,14 +191,13 @@ final class HookEventHandler: ObservableObject {
         let sessionId = event.sessionId
 
         // Don't show idle prompt if a permission prompt is active
-        guard sessionQueues[sessionId]?.isIdle ?? true else {
-            logger.debug("Skipping idle prompt — permission prompt active for session \(sessionId)")
-            return
-        }
+        guard sessionQueues[sessionId]?.isIdle ?? true else { return }
 
-        // Try to correlate with a buffered Stop message
+        // If an idle prompt is already showing (from the timer), skip
+        guard pendingIdlePrompts[sessionId] == nil else { return }
+
+        // Try to correlate with a buffered Stop message (consumes it, cancelling the timer)
         if let stopData = lastStopData.removeValue(forKey: sessionId) {
-            logger.info("Notification arrived after Stop — correlating idle prompt for session \(sessionId)")
             emitIdlePrompt(sessionId: sessionId, message: stopData.message, cwd: stopData.cwd ?? event.cwd)
         } else {
             // Stop hasn't arrived yet — buffer this Notification and wait
@@ -288,8 +317,7 @@ final class HookEventHandler: ObservableObject {
 
     // MARK: - Private
 
-    /// Activate a prompt: set state, update published snapshot, notify all surfaces,
-    /// and schedule a stale timeout.
+    /// Activate a prompt: set state, update published snapshot, and notify all surfaces.
     private func activatePrompt(_ info: PermissionPromptInfo, in sq: inout SessionPromptQueue) {
         let sessionId = info.sessionId
 

@@ -177,25 +177,9 @@ final class SocketClient {
             readBuffer.removeFirst(totalLen)
 
             if let type = SocketMessageType(rawValue: msgType) {
-                Self.debugLog("parsed frame: type=\(type) payloadLen=\(payload.count)")
                 onMessage?(type, payload)
-            } else {
-                Self.debugLog("unknown frame type: 0x\(String(format: "%02x", msgType))")
             }
         }
     }
 
-    private static func debugLog(_ msg: String) {
-        let line = "[\(Date())] SocketClient: \(msg)\n"
-        guard let data = line.data(using: .utf8) else { return }
-        let path = "/tmp/balcony-debug.log"
-        if !FileManager.default.fileExists(atPath: path) {
-            FileManager.default.createFile(atPath: path, contents: nil)
-        }
-        if let fh = FileHandle(forWritingAtPath: path) {
-            fh.seekToEndOfFile()
-            fh.write(data)
-            fh.closeFile()
-        }
-    }
 }
