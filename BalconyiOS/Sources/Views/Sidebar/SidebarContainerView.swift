@@ -116,6 +116,11 @@ struct SidebarContainerView: View {
             } else if let selected = selectedSession,
                       let updated = sessionManager.sessions.first(where: { $0.id == selected.id }) {
                 selectedSession = updated
+            } else if let selected = selectedSession,
+                      !sessionManager.sessions.contains(where: { $0.id == selected.id }) {
+                // Active session was removed (CLI exited) — clear selection and show sidebar
+                selectedSession = nil
+                isSidebarOpen = true
             }
         }
     }

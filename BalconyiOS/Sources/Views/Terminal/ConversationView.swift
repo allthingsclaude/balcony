@@ -37,6 +37,8 @@ struct ConversationView: View {
     @State private var lastLocalKeystroke: Date = .distantPast
     @State private var isNearBottom = true
     @State private var needsInitialScroll = true
+    /// Track previous line count to only auto-scroll when content grows.
+    @State private var lastLineCount = 0
     @State private var showEmptyState = false
     @State private var showSlashMenu = false
     @State private var showFilePicker = false
@@ -107,6 +109,15 @@ struct ConversationView: View {
                             case .line(let line):
                                 TerminalLineView(line: line)
                                     .padding(.horizontal, 12)
+                                    .padding(.vertical, line.markerRole == .user ? 6 : 0)
+                                    .background(line.markerRole == .user ? BalconyTheme.surfaceSecondary : Color.clear)
+                                    .overlay(alignment: .leading) {
+                                        if line.markerRole == .user {
+                                            Rectangle()
+                                                .fill(BalconyTheme.accent)
+                                                .frame(width: 3)
+                                        }
+                                    }
                                     .id(line.id)
                             case .table(let rows):
                                 ScrollView(.horizontal, showsIndicators: false) {
@@ -125,7 +136,10 @@ struct ConversationView: View {
                             }
                         }
 
-                        // Invisible anchor to detect proximity to bottom
+                        // Invisible anchor to detect proximity to bottom.
+                        // onDisappear uses a brief delay so rapid content
+                        // changes (spinner frames) don't cause isNearBottom
+                        // to oscillate and break auto-scroll.
                         Color.clear
                             .frame(height: 1)
                             .id("bottom-anchor")
@@ -133,20 +147,32 @@ struct ConversationView: View {
                                 isNearBottom = true
                                 needsInitialScroll = false
                             }
-                            .onDisappear { isNearBottom = false }
+                            .onDisappear {
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                                    guard !needsInitialScroll else { return }
+                                    isNearBottom = false
+                                }
+                            }
                     }
                     .padding(.top, 8)
                     // Bottom padding so content scrolls above the input bar + fade
                     .padding(.bottom, 100)
+                    // Suppress implicit animations to prevent layout jitter
+                    // during rapid content updates (spinner, streaming).
+                    .animation(nil, value: lines.count)
                 }
                 .contentShape(Rectangle())
                 .onTapGesture { handleOutsideTap() }
-                .onChange(of: lines.count) { _ in
+                .onChange(of: lines.count) { newCount in
                     if needsInitialScroll {
                         scrollToBottom(proxy: proxy, animated: false)
-                    } else if isNearBottom {
-                        scrollToBottom(proxy: proxy, animated: true)
+                    } else if isNearBottom && newCount >= lastLineCount {
+                        // Only auto-scroll when content grows (not on count
+                        // oscillation from spinner/joining changes). Non-animated
+                        // to prevent jitter during rapid streaming updates.
+                        scrollToBottom(proxy: proxy, animated: false)
                     }
+                    lastLineCount = newCount
                 }
                 .onAppear {
                     scrollToBottom(proxy: proxy, animated: false)
@@ -648,10 +674,12 @@ struct TerminalLineView: View {
             HStack(alignment: .top, spacing: 4) {
                 // Marker column — fixed-width, invisible for continuation lines.
                 // Spinner characters (✳ etc.) are shown with their original color.
+                // Fixed width prevents horizontal jitter when spinner chars change.
                 Text(parsed.marker.character)
                     .font(BalconyTheme.monoFont())
                     .foregroundColor(markerColor(parsed.marker))
                     .opacity(parsed.marker == .none ? 0 : 1)
+                    .frame(width: 14, alignment: .leading)
 
                 // Content — text flows next to marker.
                 // User messages use adaptive color so text is readable in light mode.
@@ -661,21 +689,6 @@ struct TerminalLineView: View {
                 )
                 .font(.system(size: 13, design: .monospaced))
             }
-            .background {
-                if parsed.marker == .user {
-                    // Extend background beyond text without shifting content.
-                    HStack(spacing: 0) {
-                        RoundedRectangle(cornerRadius: 2)
-                            .fill(BalconyTheme.accent)
-                            .frame(width: 3)
-                        RoundedRectangle(cornerRadius: BalconyTheme.radiusSM)
-                            .fill(BalconyTheme.surfaceSecondary)
-                    }
-                    .padding(.horizontal, -6)
-                    .padding(.vertical, -6)
-                }
-            }
-            .padding(.vertical, parsed.marker == .user ? 6 : 0)
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityElement(children: .combine)
             .accessibilityLabel(accessibilityText(parsed: parsed))

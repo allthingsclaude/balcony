@@ -111,19 +111,30 @@ final class HeadlessTerminalParser: ObservableObject {
             // the marker character to have a non-bright ANSI style: the real
             // Claude Code markers use dim/magenta while spinners use bright
             // colors.
-            if let first = segments.first,
-               let scalar = first.text.unicodeScalars.first {
-                let style = first.style
+            // Scan past leading space segments to find the actual marker character.
+            // Assistant markers (⏺) may be indented with spaces in a separate
+            // ANSI style segment, so checking only segments.first would miss them.
+            var markerScalar: Unicode.Scalar?
+            var markerStyle: SegmentStyle?
+            outer: for seg in segments {
+                for scalar in seg.text.unicodeScalars {
+                    if scalar != " " && scalar != "\0" {
+                        markerScalar = scalar
+                        markerStyle = seg.style
+                        break outer
+                    }
+                }
+            }
+
+            if let scalar = markerScalar, let style = markerStyle {
                 if scalar == Unicode.Scalar(0x276F) {   // ❯ user
                     rowMarker[i] = .user
                 } else if scalar == Unicode.Scalar(0x23FA) {  // ⏺ assistant
-                    // Real assistant markers: dim, or magenta (palette 5/13),
-                    // or default fg.  Spinner ⏺ frames use bright/other colors.
-                    let isMarkerStyle = style.isDim
-                        || style.fgColor == .defaultFg
-                        || style.fgColor == .palette(5)   // magenta
-                        || style.fgColor == .palette(13)   // bright magenta
-                    if isMarkerStyle {
+                    // Reject only spinner-like ⏺: bold and not dim.
+                    // Real assistant markers use dim, default, magenta (palette
+                    // or trueColor) — never bold. Spinners are bold+bright.
+                    let isSpinner = style.isBold && !style.isDim
+                    if !isSpinner {
                         rowMarker[i] = .assistant
                     }
                 }
@@ -133,7 +144,7 @@ final class HeadlessTerminalParser: ObservableObject {
 
             let isTable = containsBoxDrawing(segments)
             if !isTable {
-                segments = stripLeadingSpaces(segments, maxCount: 2)
+                segments = stripLeadingSpaces(segments, maxCount: .max)
             }
 
             rowSegments.append(segments)
@@ -269,8 +280,16 @@ final class HeadlessTerminalParser: ObservableObject {
             let isPreformatted = rowIsTable[i] || isCodeBlock[i]
 
             // Detect terminal-wrapped lines: previous line filled all columns.
+            // Guard: rows that start a new content element (marker or structural
+            // symbol like ⎿) are never soft-wrap continuations — Claude Code's TUI
+            // pads rows to full width, making rowOrigLen == cols for most rows.
+            let startsNewContent = rowMarker[i] != .none
+                || segments.first.map { seg in
+                    guard let ch = seg.text.first else { return false }
+                    return !ch.isASCII && !ch.isLetter
+                } ?? false
             let prevWrapped = !isPreformatted && i > 0 &&
-                rowOrigLen[i - 1] >= cols
+                rowOrigLen[i - 1] >= cols && !startsNewContent
 
             if prevWrapped, !lines.isEmpty {
                 // Terminal soft-wrap — join without extra space (break may be mid-word).
@@ -691,6 +710,9 @@ final class HeadlessTerminalParser: ObservableObject {
         if firstChar == "\u{203A}" || firstChar == "\u{00B7}" { return false }
         // Leading whitespace = code block.
         if firstChar == " " || firstChar == "\t" { return false }
+        // Non-ASCII symbols (⎿, ⏺, spinner chars, etc.) are structural, not prose.
+        // Allow non-ASCII letters (CJK, Cyrillic, etc.) for multilingual text.
+        if !firstChar.isASCII && !firstChar.isLetter { return false }
         // Structural prefixes (headings, lists, blockquotes, fences, diffs, comments).
         if "#-*>|+`~@/".contains(firstChar) { return false }
         // Numbered list: "1. " or "1) "
