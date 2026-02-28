@@ -597,7 +597,14 @@ struct ConversationView: View {
                     tableBuffer = []
                 }
                 // Insert a spacer before lines that start a new message group.
+                // Absorb any preceding empty lines so the gap is always exactly
+                // one spacer (18pt), regardless of how many empty terminal lines
+                // Claude Code inserts — their count changes as the buffer grows.
                 if Self.lineHasMarker(line) {
+                    while case .line(let prev) = blocks.last,
+                          Self.isEmptyLine(prev) {
+                        blocks.removeLast()
+                    }
                     blocks.append(.spacer(line.id))
                 }
                 blocks.append(.line(line))
@@ -607,6 +614,12 @@ struct ConversationView: View {
             blocks.append(.table(tableBuffer))
         }
         return blocks
+    }
+
+    /// Check whether a terminal line is empty/whitespace-only.
+    private static func isEmptyLine(_ line: TerminalLine) -> Bool {
+        line.segments.isEmpty ||
+        line.segments.allSatisfy { $0.text.trimmingCharacters(in: .whitespaces).isEmpty }
     }
 
     /// Gradient fade overlay for edge-to-edge scrollable code blocks.
