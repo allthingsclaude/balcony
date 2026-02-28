@@ -4,6 +4,7 @@ import Foundation
 enum MarkerRole: Equatable {
     case user       // ❯ / › — user message start
     case assistant  // ⏺ / · — assistant message start
+    case spinner    // ✶ ✻ ✢ · ✽ — animated progress indicator
     case none       // continuation or non-message line
 }
 

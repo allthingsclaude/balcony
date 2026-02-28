@@ -130,13 +130,25 @@ final class HeadlessTerminalParser: ObservableObject {
                 if scalar == Unicode.Scalar(0x276F) {   // ❯ user
                     rowMarker[i] = .user
                 } else if scalar == Unicode.Scalar(0x23FA) {  // ⏺ assistant
-                    // Reject only spinner-like ⏺: bold and not dim.
-                    // Real assistant markers use dim, default, magenta (palette
-                    // or trueColor) — never bold. Spinners are bold+bright.
-                    let isSpinner = style.isBold && !style.isDim
-                    if !isSpinner {
+                    // Only accept DIM ⏺ as assistant marker. Spinner ⏺ frames
+                    // are never dim — they get caught as .spinner below.
+                    if style.isDim {
                         rowMarker[i] = .assistant
                     }
+                }
+
+                // Spinner detection: non-ASCII non-letter symbol with a
+                // non-default foreground color (the animated spinner color).
+                // Runs after marker checks, so rowMarker[i] == .none means
+                // the character wasn't claimed as ❯ or dim-⏺. Non-dim ⏺
+                // (spinner frame) is caught here too — same color as ✢/✶/✽.
+                if rowMarker[i] == .none,
+                   scalar.value > 0x7F,
+                   !scalar.properties.isAlphabetic,
+                   scalar != Unicode.Scalar(0x276F),   // not ❯
+                   style.fgColor != .defaultFg,
+                   !style.isDim {
+                    rowMarker[i] = .spinner
                 }
             }
 

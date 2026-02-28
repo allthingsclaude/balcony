@@ -578,7 +578,7 @@ struct ConversationView: View {
 
     /// Check whether a line starts a new conversation message (set by the parser).
     private static func lineHasMarker(_ line: TerminalLine) -> Bool {
-        line.markerRole != .none
+        line.markerRole == .user || line.markerRole == .assistant
     }
 
     /// Group consecutive table rows so they share a single horizontal scroll view.
@@ -671,23 +671,25 @@ struct TerminalLineView: View {
         } else {
             let parsed = parseLine()
 
-            HStack(alignment: .top, spacing: 4) {
-                // Marker column — fixed-width, invisible for continuation lines.
-                // Spinner characters (✳ etc.) are shown with their original color.
-                // Fixed width prevents horizontal jitter when spinner chars change.
+            ZStack(alignment: .topLeading) {
+                // Marker — overlaid at leading edge with fixed frame.
+                // Fixed 14×18 prevents glyph metric differences between
+                // spinner characters (✶ ✻ ✢ · ✽) from changing the
+                // ZStack dimensions and causing ScrollView adjustment.
                 Text(parsed.marker.character)
                     .font(BalconyTheme.monoFont())
                     .foregroundColor(markerColor(parsed.marker))
                     .opacity(parsed.marker == .none ? 0 : 1)
-                    .frame(width: 14, alignment: .leading)
+                    .frame(width: 14, height: 18, alignment: .leading)
 
-                // Content — text flows next to marker.
-                // User messages use adaptive color so text is readable in light mode.
+                // Content — always starts at fixed 18pt offset (14 marker + 4 gap).
                 buildAttributedText(
                     from: parsed.content,
                     adaptiveColor: parsed.marker == .user
                 )
                 .font(.system(size: 13, design: .monospaced))
+                .frame(minHeight: 18, alignment: .topLeading)
+                .padding(.leading, 18)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityElement(children: .combine)
@@ -751,13 +753,20 @@ struct TerminalLineView: View {
     /// by a space (spinner/progress lines) get that symbol extracted into
     /// the marker column so text alignment is stable across spinner frames.
     private func parseLine() -> (marker: LineMarker, content: [StyledSegment]) {
-        // Use the parser-assigned role — it already filtered out spinner chars.
         let marker: LineMarker
         switch line.markerRole {
         case .user:      marker = .user
         case .assistant: marker = .assistant
+        case .spinner:
+            // Parser detected a spinner line by its color. Extract the
+            // leading symbol into the marker column for stable alignment.
+            guard !line.segments.isEmpty,
+                  let ch = line.segments.first?.text.first else {
+                return (.none, line.segments)
+            }
+            return (.spinner(String(ch)), stripLeadingChar(from: line.segments))
         case .none:
-            // Check for spinner-like leading character: non-ASCII symbol + space.
+            // Fallback: check for spinner-like leading character.
             return extractSpinner()
         }
 
@@ -767,32 +776,81 @@ struct TerminalLineView: View {
         return (marker, stripLeadingChar(from: line.segments))
     }
 
-    /// If the line starts with a single non-ASCII symbol followed by a space,
-    /// extract it as a `.spinner` marker so it renders in the fixed-width column.
+    /// If the line starts with a non-ASCII symbol (spinner/bullet), extract it
+    /// into the fixed-width marker column. Scans across segment boundaries and
+    /// strips all surrounding whitespace so the content position is stable
+    /// regardless of character width or ANSI styling differences.
     private func extractSpinner() -> (marker: LineMarker, content: [StyledSegment]) {
-        guard let first = line.segments.first,
-              let scalar = first.text.unicodeScalars.first,
+        // Scan all segments for the first non-whitespace character.
+        var spinnerChar: Character?
+        var foundSegIdx = 0
+        var foundCharOffset = 0
+
+        for (segIdx, seg) in line.segments.enumerated() {
+            var offset = 0
+            for ch in seg.text {
+                if ch != " " && ch != "\0" {
+                    spinnerChar = ch
+                    foundSegIdx = segIdx
+                    foundCharOffset = offset
+                    break
+                }
+                offset += 1
+            }
+            if spinnerChar != nil { break }
+        }
+
+        guard let ch = spinnerChar,
+              let scalar = ch.unicodeScalars.first,
               scalar.value > 0x7F,
-              first.text.dropFirst().first == " " else {
+              !ch.isLetter else {
             return (.none, line.segments)
         }
-        let ch = String(first.text[first.text.startIndex...first.text.startIndex])
-        return (.spinner(ch), stripLeadingChar(from: line.segments))
+
+        // Build content: drop everything up to and including the spinner char,
+        // then strip all leading whitespace (space after char + width padding).
+        var content = Array(line.segments[foundSegIdx...])
+        let afterChar = String(content[0].text.dropFirst(foundCharOffset + 1))
+        if afterChar.isEmpty {
+            content.removeFirst()
+        } else {
+            content[0] = StyledSegment(text: afterChar, style: content[0].style)
+        }
+
+        // Strip leading spaces across segment boundaries.
+        while !content.isEmpty {
+            let stripped = content[0].text.drop(while: { $0 == " " || $0 == "\0" })
+            if stripped.isEmpty {
+                content.removeFirst()
+            } else {
+                content[0] = StyledSegment(text: String(stripped), style: content[0].style)
+                break
+            }
+        }
+
+        return (.spinner(String(ch)), content)
     }
 
-    /// Strip the first character (and optional trailing space) from segments.
+    /// Strip the first character and all leading spaces from segments.
+    /// Strips across segment boundaries to handle ambiguous-width characters
+    /// whose null padding cells become extra space segments.
     private func stripLeadingChar(from original: [StyledSegment]) -> [StyledSegment] {
         var segments = original
         var remaining = String(segments[0].text.dropFirst())
-        if remaining.hasPrefix(" ") { remaining = String(remaining.dropFirst()) }
+        // Strip all leading spaces (not just one) — handles width-mismatch padding.
+        while remaining.hasPrefix(" ") { remaining = String(remaining.dropFirst()) }
 
         if remaining.isEmpty {
             segments.removeFirst()
-            // Strip leading space from next segment if present.
-            if !segments.isEmpty, segments[0].text.hasPrefix(" ") {
-                let stripped = String(segments[0].text.dropFirst())
-                if stripped.isEmpty { segments.removeFirst() }
-                else { segments[0] = StyledSegment(text: stripped, style: segments[0].style) }
+            // Continue stripping leading spaces across subsequent segments.
+            while !segments.isEmpty {
+                let stripped = segments[0].text.drop(while: { $0 == " " })
+                if stripped.isEmpty {
+                    segments.removeFirst()
+                } else {
+                    segments[0] = StyledSegment(text: String(stripped), style: segments[0].style)
+                    break
+                }
             }
         } else {
             segments[0] = StyledSegment(text: remaining, style: segments[0].style)
