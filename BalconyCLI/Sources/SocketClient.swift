@@ -39,6 +39,13 @@ final class SocketClient {
     /// Called when data arrives from the Mac agent (e.g. iOS input, resize).
     var onMessage: ((SocketMessageType, Data) -> Void)?
 
+    /// Called when a connection (or reconnection) to the Mac agent succeeds.
+    var onConnected: (() -> Void)?
+
+    /// Timer for periodic reconnection attempts.
+    private var reconnectTimer: DispatchSourceTimer?
+    private var reconnectEnabled = false
+
     init(socketPath: String? = nil) {
         if let path = socketPath {
             self.socketPath = path
@@ -99,6 +106,33 @@ final class SocketClient {
             socketFD = -1
         }
         connected = false
+
+        // If reconnect is enabled, the timer will pick up and retry
+    }
+
+    /// Start a background reconnect loop that periodically tries to connect
+    /// if not already connected. Calls `onConnected` on success.
+    func startReconnectLoop(interval: TimeInterval = 3.0) {
+        reconnectEnabled = true
+
+        let timer = DispatchSource.makeTimerSource(queue: readQueue)
+        timer.schedule(deadline: .now() + interval, repeating: interval)
+        timer.setEventHandler { [weak self] in
+            guard let self, self.reconnectEnabled, !self.connected else { return }
+            if self.connect() {
+                self.onConnected?()
+            }
+        }
+        timer.resume()
+        reconnectTimer = timer
+    }
+
+    /// Stop the reconnect loop and disconnect.
+    func stopAndDisconnect() {
+        reconnectEnabled = false
+        reconnectTimer?.cancel()
+        reconnectTimer = nil
+        disconnect()
     }
 
     /// Send a framed message to the Mac agent.

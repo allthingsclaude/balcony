@@ -49,10 +49,8 @@ func cleanup(status: Int32) -> Never {
     bridge.stop()
     close(pty.masterFD)
 
-    if socketConnected {
-        socketClient.sendSessionEnded()
-        socketClient.disconnect()
-    }
+    socketClient.sendSessionEnded()
+    socketClient.stopAndDisconnect()
 
     // WIFEXITED / WEXITSTATUS replicated — these are C macros unavailable in Swift
     let childExited = (status & 0x7f) == 0
@@ -84,11 +82,12 @@ do {
     exit(1)
 }
 
-// Connect to Mac agent socket (optional — works without it)
+// Connect to Mac agent socket (optional — works without it).
+// If the Mac agent isn't running yet, a reconnect loop will keep trying.
 let socketClient = SocketClient()
-let socketConnected = socketClient.connect()
+var socketConnected = socketClient.connect()
 if !socketConnected {
-    fputs("[balcony] Mac agent not running (no socket at ~/.balcony/pty.sock)\n", stderr)
+    fputs("[balcony] Mac agent not running — will retry in background\n", stderr)
 }
 
 // Set initial PTY size to match the local Mac terminal.
@@ -124,22 +123,34 @@ do {
     exit(1)
 }
 
-// Send session info to Mac agent
+// Build session info (used on connect and reconnect)
+let cwd = FileManager.default.currentDirectoryPath
+let sessionInfo = PTYSessionInfo(
+    sessionId: sessionId,
+    pid: childPID,
+    cwd: cwd,
+    args: claudeArgs.joined(separator: " "),
+    cols: cols,
+    rows: rows
+)
+
+// Send session info now if connected
 if socketConnected {
-    let cwd = FileManager.default.currentDirectoryPath
-    let info = PTYSessionInfo(
-        sessionId: sessionId,
-        pid: childPID,
-        cwd: cwd,
-        args: claudeArgs.joined(separator: " "),
-        cols: cols,
-        rows: rows
-    )
-    socketClient.sendSessionInfo(info)
+    socketClient.sendSessionInfo(sessionInfo)
 }
 
-// Set up the I/O bridge
-let bridge = IOBridge(masterFD: pty.masterFD, childPID: childPID, socketClient: socketConnected ? socketClient : nil)
+// Re-send session info whenever we (re)connect to the Mac agent
+socketClient.onConnected = {
+    socketConnected = true
+    fputs("[balcony] Connected to Mac agent\n", stderr)
+    socketClient.sendSessionInfo(sessionInfo)
+}
+
+// Start reconnect loop so late-started Mac agent picks up this session
+socketClient.startReconnectLoop()
+
+// Set up the I/O bridge — always pass the client so output forwards once connected
+let bridge = IOBridge(masterFD: pty.masterFD, childPID: childPID, socketClient: socketClient)
 
 // Fallback: if PTY master returns EIO (slave closed), the child has exited.
 // This catches cases where the process source might not fire.
