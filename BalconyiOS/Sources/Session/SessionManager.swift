@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 import BalconyShared
 import Combine
 import os
@@ -200,7 +201,9 @@ final class SessionManager: ObservableObject {
 
     /// Dismiss the session picker without selecting.
     func dismissSessionPicker() {
-        showSessionPicker = false
+        withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+            showSessionPicker = false
+        }
         availableSessions = []
         pickerPTYSessionId = nil
     }
@@ -213,7 +216,9 @@ final class SessionManager: ObservableObject {
             let payload = SessionPickerSelectionPayload(sessionId: session.id, ptySessionId: ptySessionId)
             let msg = try BalconyMessage.create(type: .sessionPickerSelection, payload: payload)
             try await connectionManager.send(msg)
-            showSessionPicker = false
+            withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                showSessionPicker = false
+            }
         } catch {
             logger.error("Failed to send session selection: \(error.localizedDescription)")
         }
@@ -241,7 +246,9 @@ final class SessionManager: ObservableObject {
 
     /// Dismiss the model picker without selecting.
     func dismissModelPicker() {
-        showModelPicker = false
+        withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+            showModelPicker = false
+        }
         availableModels = []
         currentModelId = nil
         modelPickerPTYSessionId = nil
@@ -255,7 +262,9 @@ final class SessionManager: ObservableObject {
             let payload = ModelPickerSelectionPayload(modelId: model.id, ptySessionId: ptySessionId)
             let msg = try BalconyMessage.create(type: .modelPickerSelection, payload: payload)
             try await connectionManager.send(msg)
-            showModelPicker = false
+            withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                showModelPicker = false
+            }
         } catch {
             logger.error("Failed to send model selection: \(error.localizedDescription)")
         }
@@ -268,12 +277,16 @@ final class SessionManager: ObservableObject {
             logger.info("No turns to rewind")
             return
         }
-        showRewindPicker = true
+        withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+            showRewindPicker = true
+        }
     }
 
     /// Dismiss the rewind picker without selecting.
     func dismissRewindPicker() {
-        showRewindPicker = false
+        withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+            showRewindPicker = false
+        }
         rewindTurns = []
     }
 
@@ -285,7 +298,9 @@ final class SessionManager: ObservableObject {
             let payload = RewindSelectionPayload(turnCount: turn.id, ptySessionId: activeSession.id)
             let msg = try BalconyMessage.create(type: .rewindSelection, payload: payload)
             try await connectionManager.send(msg)
-            showRewindPicker = false
+            withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                showRewindPicker = false
+            }
         } catch {
             logger.error("Failed to send rewind selection: \(error.localizedDescription)")
         }
@@ -440,7 +455,9 @@ final class SessionManager: ObservableObject {
             let payload = try message.decodePayload(SessionPickerPayload.self)
             availableSessions = payload.sessions
             pickerPTYSessionId = payload.ptySessionId
-            showSessionPicker = true
+            withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                showSessionPicker = true
+            }
             logger.info("Received \(payload.sessions.count) sessions for picker")
         } catch {
             logger.error("Failed to decode session picker: \(error.localizedDescription)")
@@ -453,7 +470,9 @@ final class SessionManager: ObservableObject {
             availableModels = payload.models
             currentModelId = payload.currentModelId
             modelPickerPTYSessionId = payload.ptySessionId
-            showModelPicker = true
+            withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                showModelPicker = true
+            }
             logger.info("Received \(payload.models.count) models for picker (current: \(payload.currentModelId ?? "none"))")
         } catch {
             logger.error("Failed to decode model picker: \(error.localizedDescription)")
