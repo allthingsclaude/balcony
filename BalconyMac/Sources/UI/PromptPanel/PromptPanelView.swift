@@ -180,6 +180,7 @@ struct PromptPanelView: View {
         .frame(width: 340)
         .background(PanelBackground())
         .clipShape(RoundedRectangle(cornerRadius: 14))
+        .tint(PanelTheme.brand)
         .shadow(color: .black.opacity(0.2), radius: 16, y: 6)
         .shadow(color: .black.opacity(0.08), radius: 2, y: 1)
     }
@@ -348,6 +349,7 @@ struct IdlePromptPanelView: View {
         .frame(width: 340)
         .background(PanelBackground())
         .clipShape(RoundedRectangle(cornerRadius: 14))
+        .tint(PanelTheme.brand)
         .shadow(color: .black.opacity(0.2), radius: 16, y: 6)
         .shadow(color: .black.opacity(0.08), radius: 2, y: 1)
         .onAppear { textFieldFocused = true }
@@ -508,6 +510,7 @@ struct MultiOptionPanelView: View {
         .frame(width: 340)
         .background(PanelBackground())
         .clipShape(RoundedRectangle(cornerRadius: 14))
+        .tint(PanelTheme.brand)
         .shadow(color: .black.opacity(0.2), radius: 16, y: 6)
         .shadow(color: .black.opacity(0.08), radius: 2, y: 1)
     }
