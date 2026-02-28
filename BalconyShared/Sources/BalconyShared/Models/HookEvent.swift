@@ -225,6 +225,84 @@ public struct IdlePromptInfo: Sendable {
             cwd: event.cwd
         )
     }
+
+    /// Detect if the assistant message contains an AskUserQuestion-style option list.
+    /// Returns nil if it's a plain text prompt.
+    public var detectedOptions: (question: String, options: [ParsedOption])? {
+        let lines = lastAssistantMessage.components(separatedBy: .newlines)
+
+        // Scan backwards to find the numbered options block
+        var optionLines: [(index: Int, label: String)] = []
+        var scanIndex = lines.count - 1
+
+        // Skip trailing empty lines
+        while scanIndex >= 0 && lines[scanIndex].trimmingCharacters(in: .whitespaces).isEmpty {
+            scanIndex -= 1
+        }
+
+        // Collect numbered lines (e.g., "1. Option A", "2. Option B")
+        let optionPattern = #"^\s*(\d+)\.\s+(.+)$"#
+        guard let regex = try? NSRegularExpression(pattern: optionPattern) else { return nil }
+
+        while scanIndex >= 0 {
+            let line = lines[scanIndex]
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+
+            let range = NSRange(trimmed.startIndex..., in: trimmed)
+            if let match = regex.firstMatch(in: trimmed, range: range),
+               let numRange = Range(match.range(at: 1), in: trimmed),
+               let labelRange = Range(match.range(at: 2), in: trimmed),
+               let num = Int(trimmed[numRange]) {
+                let label = String(trimmed[labelRange])
+                optionLines.insert((index: num, label: label), at: 0)
+                scanIndex -= 1
+            } else {
+                break
+            }
+        }
+
+        // Require at least 2 options
+        guard optionLines.count >= 2 else { return nil }
+
+        // Validate sequential numbering starting from 1
+        for (i, option) in optionLines.enumerated() {
+            guard option.index == i + 1 else { return nil }
+        }
+
+        // Extract the question text (everything before the options block)
+        let questionLines = lines.prefix(scanIndex + 1)
+        let question = questionLines
+            .joined(separator: "\n")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !question.isEmpty else { return nil }
+
+        // Build ParsedOption array
+        let options = optionLines.map { item in
+            let isOther = item.label.lowercased().hasPrefix("other")
+            return ParsedOption(index: item.index, label: item.label, isOther: isOther)
+        }
+
+        return (question: question, options: options)
+    }
+}
+
+// MARK: - ParsedOption
+
+/// A detected option from an AskUserQuestion-style prompt.
+public struct ParsedOption: Sendable {
+    /// 1-based index of the option.
+    public let index: Int
+    /// Display label (e.g., "Option A (Recommended)").
+    public let label: String
+    /// Whether this is the "Other" free-text option.
+    public let isOther: Bool
+
+    public init(index: Int, label: String, isOther: Bool) {
+        self.index = index
+        self.label = label
+        self.isOther = isOther
+    }
 }
 
 // MARK: - AnyCodable

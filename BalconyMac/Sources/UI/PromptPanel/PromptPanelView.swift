@@ -1,123 +1,101 @@
 import SwiftUI
 import BalconyShared
 
-// MARK: - Dark Panel Colors
+// MARK: - Vibrancy Background
 
-private enum PanelColors {
-    static let background = Color(white: 0.12)
-    static let surface = Color(white: 0.16)
-    static let contentBox = Color.white.opacity(0.05)
-    static let ghostButton = Color.white.opacity(0.1)
-    static let primaryButton = Color(red: 0.35, green: 0.38, blue: 0.95)
-    static let textPrimary = Color.white
-    static let textSecondary = Color.white.opacity(0.55)
-    static let textTertiary = Color.white.opacity(0.35)
-    static let fieldBackground = Color.white.opacity(0.08)
-    static let dismissButton = Color.white.opacity(0.1)
+/// Frosted glass background matching native macOS notifications.
+/// Uses NSVisualEffectView with `.popover` material for the system blur.
+private struct VibrancyBackground: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        view.material = .popover
+        view.blendingMode = .behindWindow
+        view.state = .active
+        view.wantsLayer = true
+        view.layer?.cornerRadius = 14
+        view.layer?.masksToBounds = true
+        return view
+    }
+
+    func updateNSView(_ nsView: NSVisualEffectView, context: Context) {}
 }
 
 // MARK: - Permission Prompt Panel
 
-/// Notification-style view for permission requests.
+/// Notification-style view for permission requests, styled like native macOS notifications.
 struct PromptPanelView: View {
     let info: PermissionPromptInfo
     let onAction: (String) -> Void
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Icon badge
-            ZStack {
-                Circle()
-                    .fill(riskColor.opacity(0.15))
-                    .frame(width: 48, height: 48)
+        VStack(alignment: .leading, spacing: 0) {
+            // Header: app icon + title + subtitle
+            HStack(spacing: 10) {
+                Image(nsImage: NSApp.applicationIconImage)
+                    .resizable()
+                    .frame(width: 20, height: 20)
 
-                Image(systemName: toolIconName)
-                    .font(.system(size: 20, weight: .semibold))
-                    .foregroundStyle(riskColor)
-            }
-            .padding(.top, 20)
-            .padding(.bottom, 10)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Balcony")
+                        .font(.system(size: 13, weight: .semibold))
 
-            // Tool name
-            Text(info.toolName)
-                .font(.system(size: 15, weight: .bold))
-                .foregroundStyle(PanelColors.textPrimary)
-
-            // Project name + risk badge
-            HStack(spacing: 6) {
-                if let projectName {
-                    Text(projectName)
-                        .font(.system(size: 12))
-                        .foregroundStyle(PanelColors.textSecondary)
-                        .lineLimit(1)
+                    if let projectName {
+                        Text(projectName)
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                    }
                 }
+
+                Spacer()
 
                 riskBadge
             }
-            .padding(.top, 3)
+            .padding(.horizontal, 14)
+            .padding(.top, 12)
+            .padding(.bottom, 8)
 
-            // Content preview
-            if let content = contentPreview {
-                Text(content)
-                    .font(.system(size: 11, design: .monospaced))
-                    .foregroundStyle(PanelColors.textSecondary)
-                    .lineLimit(3)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(10)
-                    .background(PanelColors.contentBox)
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
-                    .padding(.horizontal, 16)
-                    .padding(.top, 14)
+            Divider()
+                .padding(.horizontal, 14)
+
+            // Tool name + content
+            VStack(alignment: .leading, spacing: 6) {
+                Label {
+                    Text(info.toolName)
+                        .font(.system(size: 13, weight: .medium))
+                } icon: {
+                    Image(systemName: toolIconName)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+
+                if let content = contentPreview {
+                    Text(content)
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(3)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
             }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+
+            Divider()
+                .padding(.horizontal, 14)
 
             // Action buttons
-            HStack(spacing: 8) {
-                Button(action: { onAction("n") }) {
-                    Text("Deny")
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 36)
-                }
-                .buttonStyle(.plain)
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(PanelColors.textPrimary)
-                .background(PanelColors.ghostButton)
-                .clipShape(RoundedRectangle(cornerRadius: 10))
-
-                Button(action: { onAction("a") }) {
-                    Text("Always")
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 36)
-                }
-                .buttonStyle(.plain)
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(PanelColors.textPrimary)
-                .background(PanelColors.ghostButton)
-                .clipShape(RoundedRectangle(cornerRadius: 10))
-
-                Button(action: { onAction("y") }) {
-                    HStack(spacing: 4) {
-                        Text("Allow")
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 10, weight: .bold))
-                    }
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 36)
-                }
-                .buttonStyle(.plain)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(.white)
-                .background(PanelColors.primaryButton)
-                .clipShape(RoundedRectangle(cornerRadius: 10))
+            HStack(spacing: 6) {
+                PanelButton("Deny", role: .destructive) { onAction("n") }
+                PanelButton("Always") { onAction("a") }
+                PanelButton("Allow", role: .primary) { onAction("y") }
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 16)
-            .padding(.bottom, 18)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
         }
         .frame(width: 340)
-        .background(PanelColors.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .shadow(color: .black.opacity(0.3), radius: 20, y: 8)
-        .shadow(color: .black.opacity(0.1), radius: 4, y: 2)
+        .background(VibrancyBackground())
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .shadow(color: .black.opacity(0.2), radius: 16, y: 6)
+        .shadow(color: .black.opacity(0.08), radius: 2, y: 1)
     }
 
     // MARK: - Computed
@@ -144,9 +122,9 @@ struct PromptPanelView: View {
     private var riskBadge: some View {
         Text(riskLabel)
             .font(.system(size: 10, weight: .medium))
-            .padding(.horizontal, 5)
+            .padding(.horizontal, 6)
             .padding(.vertical, 2)
-            .background(riskColor.opacity(0.2))
+            .background(riskColor.opacity(0.15))
             .foregroundStyle(riskColor)
             .clipShape(Capsule())
     }
@@ -198,7 +176,8 @@ struct PromptPanelView: View {
 
 // MARK: - Idle Prompt Panel
 
-/// Notification-style view for idle prompts (Claude waiting for input).
+/// Notification-style view for idle prompts (Claude waiting for input),
+/// styled like native macOS notifications.
 struct IdlePromptPanelView: View {
     let info: IdlePromptInfo
     let onSubmit: (String) -> Void
@@ -208,88 +187,83 @@ struct IdlePromptPanelView: View {
     @FocusState private var textFieldFocused: Bool
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Dismiss button (top-right)
-            HStack {
+        VStack(alignment: .leading, spacing: 0) {
+            // Header: app icon + title + dismiss
+            HStack(spacing: 10) {
+                Image(nsImage: NSApp.applicationIconImage)
+                    .resizable()
+                    .frame(width: 20, height: 20)
+
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Claude is waiting")
+                        .font(.system(size: 13, weight: .semibold))
+
+                    if let projectName {
+                        Text(projectName)
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
                 Spacer()
+
                 Button(action: onDismiss) {
                     Image(systemName: "xmark")
-                        .font(.system(size: 9, weight: .bold))
-                        .foregroundStyle(PanelColors.textTertiary)
-                        .frame(width: 22, height: 22)
-                        .background(PanelColors.dismissButton)
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundStyle(.tertiary)
+                        .frame(width: 18, height: 18)
+                        .background(.quaternary)
                         .clipShape(Circle())
                 }
                 .buttonStyle(.plain)
             }
-            .padding(.trailing, 14)
+            .padding(.horizontal, 14)
             .padding(.top, 12)
+            .padding(.bottom, 8)
 
-            // Icon badge
-            ZStack {
-                Circle()
-                    .fill(Color.blue.opacity(0.15))
-                    .frame(width: 48, height: 48)
-
-                Image(systemName: "bubble.left.and.text.bubble.right")
-                    .font(.system(size: 20, weight: .semibold))
-                    .foregroundStyle(.blue)
-            }
-            .padding(.bottom, 10)
-
-            // Title
-            Text("Claude is waiting")
-                .font(.system(size: 15, weight: .bold))
-                .foregroundStyle(PanelColors.textPrimary)
-
-            // Project name
-            if let projectName {
-                Text(projectName)
-                    .font(.system(size: 12))
-                    .foregroundStyle(PanelColors.textSecondary)
-                    .lineLimit(1)
-                    .padding(.top, 3)
-            }
+            Divider()
+                .padding(.horizontal, 14)
 
             // Claude's message
             Text(displayMessage)
                 .font(.system(size: 12))
-                .foregroundStyle(PanelColors.textSecondary)
+                .foregroundStyle(.secondary)
                 .lineLimit(4)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 16)
-                .padding(.top, 12)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+
+            Divider()
+                .padding(.horizontal, 14)
 
             // Text input row
             HStack(spacing: 8) {
                 TextField("Type a response...", text: $responseText)
                     .textFieldStyle(.plain)
                     .font(.system(size: 12))
-                    .foregroundStyle(PanelColors.textPrimary)
                     .focused($textFieldFocused)
                     .onSubmit { submitResponse() }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 8)
-                    .background(PanelColors.fieldBackground)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 6)
+                    .background(.quaternary)
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
 
                 Button(action: submitResponse) {
                     Image(systemName: "arrow.up.circle.fill")
-                        .font(.system(size: 24))
-                        .foregroundStyle(responseText.isEmpty ? PanelColors.textTertiary : PanelColors.primaryButton)
+                        .font(.system(size: 20))
+                        .foregroundStyle(responseText.isEmpty ? Color.secondary : Color.accentColor)
                 }
                 .buttonStyle(.plain)
                 .disabled(responseText.isEmpty)
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 12)
-            .padding(.bottom, 18)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
         }
         .frame(width: 340)
-        .background(PanelColors.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .shadow(color: .black.opacity(0.3), radius: 20, y: 8)
-        .shadow(color: .black.opacity(0.1), radius: 4, y: 2)
+        .background(VibrancyBackground())
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .shadow(color: .black.opacity(0.2), radius: 16, y: 6)
+        .shadow(color: .black.opacity(0.08), radius: 2, y: 1)
         .onAppear { textFieldFocused = true }
     }
 
@@ -307,5 +281,212 @@ struct IdlePromptPanelView: View {
     private func submitResponse() {
         guard !responseText.isEmpty else { return }
         onSubmit(responseText)
+    }
+}
+
+// MARK: - Multi-Option Panel
+
+/// Notification-style view for AskUserQuestion prompts with selectable options.
+struct MultiOptionPanelView: View {
+    let info: IdlePromptInfo
+    let options: [ParsedOption]
+    let onSelect: (ParsedOption) -> Void
+    let onTextSubmit: (String) -> Void
+    let onDismiss: () -> Void
+
+    @State private var otherText = ""
+    @State private var showOtherInput = false
+    @FocusState private var otherFieldFocused: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Header: app icon + title + dismiss
+            HStack(spacing: 10) {
+                Image(nsImage: NSApp.applicationIconImage)
+                    .resizable()
+                    .frame(width: 20, height: 20)
+
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Claude has a question")
+                        .font(.system(size: 13, weight: .semibold))
+
+                    if let projectName {
+                        Text(projectName)
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                Spacer()
+
+                Button(action: onDismiss) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundStyle(.tertiary)
+                        .frame(width: 18, height: 18)
+                        .background(.quaternary)
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 14)
+            .padding(.top, 12)
+            .padding(.bottom, 8)
+
+            Divider()
+                .padding(.horizontal, 14)
+
+            // Question text
+            if let detected = info.detectedOptions {
+                Text(detected.question)
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(3)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+
+                Divider()
+                    .padding(.horizontal, 14)
+            }
+
+            // Option buttons
+            VStack(spacing: 4) {
+                ForEach(options, id: \.index) { option in
+                    if option.isOther {
+                        // "Other" button toggles text input
+                        if showOtherInput {
+                            HStack(spacing: 8) {
+                                TextField("Type your response...", text: $otherText)
+                                    .textFieldStyle(.plain)
+                                    .font(.system(size: 12))
+                                    .focused($otherFieldFocused)
+                                    .onSubmit { submitOther(option: option) }
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 6)
+                                    .background(.quaternary)
+                                    .clipShape(RoundedRectangle(cornerRadius: 6))
+
+                                Button(action: { submitOther(option: option) }) {
+                                    Image(systemName: "arrow.up.circle.fill")
+                                        .font(.system(size: 20))
+                                        .foregroundStyle(otherText.isEmpty ? Color.secondary : Color.accentColor)
+                                }
+                                .buttonStyle(.plain)
+                                .disabled(otherText.isEmpty)
+                            }
+                        } else {
+                            Button(action: {
+                                showOtherInput = true
+                                otherFieldFocused = true
+                            }) {
+                                HStack {
+                                    Text(option.label)
+                                        .font(.system(size: 12))
+                                    Spacer()
+                                    Image(systemName: "text.cursor")
+                                        .font(.system(size: 10))
+                                        .foregroundStyle(.tertiary)
+                                }
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 7)
+                                .background(.quaternary)
+                                .clipShape(RoundedRectangle(cornerRadius: 6))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    } else {
+                        Button(action: { onSelect(option) }) {
+                            HStack {
+                                Text(option.label)
+                                    .font(.system(size: 12))
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 9, weight: .semibold))
+                                    .foregroundStyle(.tertiary)
+                            }
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 7)
+                            .background(.quaternary)
+                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+        }
+        .frame(width: 340)
+        .background(VibrancyBackground())
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .shadow(color: .black.opacity(0.2), radius: 16, y: 6)
+        .shadow(color: .black.opacity(0.08), radius: 2, y: 1)
+    }
+
+    private var projectName: String? {
+        guard let cwd = info.cwd else { return nil }
+        let name = (cwd as NSString).lastPathComponent
+        return name.isEmpty ? nil : name
+    }
+
+    private func submitOther(option: ParsedOption) {
+        guard !otherText.isEmpty else { return }
+        // Select "Other" option first (navigate to it), then send the text
+        onSelect(option)
+        // Small delay to let the option selection register, then type text
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+            onTextSubmit(otherText)
+        }
+    }
+}
+
+// MARK: - Panel Button
+
+/// Styled button matching macOS notification action buttons.
+private struct PanelButton: View {
+    let title: String
+    let role: ButtonRole
+    let action: () -> Void
+
+    init(_ title: String, role: ButtonRole = .default, action: @escaping () -> Void) {
+        self.title = title
+        self.role = role
+        self.action = action
+    }
+
+    enum ButtonRole {
+        case `default`
+        case primary
+        case destructive
+    }
+
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 12, weight: role == .primary ? .semibold : .regular))
+                .frame(maxWidth: .infinity)
+                .frame(height: 28)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(foregroundColor)
+        .background(backgroundColor)
+        .clipShape(RoundedRectangle(cornerRadius: 6))
+    }
+
+    private var foregroundColor: Color {
+        switch role {
+        case .primary: return .white
+        case .destructive: return .red
+        case .default: return .primary
+        }
+    }
+
+    private var backgroundColor: some ShapeStyle {
+        switch role {
+        case .primary: return AnyShapeStyle(Color.accentColor)
+        case .destructive: return AnyShapeStyle(.quaternary)
+        case .default: return AnyShapeStyle(.quaternary)
+        }
     }
 }

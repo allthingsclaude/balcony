@@ -19,7 +19,7 @@ private class DimmingView: NSView {
         super.init(frame: frame)
         wantsLayer = true
         layer?.backgroundColor = NSColor.black.cgColor
-        layer?.cornerRadius = 16
+        layer?.cornerRadius = 14
         alphaValue = 0
     }
 
@@ -70,9 +70,9 @@ private class HoverTrackingView: NSView {
 
 // MARK: - PromptPanelController
 
-/// Manages floating NSPanels that show permission and idle prompt details.
-/// Multiple panels collapse into a compact deck and expand on hover,
-/// like macOS notification center.
+/// Manages floating NSPanels styled as native macOS notifications for
+/// permission requests, idle prompts, and multi-option questions.
+/// Multiple panels collapse into a compact deck and expand on hover.
 @MainActor
 final class PromptPanelController {
     private let logger = Logger(subsystem: "com.balcony.mac", category: "PromptPanelController")
@@ -86,29 +86,44 @@ final class PromptPanelController {
     /// Called when the user submits text from the idle prompt panel. Passes (sessionId, text).
     var onTextResponse: ((String, String) -> Void)?
 
+    /// Called when the user selects a multi-option choice. Passes (sessionId, arrow key sequence).
+    var onMultiOptionResponse: ((String, String) -> Void)?
+
     // MARK: - Layout
 
     private static let rightMargin: CGFloat = 16
     private static let topMargin: CGFloat = 8
-    /// Gap between stacked panels in expanded mode.
     private static let stackGap: CGFloat = 8
-    /// Vertical peek offset for each collapsed panel behind the top one.
     private static let collapsedPeekOffset: CGFloat = 6
-    /// Maximum number of panels visible in collapsed mode.
     private static let maxVisibleCollapsed: Int = 4
-    /// Scale reduction per collapsed level (e.g., 0.02 = 2% smaller per level).
     private static let collapsedScaleStep: CGFloat = 0.02
-    /// Dimming opacity increase per collapsed level.
     private static let collapsedDimStep: CGFloat = 0.10
 
     // MARK: - Hover State
 
-    /// Whether the stack is expanded (on hover) or collapsed (default).
     private var isExpanded = false
-    /// Timer used to debounce collapse when mouse moves between panels.
     private var collapseTimer: Timer?
 
     // MARK: - Show
+
+    /// Show the prompt panel for a permission request.
+    func showPrompt(_ info: PermissionPromptInfo) {
+        logger.info("Showing prompt panel: \(info.toolName) session=\(info.sessionId)")
+        dismissPrompt(for: info.sessionId)
+
+        let sessionId = info.sessionId
+        let panel = makePanel()
+        let hostingView = NSHostingView(
+            rootView: PromptPanelView(
+                info: info,
+                onAction: { [weak self] keystroke in
+                    self?.handleAction(sessionId: sessionId, keystroke: keystroke)
+                }
+            )
+        )
+
+        configureAndShow(panel: panel, hostingView: hostingView, sessionId: sessionId)
+    }
 
     /// Show the prompt panel for an idle prompt (Claude waiting for user input).
     func showIdlePrompt(_ info: IdlePromptInfo) {
@@ -132,18 +147,26 @@ final class PromptPanelController {
         configureAndShow(panel: panel, hostingView: hostingView, sessionId: sessionId)
     }
 
-    /// Show the prompt panel for a permission request.
-    func showPrompt(_ info: PermissionPromptInfo) {
-        logger.info("Showing prompt panel: \(info.toolName) session=\(info.sessionId)")
+    /// Show the prompt panel for a multi-option question (AskUserQuestion).
+    func showMultiOptionPrompt(_ info: IdlePromptInfo, options: [ParsedOption]) {
+        logger.info("Showing multi-option panel: session=\(info.sessionId) options=\(options.count)")
         dismissPrompt(for: info.sessionId)
 
         let sessionId = info.sessionId
         let panel = makePanel()
         let hostingView = NSHostingView(
-            rootView: PromptPanelView(
+            rootView: MultiOptionPanelView(
                 info: info,
-                onAction: { [weak self] keystroke in
-                    self?.handleAction(sessionId: sessionId, keystroke: keystroke)
+                options: options,
+                onSelect: { [weak self] option in
+                    self?.handleMultiOptionSelect(sessionId: sessionId, option: option, allOptions: options)
+                },
+                onTextSubmit: { [weak self] text in
+                    // "Other" option selected + text typed
+                    self?.handleTextSubmit(sessionId: sessionId, text: text)
+                },
+                onDismiss: { [weak self] in
+                    self?.dismissPrompt(for: sessionId)
                 }
             )
         )
@@ -193,10 +216,11 @@ final class PromptPanelController {
         // Wrap in tracking view for hover detection + dimming overlay
         let trackingView = HoverTrackingView(frame: NSRect(x: 0, y: 0, width: width, height: height))
 
-        // Ensure transparent background so SwiftUI rounded corners render cleanly
+        // Clip hosting view to rounded corners so the NSVisualEffectView
+        // background doesn't leak at the corners
         hostingView.wantsLayer = true
         hostingView.layer?.backgroundColor = NSColor.clear.cgColor
-        hostingView.layer?.cornerRadius = 16
+        hostingView.layer?.cornerRadius = 14
         hostingView.layer?.masksToBounds = true
         hostingView.frame = trackingView.bounds
         hostingView.autoresizingMask = [.width, .height]
@@ -249,7 +273,6 @@ final class PromptPanelController {
         let screenFrame = screen.visibleFrame
 
         if isExpanded || panels.count <= 1 {
-            // Expanded: full vertical stacking with gaps, no scaling/dimming
             var y = screenFrame.maxY - Self.topMargin
             for entry in panels {
                 let frame = entry.panel.frame
@@ -259,7 +282,6 @@ final class PromptPanelController {
                 applyLayout(to: entry.panel, frame: newFrame, scale: 1.0, dimming: 0, alpha: 1.0, animated: animated)
             }
         } else {
-            // Collapsed: compact deck with scale + dimming for depth
             let topY = screenFrame.maxY - Self.topMargin
             for (index, entry) in panels.enumerated() {
                 let frame = entry.panel.frame
@@ -388,6 +410,22 @@ final class PromptPanelController {
     private func handleTextSubmit(sessionId: String, text: String) {
         logger.info("Panel text submit: '\(text.prefix(50))' session=\(sessionId)")
         onTextResponse?(sessionId, text)
+        dismissPrompt(for: sessionId)
+    }
+
+    private func handleMultiOptionSelect(sessionId: String, option: ParsedOption, allOptions: [ParsedOption]) {
+        logger.info("Multi-option select: option=\(option.index) '\(option.label)' session=\(sessionId)")
+
+        // Navigate with arrow keys: option 1 is default cursor position,
+        // so send (index - 1) down arrows + Enter
+        let downCount = option.index - 1
+        var sequence = ""
+        for _ in 0..<downCount {
+            sequence += "\u{1b}[B"  // Down arrow
+        }
+        sequence += "\r"  // Enter
+
+        onMultiOptionResponse?(sessionId, sequence)
         dismissPrompt(for: sessionId)
     }
 }

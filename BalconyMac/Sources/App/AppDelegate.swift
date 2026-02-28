@@ -65,7 +65,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
             self.idlePromptPTYMapping[info.sessionId] = ptyId
             self.hookEventHandler.registerPTYMapping(ptySessionId: ptyId, claudeSessionId: info.sessionId)
-            self.promptPanelController.showIdlePrompt(info)
+
+            if let detected = info.detectedOptions {
+                self.promptPanelController.showMultiOptionPrompt(info, options: detected.options)
+            } else {
+                self.promptPanelController.showIdlePrompt(info)
+            }
         }
         hookEventHandler.onForwardIdleToiOS = { [weak self] info in
             guard let self else { return }
@@ -88,15 +93,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         promptPanelController.onTextResponse = { [weak self] sessionId, text in
             guard let self else { return }
             Task {
-                // Use the pre-resolved PTY session ID (stored when the idle prompt was shown).
-                // This avoids re-resolving at response time when cwd info may already be gone.
-                let ptySessionId: String
-                if let cached = self.idlePromptPTYMapping.removeValue(forKey: sessionId) {
-                    ptySessionId = cached
-                } else {
-                    let cwd = self.hookEventHandler.pendingIdlePrompt(for: sessionId)?.cwd
-                    ptySessionId = await self.resolvePTYSessionId(claudeSessionId: sessionId, cwd: cwd)
-                }
+                let ptySessionId = self.resolveIdlePromptPTYSessionId(sessionId)
 
                 // Send the text first, then Enter separately after a brief delay.
                 // Writing them as one chunk causes Claude Code's TUI to treat it as
@@ -128,6 +125,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 // Send the decision back through the hook socket (unblocks the hook handler script)
                 await self.hookListener.sendPermissionResponse(sessionId: sessionId, decision: decision)
                 self.hookEventHandler.dismissPrompt(for: sessionId)
+            }
+        }
+
+        // Wire multi-option response: send arrow key sequence to PTY
+        promptPanelController.onMultiOptionResponse = { [weak self] sessionId, sequence in
+            guard let self else { return }
+            Task {
+                let ptySessionId = self.resolveIdlePromptPTYSessionId(sessionId)
+
+                if let data = sequence.data(using: .utf8) {
+                    await self.ptySessionManager.sendInput(sessionId: ptySessionId, data: data)
+                }
+                self.hookEventHandler.dismissIdlePrompt(for: sessionId)
             }
         }
 
@@ -218,6 +228,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Last resort: return the Claude session ID as-is
         logger.debug("Could not resolve PTY session for Claude session \(claudeSessionId)")
         return claudeSessionId
+    }
+
+    // MARK: - Idle Prompt PTY Resolution
+
+    /// Resolve the PTY session ID for an idle prompt response, using the cached mapping first.
+    private func resolveIdlePromptPTYSessionId(_ sessionId: String) -> String {
+        if let cached = idlePromptPTYMapping.removeValue(forKey: sessionId) {
+            return cached
+        }
+        return sessionId
     }
 
     // MARK: - Event Routing
