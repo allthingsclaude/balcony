@@ -1,10 +1,69 @@
 import SwiftUI
 import BalconyShared
 
+// MARK: - Panel Theme
+
+/// Terracotta color palette matching the Battery companion app.
+private enum PanelTheme {
+    /// Primary brand — terracotta orange (#D97757)
+    static let brand = Color(red: 0xD9/255.0, green: 0x77/255.0, blue: 0x57/255.0)
+    /// Darker brand variant (#B85A3A)
+    static let brandDark = Color(red: 0xB8/255.0, green: 0x5A/255.0, blue: 0x3A/255.0)
+    /// Lighter brand variant (#F0C4AE)
+    static let brandLight = Color(red: 0xF0/255.0, green: 0xC4/255.0, blue: 0xAE/255.0)
+    /// Very light brand variant (#F5D9CB)
+    static let brandLighter = Color(red: 0xF5/255.0, green: 0xD9/255.0, blue: 0xCB/255.0)
+
+    /// Panel background tint — translucent warm tone layered over vibrancy blur
+    static let backgroundTint = Color(nsColor: NSColor(
+        name: nil,
+        dynamicProvider: { appearance in
+            appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+                ? NSColor(red: 0x19/255.0, green: 0x18/255.0, blue: 0x14/255.0, alpha: 0.3)
+                : NSColor(red: 0xFA/255.0, green: 0xF8/255.0, blue: 0xF4/255.0, alpha: 0.5)
+        }
+    ))
+
+    /// Surface for buttons and input fields
+    static let surface = Color(nsColor: NSColor(
+        name: nil,
+        dynamicProvider: { appearance in
+            appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+                ? NSColor(white: 1.0, alpha: 0.07)
+                : NSColor(white: 0.0, alpha: 0.04)
+        }
+    ))
+
+    /// Divider color
+    static let divider = Color(nsColor: NSColor(
+        name: nil,
+        dynamicProvider: { appearance in
+            appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+                ? NSColor(white: 1.0, alpha: 0.08)
+                : NSColor(white: 0.0, alpha: 0.06)
+        }
+    ))
+
+    /// Primary text
+    static let textPrimary = Color.primary
+
+    /// Secondary text
+    static let textSecondary = Color.secondary
+
+    /// Tertiary/muted text
+    static let textTertiary = Color(nsColor: NSColor(
+        name: nil,
+        dynamicProvider: { appearance in
+            appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+                ? NSColor(white: 1.0, alpha: 0.3)
+                : NSColor(white: 0.0, alpha: 0.25)
+        }
+    ))
+}
+
 // MARK: - Vibrancy Background
 
-/// Frosted glass background matching native macOS notifications.
-/// Uses NSVisualEffectView with `.popover` material for the system blur.
+/// Frosted glass blur layered behind the translucent theme tint.
 private struct VibrancyBackground: NSViewRepresentable {
     func makeNSView(context: Context) -> NSVisualEffectView {
         let view = NSVisualEffectView()
@@ -20,67 +79,94 @@ private struct VibrancyBackground: NSViewRepresentable {
     func updateNSView(_ nsView: NSVisualEffectView, context: Context) {}
 }
 
+/// Combined panel background: vibrancy blur + translucent warm tint.
+private struct PanelBackground: View {
+    var body: some View {
+        VibrancyBackground()
+            .overlay(PanelTheme.backgroundTint)
+    }
+}
+
+// MARK: - Dismiss Button
+
+/// Small X button for dismissing panels.
+private struct DismissButton: View {
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "xmark")
+                .font(.system(size: 8, weight: .bold))
+                .foregroundStyle(PanelTheme.textTertiary)
+                .frame(width: 18, height: 18)
+                .background(PanelTheme.surface)
+                .clipShape(Circle())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
 // MARK: - Permission Prompt Panel
 
-/// Notification-style view for permission requests, styled like native macOS notifications.
+/// Notification-style view for permission requests.
 struct PromptPanelView: View {
     let info: PermissionPromptInfo
     let onAction: (String) -> Void
+    let onDismiss: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Header: app icon + title + subtitle
+            // Header
             HStack(spacing: 10) {
-                Image(nsImage: NSApp.applicationIconImage)
-                    .resizable()
-                    .frame(width: 20, height: 20)
+                Circle()
+                    .fill(PanelTheme.brand.opacity(0.15))
+                    .frame(width: 24, height: 24)
+                    .overlay {
+                        Image(systemName: toolIconName)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(PanelTheme.brand)
+                    }
 
                 VStack(alignment: .leading, spacing: 1) {
-                    Text("Balcony")
+                    Text(info.toolName)
                         .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(PanelTheme.textPrimary)
 
                     if let projectName {
                         Text(projectName)
                             .font(.system(size: 11))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(PanelTheme.textSecondary)
                     }
                 }
 
                 Spacer()
 
                 riskBadge
+
+                DismissButton(action: onDismiss)
             }
             .padding(.horizontal, 14)
             .padding(.top, 12)
             .padding(.bottom, 8)
 
-            Divider()
+            PanelTheme.divider
+                .frame(height: 0.5)
                 .padding(.horizontal, 14)
 
-            // Tool name + content
-            VStack(alignment: .leading, spacing: 6) {
-                Label {
-                    Text(info.toolName)
-                        .font(.system(size: 13, weight: .medium))
-                } icon: {
-                    Image(systemName: toolIconName)
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-                }
+            // Content preview
+            if let content = contentPreview {
+                Text(content)
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(PanelTheme.textSecondary)
+                    .lineLimit(3)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
 
-                if let content = contentPreview {
-                    Text(content)
-                        .font(.system(size: 11, design: .monospaced))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(3)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
+                PanelTheme.divider
+                    .frame(height: 0.5)
+                    .padding(.horizontal, 14)
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
-
-            Divider()
-                .padding(.horizontal, 14)
 
             // Action buttons
             HStack(spacing: 6) {
@@ -92,7 +178,7 @@ struct PromptPanelView: View {
             .padding(.vertical, 10)
         }
         .frame(width: 340)
-        .background(VibrancyBackground())
+        .background(PanelBackground())
         .clipShape(RoundedRectangle(cornerRadius: 14))
         .shadow(color: .black.opacity(0.2), radius: 16, y: 6)
         .shadow(color: .black.opacity(0.08), radius: 2, y: 1)
@@ -160,7 +246,7 @@ struct PromptPanelView: View {
     private var riskColor: Color {
         switch info.riskLevel {
         case .normal: return .green
-        case .elevated: return .orange
+        case .elevated: return PanelTheme.brand
         case .destructive: return .red
         }
     }
@@ -176,8 +262,7 @@ struct PromptPanelView: View {
 
 // MARK: - Idle Prompt Panel
 
-/// Notification-style view for idle prompts (Claude waiting for input),
-/// styled like native macOS notifications.
+/// Notification-style view for idle prompts (Claude waiting for input).
 struct IdlePromptPanelView: View {
     let info: IdlePromptInfo
     let onSubmit: (String) -> Void
@@ -188,52 +273,52 @@ struct IdlePromptPanelView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Header: app icon + title + dismiss
+            // Header
             HStack(spacing: 10) {
-                Image(nsImage: NSApp.applicationIconImage)
-                    .resizable()
-                    .frame(width: 20, height: 20)
+                Circle()
+                    .fill(PanelTheme.brand.opacity(0.15))
+                    .frame(width: 24, height: 24)
+                    .overlay {
+                        Image(systemName: "bubble.left.and.text.bubble.right")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(PanelTheme.brand)
+                    }
 
                 VStack(alignment: .leading, spacing: 1) {
                     Text("Claude is waiting")
                         .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(PanelTheme.textPrimary)
 
                     if let projectName {
                         Text(projectName)
                             .font(.system(size: 11))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(PanelTheme.textSecondary)
                     }
                 }
 
                 Spacer()
 
-                Button(action: onDismiss) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 8, weight: .bold))
-                        .foregroundStyle(.tertiary)
-                        .frame(width: 18, height: 18)
-                        .background(.quaternary)
-                        .clipShape(Circle())
-                }
-                .buttonStyle(.plain)
+                DismissButton(action: onDismiss)
             }
             .padding(.horizontal, 14)
             .padding(.top, 12)
             .padding(.bottom, 8)
 
-            Divider()
+            PanelTheme.divider
+                .frame(height: 0.5)
                 .padding(.horizontal, 14)
 
             // Claude's message
             Text(displayMessage)
                 .font(.system(size: 12))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(PanelTheme.textSecondary)
                 .lineLimit(4)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
 
-            Divider()
+            PanelTheme.divider
+                .frame(height: 0.5)
                 .padding(.horizontal, 14)
 
             // Text input row
@@ -241,17 +326,18 @@ struct IdlePromptPanelView: View {
                 TextField("Type a response...", text: $responseText)
                     .textFieldStyle(.plain)
                     .font(.system(size: 12))
+                    .foregroundStyle(PanelTheme.textPrimary)
                     .focused($textFieldFocused)
                     .onSubmit { submitResponse() }
                     .padding(.horizontal, 8)
                     .padding(.vertical, 6)
-                    .background(.quaternary)
+                    .background(PanelTheme.surface)
                     .clipShape(RoundedRectangle(cornerRadius: 6))
 
                 Button(action: submitResponse) {
                     Image(systemName: "arrow.up.circle.fill")
                         .font(.system(size: 20))
-                        .foregroundStyle(responseText.isEmpty ? Color.secondary : Color.accentColor)
+                        .foregroundStyle(responseText.isEmpty ? PanelTheme.textTertiary : PanelTheme.brand)
                 }
                 .buttonStyle(.plain)
                 .disabled(responseText.isEmpty)
@@ -260,7 +346,7 @@ struct IdlePromptPanelView: View {
             .padding(.vertical, 10)
         }
         .frame(width: 340)
-        .background(VibrancyBackground())
+        .background(PanelBackground())
         .clipShape(RoundedRectangle(cornerRadius: 14))
         .shadow(color: .black.opacity(0.2), radius: 16, y: 6)
         .shadow(color: .black.opacity(0.08), radius: 2, y: 1)
@@ -300,53 +386,53 @@ struct MultiOptionPanelView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Header: app icon + title + dismiss
+            // Header
             HStack(spacing: 10) {
-                Image(nsImage: NSApp.applicationIconImage)
-                    .resizable()
-                    .frame(width: 20, height: 20)
+                Circle()
+                    .fill(PanelTheme.brand.opacity(0.15))
+                    .frame(width: 24, height: 24)
+                    .overlay {
+                        Image(systemName: "questionmark.bubble")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(PanelTheme.brand)
+                    }
 
                 VStack(alignment: .leading, spacing: 1) {
                     Text("Claude has a question")
                         .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(PanelTheme.textPrimary)
 
                     if let projectName {
                         Text(projectName)
                             .font(.system(size: 11))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(PanelTheme.textSecondary)
                     }
                 }
 
                 Spacer()
 
-                Button(action: onDismiss) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 8, weight: .bold))
-                        .foregroundStyle(.tertiary)
-                        .frame(width: 18, height: 18)
-                        .background(.quaternary)
-                        .clipShape(Circle())
-                }
-                .buttonStyle(.plain)
+                DismissButton(action: onDismiss)
             }
             .padding(.horizontal, 14)
             .padding(.top, 12)
             .padding(.bottom, 8)
 
-            Divider()
+            PanelTheme.divider
+                .frame(height: 0.5)
                 .padding(.horizontal, 14)
 
             // Question text
             if let detected = info.detectedOptions {
                 Text(detected.question)
                     .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(PanelTheme.textSecondary)
                     .lineLimit(3)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
 
-                Divider()
+                PanelTheme.divider
+                    .frame(height: 0.5)
                     .padding(.horizontal, 14)
             }
 
@@ -354,23 +440,23 @@ struct MultiOptionPanelView: View {
             VStack(spacing: 4) {
                 ForEach(options, id: \.index) { option in
                     if option.isOther {
-                        // "Other" button toggles text input
                         if showOtherInput {
                             HStack(spacing: 8) {
                                 TextField("Type your response...", text: $otherText)
                                     .textFieldStyle(.plain)
                                     .font(.system(size: 12))
+                                    .foregroundStyle(PanelTheme.textPrimary)
                                     .focused($otherFieldFocused)
                                     .onSubmit { submitOther(option: option) }
                                     .padding(.horizontal, 8)
                                     .padding(.vertical, 6)
-                                    .background(.quaternary)
+                                    .background(PanelTheme.surface)
                                     .clipShape(RoundedRectangle(cornerRadius: 6))
 
                                 Button(action: { submitOther(option: option) }) {
                                     Image(systemName: "arrow.up.circle.fill")
                                         .font(.system(size: 20))
-                                        .foregroundStyle(otherText.isEmpty ? Color.secondary : Color.accentColor)
+                                        .foregroundStyle(otherText.isEmpty ? PanelTheme.textTertiary : PanelTheme.brand)
                                 }
                                 .buttonStyle(.plain)
                                 .disabled(otherText.isEmpty)
@@ -383,14 +469,15 @@ struct MultiOptionPanelView: View {
                                 HStack {
                                     Text(option.label)
                                         .font(.system(size: 12))
+                                        .foregroundStyle(PanelTheme.textPrimary)
                                     Spacer()
                                     Image(systemName: "text.cursor")
                                         .font(.system(size: 10))
-                                        .foregroundStyle(.tertiary)
+                                        .foregroundStyle(PanelTheme.textTertiary)
                                 }
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 7)
-                                .background(.quaternary)
+                                .background(PanelTheme.surface)
                                 .clipShape(RoundedRectangle(cornerRadius: 6))
                             }
                             .buttonStyle(.plain)
@@ -400,14 +487,15 @@ struct MultiOptionPanelView: View {
                             HStack {
                                 Text(option.label)
                                     .font(.system(size: 12))
+                                    .foregroundStyle(PanelTheme.textPrimary)
                                 Spacer()
                                 Image(systemName: "chevron.right")
                                     .font(.system(size: 9, weight: .semibold))
-                                    .foregroundStyle(.tertiary)
+                                    .foregroundStyle(PanelTheme.textTertiary)
                             }
                             .padding(.horizontal, 10)
                             .padding(.vertical, 7)
-                            .background(.quaternary)
+                            .background(PanelTheme.surface)
                             .clipShape(RoundedRectangle(cornerRadius: 6))
                         }
                         .buttonStyle(.plain)
@@ -418,7 +506,7 @@ struct MultiOptionPanelView: View {
             .padding(.vertical, 10)
         }
         .frame(width: 340)
-        .background(VibrancyBackground())
+        .background(PanelBackground())
         .clipShape(RoundedRectangle(cornerRadius: 14))
         .shadow(color: .black.opacity(0.2), radius: 16, y: 6)
         .shadow(color: .black.opacity(0.08), radius: 2, y: 1)
@@ -432,9 +520,7 @@ struct MultiOptionPanelView: View {
 
     private func submitOther(option: ParsedOption) {
         guard !otherText.isEmpty else { return }
-        // Select "Other" option first (navigate to it), then send the text
         onSelect(option)
-        // Small delay to let the option selection register, then type text
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
             onTextSubmit(otherText)
         }
@@ -443,7 +529,7 @@ struct MultiOptionPanelView: View {
 
 // MARK: - Panel Button
 
-/// Styled button matching macOS notification action buttons.
+/// Styled button using the terracotta theme.
 private struct PanelButton: View {
     let title: String
     let role: ButtonRole
@@ -478,15 +564,15 @@ private struct PanelButton: View {
         switch role {
         case .primary: return .white
         case .destructive: return .red
-        case .default: return .primary
+        case .default: return PanelTheme.textPrimary
         }
     }
 
-    private var backgroundColor: some ShapeStyle {
+    private var backgroundColor: Color {
         switch role {
-        case .primary: return AnyShapeStyle(Color.accentColor)
-        case .destructive: return AnyShapeStyle(.quaternary)
-        case .default: return AnyShapeStyle(.quaternary)
+        case .primary: return PanelTheme.brand
+        case .destructive: return PanelTheme.surface
+        case .default: return PanelTheme.surface
         }
     }
 }

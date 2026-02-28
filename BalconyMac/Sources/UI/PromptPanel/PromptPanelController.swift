@@ -118,6 +118,9 @@ final class PromptPanelController {
                 info: info,
                 onAction: { [weak self] keystroke in
                     self?.handleAction(sessionId: sessionId, keystroke: keystroke)
+                },
+                onDismiss: { [weak self] in
+                    self?.dismissPrompt(for: sessionId)
                 }
             )
         )
