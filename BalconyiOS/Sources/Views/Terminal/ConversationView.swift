@@ -600,7 +600,8 @@ struct ConversationView: View {
                 // Absorb any preceding empty lines so the gap is always exactly
                 // one spacer (18pt), regardless of how many empty terminal lines
                 // Claude Code inserts — their count changes as the buffer grows.
-                if Self.lineHasMarker(line) {
+                let needsSpacer = Self.lineHasMarker(line) || line.markerRole == .spinner
+                if needsSpacer {
                     while case .line(let prev) = blocks.last,
                           Self.isEmptyLine(prev) {
                         blocks.removeLast()
