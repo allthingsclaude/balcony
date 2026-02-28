@@ -260,6 +260,12 @@ final class ConnectionManager: ObservableObject {
                     await ptySessionManager.sendInput(sessionId: input.sessionId, data: data)
                 }
                 logger.info("Delivered input to PTY for session \(input.sessionId)")
+
+                // Dismiss Mac panels — iOS answered the prompt so the local panel is stale.
+                // Resolve PTY session ID to Claude session IDs for prompt lookup.
+                await MainActor.run {
+                    hookEventHandler?.handleStdinActivity(ptySessionId: input.sessionId)
+                }
             } catch {
                 logger.error("Failed to deliver user input: \(error.localizedDescription)")
             }
