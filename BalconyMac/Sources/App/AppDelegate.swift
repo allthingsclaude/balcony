@@ -23,6 +23,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         logger.info("BalconyMac launched")
 
+        // Ignore SIGPIPE so writing to a closed hook socket returns EPIPE
+        // instead of crashing the process (e.g., stale permission panel answered
+        // after the hook script already exited).
+        signal(SIGPIPE, SIG_IGN)
+
         // Wire up ConnectionManager to AppDelegate for session picker requests
         connectionManager.appDelegate = self
         connectionManager.hookEventHandler = hookEventHandler
@@ -112,6 +117,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Wire panel response: send decision back through the hook connection
         promptPanelController.onResponse = { [weak self] sessionId, keystroke in
             guard let self else { return }
+
+            // If the prompt is no longer pending (already answered elsewhere), just dismiss the panel.
+            guard self.hookEventHandler.hasPendingPrompt(for: sessionId) else {
+                self.logger.debug("Ignoring stale panel response for session \(sessionId)")
+                return
+            }
+
             Task {
                 // Map keystroke to hook decision
                 let decision: String
