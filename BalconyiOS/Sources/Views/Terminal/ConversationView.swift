@@ -264,8 +264,9 @@ struct ConversationView: View {
                         onComplete: { answers in onSubmitAskUserQuestion?(answers) },
                         onDismiss: { onDismissAskUserQuestion?() }
                     )
-                    .padding(.bottom, BalconyTheme.spacingSM)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .padding(.horizontal, BalconyTheme.spacingSM)
+                    .padding(.bottom, BalconyTheme.spacingMD)
+                    .transition(.menuPanel)
                 }
                 // Interactive prompt overlay — takes priority over slash/file menus
                 else if let prompt = activePrompt, !promptJustAnswered {
@@ -594,6 +595,62 @@ struct ConversationView: View {
         line.markerRole == .user || line.markerRole == .assistant
     }
 
+    /// Lines to display, with AskUserQuestion TUI stripped when the native card is showing.
+    private var displayLines: [TerminalLine] {
+        guard pendingAskUserQuestion != nil else { return lines }
+        return Self.stripAskUserQuestionTUI(from: lines)
+    }
+
+    /// Strip the AskUserQuestion TUI chrome from terminal lines.
+    /// Detects the block by scanning for the navigation hint line at the bottom
+    /// (`Enter to select` / `Tab/Arrow keys`) and the tab header at the top.
+    private static func stripAskUserQuestionTUI(from lines: [TerminalLine]) -> [TerminalLine] {
+        // Find the navigation hint line near the bottom (distinctive AskUserQuestion TUI marker)
+        let searchRange = max(0, lines.count - 40)..<lines.count
+        var hintLineIdx: Int?
+        for i in searchRange.reversed() {
+            let text = lines[i].segments.map(\.text).joined()
+            if text.contains("Enter to select") || text.contains("Tab/Arrow keys") || text.contains("Esc to cancel") {
+                hintLineIdx = i
+                break
+            }
+        }
+
+        guard let bottomIdx = hintLineIdx else { return lines }
+
+        // Scan backward to find the start of the TUI block.
+        // Look for the tab header line (contains □ or ← or Submit →) or a horizontal rule (─).
+        var topIdx = bottomIdx
+        for i in stride(from: bottomIdx - 1, through: max(0, bottomIdx - 30), by: -1) {
+            let text = lines[i].segments.map(\.text).joined()
+            let trimmed = text.trimmingCharacters(in: .whitespaces)
+
+            // The tab header line or a horizontal rule above the TUI
+            if trimmed.contains("□") || trimmed.contains("←") || trimmed.contains("Submit") {
+                topIdx = i
+                // Check if there's a horizontal rule line just above
+                if i > 0 {
+                    let above = lines[i - 1].segments.map(\.text).joined().trimmingCharacters(in: .whitespaces)
+                    if above.allSatisfy({ $0 == "─" || $0 == " " || $0 == "_" }) && !above.isEmpty {
+                        topIdx = i - 1
+                    }
+                }
+                break
+            }
+            topIdx = i
+        }
+
+        // Strip from topIdx through the end (includes trailing empty lines)
+        var result = Array(lines.prefix(topIdx))
+        // Trim trailing empty lines
+        while let last = result.last,
+              last.segments.isEmpty || last.segments.allSatisfy({ $0.text.trimmingCharacters(in: .whitespaces).isEmpty }) {
+            result.removeLast()
+            if result.isEmpty { break }
+        }
+        return result
+    }
+
     /// Group consecutive table rows so they share a single horizontal scroll view.
     /// Inserts fixed-height spacers before message-start lines so that all items
     /// in the LazyVStack have predictable heights (prevents layout jumping).
@@ -601,7 +658,7 @@ struct ConversationView: View {
         var blocks: [ConversationBlock] = []
         var tableBuffer: [TerminalLine] = []
 
-        for line in lines {
+        for line in displayLines {
             if line.isTableRow {
                 tableBuffer.append(line)
             } else {
