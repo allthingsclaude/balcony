@@ -166,6 +166,75 @@ actor SessionFileReader {
         return firstLine
     }
 
+    // MARK: - Message Counting
+
+    /// Count user and assistant messages in the most recently active JSONL file for a project.
+    func countMessages(projectPath: String) -> Int {
+        let hash = hashProjectPath(projectPath)
+        let dir = claudeProjectsPath().appendingPathComponent(hash)
+
+        guard let files = try? FileManager.default.contentsOfDirectory(
+            at: dir,
+            includingPropertiesForKeys: [.contentModificationDateKey],
+            options: [.skipsHiddenFiles]
+        ) else { return 0 }
+
+        // Find most recently modified non-agent JSONL file
+        var latestURL: URL?
+        var latestDate = Date.distantPast
+        for file in files where file.pathExtension == "jsonl" && !file.lastPathComponent.hasPrefix("agent-") {
+            if let date = try? file.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate,
+               date > latestDate {
+                latestDate = date
+                latestURL = file
+            }
+        }
+
+        guard let url = latestURL,
+              let data = try? Data(contentsOf: url) else { return 0 }
+
+        // Fast byte scan: count lines containing "type":"user" or "type":"assistant"
+        let userTag = Array("\"type\":\"user\"".utf8)
+        let assistantTag = Array("\"type\":\"assistant\"".utf8)
+        var count = 0
+
+        data.withUnsafeBytes { buffer in
+            guard let base = buffer.baseAddress?.assumingMemoryBound(to: UInt8.self) else { return }
+            let total = buffer.count
+            var lineStart = 0
+
+            for i in 0...total {
+                let isEnd = (i == total) || (base[i] == UInt8(ascii: "\n"))
+                guard isEnd else { continue }
+                let lineLen = i - lineStart
+                if lineLen > 10 {
+                    if scanForPattern(base + lineStart, lineLen, userTag) ||
+                       scanForPattern(base + lineStart, lineLen, assistantTag) {
+                        count += 1
+                    }
+                }
+                lineStart = i + 1
+            }
+        }
+
+        return count
+    }
+
+    /// Scan a byte range for a pattern (simple linear search).
+    private func scanForPattern(_ base: UnsafePointer<UInt8>, _ len: Int, _ pattern: [UInt8]) -> Bool {
+        let patLen = pattern.count
+        guard len >= patLen else { return false }
+        let limit = len - patLen
+        for i in 0...limit {
+            var match = true
+            for j in 0..<patLen {
+                if base[i + j] != pattern[j] { match = false; break }
+            }
+            if match { return true }
+        }
+        return false
+    }
+
     // MARK: - Path Helpers
 
     private func claudeProjectsPath() -> URL {

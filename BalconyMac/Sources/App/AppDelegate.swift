@@ -20,6 +20,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// even after the idle prompt info (with cwd) has been dismissed.
     private var idlePromptPTYMapping: [String: String] = [:]
 
+    /// Timer that periodically refreshes session message counts.
+    private var sessionRefreshTimer: Timer?
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         logger.info("BalconyMac launched")
 
@@ -273,10 +276,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 logger.error("Failed to start connection services: \(error.localizedDescription)")
             }
         }
+
+        // Periodically refresh session message counts
+        startSessionRefreshTimer()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
         logger.info("BalconyMac terminating")
+        sessionRefreshTimer?.invalidate()
 
         Task {
             try? await connectionManager.stop()
@@ -335,12 +342,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             hookEventHandler.sessionEnded(sessionId)
         }
 
-        // Update UI model
-        let sessions = await ptySessionManager.getActiveSessions()
-        sessionListModel.sessions = sessions
+        // Update UI model with enriched session data
+        await refreshSessionList()
 
         // Forward to connected iOS clients
         await connectionManager.forwardSessionEvent(event)
+    }
+
+    /// Refresh session list with message counts from JSONL files.
+    @MainActor
+    private func refreshSessionList() async {
+        var sessions = await ptySessionManager.getActiveSessions()
+        for i in sessions.indices {
+            let count = await sessionFileReader.countMessages(projectPath: sessions[i].projectPath)
+            sessions[i].messageCount = count
+        }
+        sessionListModel.sessions = sessions
+    }
+
+    /// Start a timer that periodically refreshes session message counts.
+    private func startSessionRefreshTimer() {
+        sessionRefreshTimer?.invalidate()
+        sessionRefreshTimer = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            Task { @MainActor in
+                await self.refreshSessionList()
+            }
+        }
     }
 
     // MARK: - AskUserQuestion Response (from iOS)

@@ -97,6 +97,14 @@ final class ConnectionManager: ObservableObject {
         logger.info("All connection services stopped")
     }
 
+    // MARK: - Device Management
+
+    /// Disconnect a device by its ID and remove it from the list.
+    func disconnectDevice(_ deviceId: String) async {
+        await webSocketServer.disconnectClient(deviceId: deviceId)
+        connectedDevices.removeAll { $0.id == deviceId }
+    }
+
     // MARK: - PTY Data Forwarding
 
     /// Forward raw PTY output from a CLI session to WebSocket subscribers.

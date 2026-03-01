@@ -138,6 +138,16 @@ actor WebSocketServer {
         clients.values.filter { $0.isSubscribed(to: sessionId) }
     }
 
+    /// Disconnect a client by its device ID.
+    func disconnectClient(deviceId: String) {
+        guard let client = clients.values.first(where: { $0.deviceInfo?.id == deviceId }) else {
+            logger.debug("No client found for device \(deviceId)")
+            return
+        }
+        logger.info("Disconnecting client: \(deviceId)")
+        client.channel.close(promise: nil)
+    }
+
     // MARK: - Sending Messages
 
     /// Send a BalconyMessage to a specific client.
