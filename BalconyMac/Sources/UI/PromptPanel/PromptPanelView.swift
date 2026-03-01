@@ -246,9 +246,9 @@ struct PromptPanelView: View {
 
     private var riskColor: Color {
         switch info.riskLevel {
-        case .normal: return .green
+        case .normal: return PanelTheme.brandLight
         case .elevated: return PanelTheme.brand
-        case .destructive: return .red
+        case .destructive: return PanelTheme.brandDark
         }
     }
 
@@ -789,7 +789,7 @@ private struct PanelButton: View {
     private var foregroundColor: Color {
         switch role {
         case .primary: return .white
-        case .destructive: return .red
+        case .destructive: return PanelTheme.brandDark
         case .default: return PanelTheme.textPrimary
         }
     }
