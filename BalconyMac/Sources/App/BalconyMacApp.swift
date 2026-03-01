@@ -11,8 +11,7 @@ struct BalconyMacApp: App {
                 .environmentObject(appDelegate.connectionManager)
                 .environmentObject(appDelegate.sessionListModel)
         } label: {
-            let iconName = appDelegate.connectionManager.statusIconName
-            Image(systemName: iconName)
+            Image("MenuBarIcon")
         }
         .menuBarExtraStyle(.window)
 
