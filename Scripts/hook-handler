@@ -85,8 +85,8 @@ try:
     debug_fd.write('[python] Waiting for response...\n')
     debug_fd.flush()
 
-    # Wait for response with timeout
-    s.settimeout(30.0)
+    # Wait indefinitely — Claude Code is blocked until the user responds
+    s.settimeout(None)
     response = b''
     while True:
         try:
