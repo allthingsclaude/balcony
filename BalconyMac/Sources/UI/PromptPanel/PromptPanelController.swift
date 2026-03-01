@@ -89,6 +89,14 @@ final class PromptPanelController {
     /// Called when the user selects a multi-option choice. Passes (sessionId, arrow key sequence).
     var onMultiOptionResponse: ((String, String) -> Void)?
 
+    /// Called when the user selects "Other" in a multi-option prompt and types text.
+    /// Passes (sessionId, arrow key sequence to navigate to Other, typed text).
+    var onMultiOptionOtherResponse: ((String, String, String) -> Void)?
+
+    /// Called when all questions in an AskUserQuestion are answered.
+    /// Passes (sessionId, info with original toolInput, answers dict: [questionText: answerLabel]).
+    var onAskUserQuestionSubmit: ((String, AskUserQuestionInfo, [String: String]) -> Void)?
+
     // MARK: - Layout
 
     private static let rightMargin: CGFloat = 16
@@ -165,8 +173,30 @@ final class PromptPanelController {
                     self?.handleMultiOptionSelect(sessionId: sessionId, option: option, allOptions: options)
                 },
                 onTextSubmit: { [weak self] text in
-                    // "Other" option selected + text typed
-                    self?.handleTextSubmit(sessionId: sessionId, text: text)
+                    // "Other" option: navigate to it, activate, type text
+                    self?.handleMultiOptionOther(sessionId: sessionId, text: text, options: options)
+                },
+                onDismiss: { [weak self] in
+                    self?.dismissPrompt(for: sessionId)
+                }
+            )
+        )
+
+        configureAndShow(panel: panel, hostingView: hostingView, sessionId: sessionId)
+    }
+
+    /// Show the prompt panel for an AskUserQuestion tool call with structured options.
+    func showAskUserQuestion(_ info: AskUserQuestionInfo) {
+        logger.info("Showing AskUserQuestion panel: session=\(info.sessionId) questions=\(info.questions.count)")
+        dismissPrompt(for: info.sessionId)
+
+        let sessionId = info.sessionId
+        let panel = makePanel()
+        let hostingView = NSHostingView(
+            rootView: AskUserQuestionPanelView(
+                info: info,
+                onComplete: { [weak self] answers in
+                    self?.handleAskUserQuestionComplete(sessionId: sessionId, info: info, answers: answers)
                 },
                 onDismiss: { [weak self] in
                     self?.dismissPrompt(for: sessionId)
@@ -429,6 +459,50 @@ final class PromptPanelController {
         sequence += "\r"  // Enter
 
         onMultiOptionResponse?(sessionId, sequence)
+        dismissPrompt(for: sessionId)
+    }
+
+    private func handleMultiOptionOther(sessionId: String, text: String, options: [ParsedOption]) {
+        guard let otherOption = options.first(where: { $0.isOther }) else {
+            // No "Other" option found — fall back to plain text submit
+            handleTextSubmit(sessionId: sessionId, text: text)
+            return
+        }
+
+        logger.info("Multi-option 'Other': option=\(otherOption.index) text='\(text.prefix(50))' session=\(sessionId)")
+
+        // Build navigation sequence to the "Other" option
+        let downCount = otherOption.index - 1
+        var sequence = ""
+        for _ in 0..<downCount {
+            sequence += "\u{1b}[B"  // Down arrow
+        }
+        sequence += "\r"  // Enter to activate "Other" text input
+
+        onMultiOptionOtherResponse?(sessionId, sequence, text)
+        dismissPrompt(for: sessionId)
+    }
+
+    // MARK: - Private — AskUserQuestion Handlers
+
+    /// Build the answers dict from the view's collected answers and fire the submit callback.
+    private func handleAskUserQuestionComplete(sessionId: String, info: AskUserQuestionInfo, answers: [AskUserQuestionAnswer]) {
+        logger.info("AskUserQuestion complete: \(answers.count) answer(s) session=\(sessionId)")
+
+        // Build answers dict: question text → selected option label (or typed text)
+        var answersDict: [String: String] = [:]
+        for (i, answer) in answers.enumerated() {
+            guard i < info.questions.count else { break }
+            let questionText = info.questions[i].question
+            switch answer {
+            case .option(let label):
+                answersDict[questionText] = label
+            case .other(let text):
+                answersDict[questionText] = text
+            }
+        }
+
+        onAskUserQuestionSubmit?(sessionId, info, answersDict)
         dismissPrompt(for: sessionId)
     }
 }

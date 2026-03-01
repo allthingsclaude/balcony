@@ -81,6 +81,9 @@ final class HookEventHandler: ObservableObject {
     /// Called to forward idle prompt events to iOS via WebSocket.
     var onForwardIdleToiOS: ((IdlePromptInfo) -> Void)?
 
+    /// Called when an AskUserQuestion tool is detected (rich multi-option prompt).
+    var onAskUserQuestionReceived: ((AskUserQuestionInfo) -> Void)?
+
     // MARK: - Configuration
 
     /// Threshold of new PTY output bytes that indicates the prompt was answered
@@ -139,6 +142,18 @@ final class HookEventHandler: ObservableObject {
         var sq = sessionQueues[sessionId] ?? SessionPromptQueue()
 
         if sq.isIdle {
+            // Check for AskUserQuestion — route to rich panel instead of Deny/Always/Allow
+            if let askInfo = AskUserQuestionInfo.from(event) {
+                logger.info("Detected AskUserQuestion with \(askInfo.questions.count) question(s) for session \(sessionId)")
+                // Track as active permission prompt for lifecycle management
+                sq.state = .active(promptInfo)
+                sq.outputSincePrompt = 0
+                sessionQueues[sessionId] = sq
+                pendingPrompts[sessionId] = promptInfo
+                onAskUserQuestionReceived?(askInfo)
+                return
+            }
+
             activatePrompt(promptInfo, in: &sq)
             sessionQueues[sessionId] = sq
         } else {

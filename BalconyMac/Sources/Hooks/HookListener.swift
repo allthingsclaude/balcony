@@ -121,20 +121,28 @@ actor HookListener {
 
     /// Send a permission decision response back to the hook handler script.
     /// This writes JSON to the open connection and closes it, unblocking the script.
-    func sendPermissionResponse(sessionId: String, decision: String) {
+    ///
+    /// For AskUserQuestion, pass `updatedInput` with the original questions and an `answers`
+    /// dict mapping question text to selected option labels.
+    func sendPermissionResponse(sessionId: String, decision: String, updatedInput: [String: Any]? = nil) {
         guard let fd = pendingResponseFDs.removeValue(forKey: sessionId) else {
             logger.warning("No pending hook connection for session \(sessionId) to send response")
             return
         }
 
-        // Claude Code expects this exact structure from PermissionRequest hook stdout:
+        // Claude Code expects this structure from PermissionRequest hook stdout:
         // { "hookSpecificOutput": { "hookEventName": "PermissionRequest", "decision": { "behavior": "allow"|"deny" } } }
+        // For AskUserQuestion, include updatedInput with answers inside the decision:
+        // { ..., "decision": { "behavior": "allow", "updatedInput": { "questions": [...], "answers": {...} } } }
+        var decisionDict: [String: Any] = ["behavior": decision]
+        if let updatedInput {
+            decisionDict["updatedInput"] = updatedInput
+        }
+
         let response: [String: Any] = [
             "hookSpecificOutput": [
                 "hookEventName": "PermissionRequest",
-                "decision": [
-                    "behavior": decision
-                ]
+                "decision": decisionDict
             ]
         ]
         guard let jsonData = try? JSONSerialization.data(withJSONObject: response) else {

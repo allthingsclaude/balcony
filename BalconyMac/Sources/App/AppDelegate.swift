@@ -47,6 +47,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 await self.connectionManager.forwardHookEvent(promptInfo)
             }
         }
+        // Wire AskUserQuestion: show rich panel with actual question and options
+        hookEventHandler.onAskUserQuestionReceived = { [weak self] askInfo in
+            guard let self else { return }
+            // Register PTY mapping if available
+            if let ptyId = askInfo.ptySessionId {
+                self.hookEventHandler.registerPTYMapping(ptySessionId: ptyId, claudeSessionId: askInfo.sessionId)
+            }
+            self.promptPanelController.showAskUserQuestion(askInfo)
+        }
+
         hookEventHandler.onPromptDismissed = { [weak self] sessionId in
             guard let self else { return }
             self.promptPanelController.dismissPrompt(for: sessionId)
@@ -150,6 +160,52 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     await self.ptySessionManager.sendInput(sessionId: ptySessionId, data: data)
                 }
                 self.hookEventHandler.dismissIdlePrompt(for: sessionId)
+            }
+        }
+
+        // Wire multi-option "Other" response: navigate to Other option, activate it, type text
+        promptPanelController.onMultiOptionOtherResponse = { [weak self] sessionId, arrowSequence, text in
+            guard let self else { return }
+            Task {
+                let ptySessionId = self.resolveIdlePromptPTYSessionId(sessionId)
+
+                // Send arrow keys to navigate to "Other" + Enter to activate text input
+                if let navData = arrowSequence.data(using: .utf8) {
+                    await self.ptySessionManager.sendInput(sessionId: ptySessionId, data: navData)
+                }
+                // Wait for the TUI to switch to text input mode
+                try? await Task.sleep(for: .milliseconds(100))
+
+                // Type the text
+                if let textData = text.data(using: .utf8) {
+                    await self.ptySessionManager.sendInput(sessionId: ptySessionId, data: textData)
+                }
+                // Brief delay before submitting
+                try? await Task.sleep(for: .milliseconds(50))
+
+                // Press Enter to submit
+                if let enterData = Data([0x0D]) as Data? {
+                    await self.ptySessionManager.sendInput(sessionId: ptySessionId, data: enterData)
+                }
+                self.hookEventHandler.dismissIdlePrompt(for: sessionId)
+            }
+        }
+
+        // Wire AskUserQuestion completion: send answers through hook response via updatedInput
+        promptPanelController.onAskUserQuestionSubmit = { [weak self] sessionId, info, answers in
+            guard let self else { return }
+            Task {
+                // Build updatedInput: original toolInput + answers dict
+                var updatedInput: [String: Any] = info.toolInput?.mapValues { $0.value } ?? [:]
+                updatedInput["answers"] = answers
+
+                // Send approval with the answers included in the response
+                await self.hookListener.sendPermissionResponse(
+                    sessionId: sessionId,
+                    decision: "allow",
+                    updatedInput: updatedInput
+                )
+                self.hookEventHandler.dismissPrompt(for: sessionId)
             }
         }
 

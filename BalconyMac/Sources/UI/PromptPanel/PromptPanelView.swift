@@ -479,6 +479,7 @@ struct MultiOptionPanelView: View {
                                 }
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 7)
+                                .contentShape(Rectangle())
                                 .background(PanelTheme.surface)
                                 .clipShape(RoundedRectangle(cornerRadius: 6))
                             }
@@ -497,6 +498,7 @@ struct MultiOptionPanelView: View {
                             }
                             .padding(.horizontal, 10)
                             .padding(.vertical, 7)
+                            .contentShape(Rectangle())
                             .background(PanelTheme.surface)
                             .clipShape(RoundedRectangle(cornerRadius: 6))
                         }
@@ -523,11 +525,232 @@ struct MultiOptionPanelView: View {
 
     private func submitOther(option: ParsedOption) {
         guard !otherText.isEmpty else { return }
-        onSelect(option)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-            onTextSubmit(otherText)
+        // Send the typed text directly — the controller handles
+        // navigating to "Other", activating it, then typing the text.
+        onTextSubmit(otherText)
+    }
+}
+
+// MARK: - AskUserQuestion Panel
+
+/// Notification-style view for AskUserQuestion tool calls with structured options.
+/// Shows one question at a time (wizard-style) and collects all answers before submitting.
+struct AskUserQuestionPanelView: View {
+    let info: AskUserQuestionInfo
+    let onComplete: ([AskUserQuestionAnswer]) -> Void
+    let onDismiss: () -> Void
+
+    @State private var currentIndex = 0
+    @State private var answers: [AskUserQuestionAnswer] = []
+    @State private var otherText = ""
+    @State private var showOtherInput = false
+    @FocusState private var otherFieldFocused: Bool
+
+    private var currentQuestion: AskUserQuestionInfo.Question {
+        info.questions[currentIndex]
+    }
+
+    private var isLastQuestion: Bool {
+        currentIndex == info.questions.count - 1
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Header
+            HStack(spacing: 10) {
+                Circle()
+                    .fill(PanelTheme.brand.opacity(0.15))
+                    .frame(width: 24, height: 24)
+                    .overlay {
+                        Image(systemName: "questionmark.bubble")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(PanelTheme.brand)
+                    }
+
+                VStack(alignment: .leading, spacing: 1) {
+                    if info.questions.count > 1 {
+                        Text("Step \(currentIndex + 1) of \(info.questions.count)")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(PanelTheme.textPrimary)
+                    } else {
+                        Text(currentQuestion.header)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(PanelTheme.textPrimary)
+                    }
+
+                    if let projectName {
+                        Text(projectName)
+                            .font(.system(size: 11))
+                            .foregroundStyle(PanelTheme.textSecondary)
+                    }
+                }
+
+                Spacer()
+
+                if info.questions.count > 1 {
+                    Text(currentQuestion.header)
+                        .font(.system(size: 10, weight: .medium))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(PanelTheme.brand.opacity(0.15))
+                        .foregroundStyle(PanelTheme.brand)
+                        .clipShape(Capsule())
+                }
+
+                DismissButton(action: onDismiss)
+            }
+            .padding(.horizontal, 14)
+            .padding(.top, 12)
+            .padding(.bottom, 8)
+
+            PanelTheme.divider
+                .frame(height: 0.5)
+                .padding(.horizontal, 14)
+
+            // Question text
+            Text(currentQuestion.question)
+                .font(.system(size: 12))
+                .foregroundStyle(PanelTheme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+
+            PanelTheme.divider
+                .frame(height: 0.5)
+                .padding(.horizontal, 14)
+
+            // Option buttons
+            VStack(spacing: 4) {
+                ForEach(Array(currentQuestion.options.enumerated()), id: \.offset) { index, option in
+                    Button(action: { selectOption(index) }) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(option.label)
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundStyle(PanelTheme.textPrimary)
+
+                                if let desc = option.description, !desc.isEmpty {
+                                    Text(desc)
+                                        .font(.system(size: 10))
+                                        .foregroundStyle(PanelTheme.textTertiary)
+                                }
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 9, weight: .semibold))
+                                .foregroundStyle(PanelTheme.textTertiary)
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 7)
+                        .contentShape(Rectangle())
+                        .background(PanelTheme.surface)
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.top, 10)
+
+            // "Other" text input (only for single-question or last question)
+            if isLastQuestion {
+                PanelTheme.divider
+                    .frame(height: 0.5)
+                    .padding(.horizontal, 14)
+                    .padding(.top, 6)
+
+                if showOtherInput {
+                    HStack(spacing: 8) {
+                        TextField("Type your response...", text: $otherText)
+                            .textFieldStyle(.plain)
+                            .font(.system(size: 12))
+                            .foregroundStyle(PanelTheme.textPrimary)
+                            .focused($otherFieldFocused)
+                            .onSubmit { submitOther() }
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 6)
+                            .background(PanelTheme.surface)
+                            .clipShape(RoundedRectangle(cornerRadius: 6))
+
+                        Button(action: submitOther) {
+                            Image(systemName: "arrow.up.circle.fill")
+                                .font(.system(size: 20))
+                                .foregroundStyle(otherText.isEmpty ? PanelTheme.textTertiary : PanelTheme.brand)
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(otherText.isEmpty)
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                } else {
+                    Button(action: {
+                        showOtherInput = true
+                        otherFieldFocused = true
+                    }) {
+                        HStack {
+                            Text("Other")
+                                .font(.system(size: 12))
+                                .foregroundStyle(PanelTheme.textPrimary)
+                            Spacer()
+                            Image(systemName: "text.cursor")
+                                .font(.system(size: 10))
+                                .foregroundStyle(PanelTheme.textTertiary)
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 7)
+                        .contentShape(Rectangle())
+                        .background(PanelTheme.surface)
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                }
+            } else {
+                Spacer().frame(height: 10)
+            }
+        }
+        .frame(width: 340)
+        .background(PanelBackground())
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .tint(PanelTheme.brand)
+        .shadow(color: .black.opacity(0.2), radius: 16, y: 6)
+        .shadow(color: .black.opacity(0.08), radius: 2, y: 1)
+    }
+
+    private var projectName: String? {
+        guard let cwd = info.cwd else { return nil }
+        let name = (cwd as NSString).lastPathComponent
+        return name.isEmpty ? nil : name
+    }
+
+    private func selectOption(_ index: Int) {
+        let label = currentQuestion.options[index].label
+        answers.append(.option(label))
+
+        if isLastQuestion {
+            onComplete(answers)
+        } else {
+            currentIndex += 1
+            showOtherInput = false
+            otherText = ""
         }
     }
+
+    private func submitOther() {
+        guard !otherText.isEmpty else { return }
+        answers.append(.other(otherText))
+        onComplete(answers)
+    }
+}
+
+/// Answer for a single question in an AskUserQuestion flow.
+enum AskUserQuestionAnswer {
+    /// User selected a regular option by its label.
+    case option(String)
+    /// User typed custom text via "Other".
+    case other(String)
 }
 
 // MARK: - Panel Button

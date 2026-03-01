@@ -305,6 +305,89 @@ public struct ParsedOption: Sendable {
     }
 }
 
+// MARK: - AskUserQuestionInfo
+
+/// Structured information about an AskUserQuestion tool call, parsed from toolInput.
+public struct AskUserQuestionInfo: Sendable {
+    public struct Question: Sendable {
+        public let question: String
+        public let header: String
+        public let options: [Option]
+        public let multiSelect: Bool
+
+        public struct Option: Sendable {
+            public let label: String
+            public let description: String?
+
+            public init(label: String, description: String?) {
+                self.label = label
+                self.description = description
+            }
+        }
+
+        public init(question: String, header: String, options: [Option], multiSelect: Bool) {
+            self.question = question
+            self.header = header
+            self.options = options
+            self.multiSelect = multiSelect
+        }
+    }
+
+    public let sessionId: String
+    public let questions: [Question]
+    public let cwd: String?
+    public let ptySessionId: String?
+    public let timestamp: Date
+
+    /// Original toolInput from the hook event — passed through in the updatedInput response.
+    public let toolInput: [String: AnyCodable]?
+
+    public init(sessionId: String, questions: [Question], cwd: String?, ptySessionId: String?, toolInput: [String: AnyCodable]? = nil, timestamp: Date = Date()) {
+        self.sessionId = sessionId
+        self.questions = questions
+        self.cwd = cwd
+        self.ptySessionId = ptySessionId
+        self.toolInput = toolInput
+        self.timestamp = timestamp
+    }
+
+    /// Create from a PermissionRequest hook event for the AskUserQuestion tool.
+    public static func from(_ event: HookEvent) -> AskUserQuestionInfo? {
+        guard event.toolName == "AskUserQuestion",
+              let input = event.toolInput,
+              let questionsValue = input["questions"]?.value as? [Any] else { return nil }
+
+        var questions: [Question] = []
+        for qAny in questionsValue {
+            guard let q = qAny as? [String: Any],
+                  let questionText = q["question"] as? String,
+                  let header = q["header"] as? String,
+                  let optionsValue = q["options"] as? [Any] else { continue }
+
+            let multiSelect = q["multiSelect"] as? Bool ?? false
+            var options: [Question.Option] = []
+            for optAny in optionsValue {
+                guard let opt = optAny as? [String: Any],
+                      let label = opt["label"] as? String else { continue }
+                options.append(Question.Option(label: label, description: opt["description"] as? String))
+            }
+
+            guard options.count >= 2 else { continue }
+            questions.append(Question(question: questionText, header: header, options: options, multiSelect: multiSelect))
+        }
+
+        guard !questions.isEmpty else { return nil }
+        return AskUserQuestionInfo(
+            sessionId: event.sessionId,
+            questions: questions,
+            cwd: event.cwd,
+            ptySessionId: event.balconyPtySessionId,
+            toolInput: input,
+            timestamp: Date()
+        )
+    }
+}
+
 // MARK: - AnyCodable
 
 /// Type-erased Codable wrapper for heterogeneous JSON values.
