@@ -166,6 +166,56 @@ final class ConnectionManager: ObservableObject {
         }
     }
 
+    // MARK: - AskUserQuestion Forwarding
+
+    /// Forward an AskUserQuestion to subscribed iOS clients.
+    /// Routes using the PTY session ID (what iOS subscribes to).
+    func forwardAskUserQuestion(_ info: AskUserQuestionInfo) async {
+        guard let ptySessionId = info.ptySessionId else {
+            logger.debug("Skipping AskUserQuestion forward — no PTY session ID")
+            return
+        }
+        do {
+            let payload = AskUserQuestionPayload(from: info)
+            let msg = try BalconyMessage.create(type: .askUserQuestion, payload: payload)
+            await webSocketServer.sendToSubscribers(of: ptySessionId, message: msg)
+            logger.info("Forwarded AskUserQuestion to iOS: \(info.questions.count) question(s) pty=\(ptySessionId)")
+        } catch {
+            logger.error("Failed to forward AskUserQuestion: \(error.localizedDescription)")
+        }
+    }
+
+    /// Notify iOS clients that an AskUserQuestion was dismissed.
+    /// Routes using the PTY session ID (what iOS subscribes to).
+    func forwardAskUserQuestionDismiss(sessionId: String, ptySessionId: String?) async {
+        guard let ptySessionId else {
+            logger.debug("Skipping AskUserQuestion dismiss forward — no PTY session ID")
+            return
+        }
+        do {
+            let payload = AskUserQuestionDismissPayload(sessionId: sessionId, ptySessionId: ptySessionId)
+            let msg = try BalconyMessage.create(type: .askUserQuestionDismiss, payload: payload)
+            await webSocketServer.sendToSubscribers(of: ptySessionId, message: msg)
+            logger.info("Forwarded AskUserQuestion dismiss to iOS: pty=\(ptySessionId)")
+        } catch {
+            logger.error("Failed to forward AskUserQuestion dismiss: \(error.localizedDescription)")
+        }
+    }
+
+    /// Resend pending AskUserQuestion to a specific client (for reconnect sync).
+    /// The `sessionId` here is the PTY session ID (from sessionSubscribe).
+    private func resendPendingAskUserQuestion(sessionId: String, to client: ConnectedClient) async {
+        guard let info = hookEventHandler?.pendingAskUserQuestion(forPTYSession: sessionId) else { return }
+        do {
+            let payload = AskUserQuestionPayload(from: info)
+            let msg = try BalconyMessage.create(type: .askUserQuestion, payload: payload)
+            await webSocketServer.send(msg, to: client)
+            logger.info("Resent pending AskUserQuestion on reconnect: pty=\(sessionId)")
+        } catch {
+            logger.error("Failed to resend AskUserQuestion: \(error.localizedDescription)")
+        }
+    }
+
     /// Notify iOS clients that an idle prompt was dismissed.
     func forwardIdlePromptDismiss(sessionId: String) async {
         do {
@@ -249,6 +299,9 @@ final class ConnectionManager: ObservableObject {
                 // This handles reconnect: iOS disconnects and reconnects while
                 // a permission prompt is waiting — the prompt is resent immediately.
                 await resendPendingHookEvent(sessionId: sessionId, to: client)
+
+                // Resend pending AskUserQuestion if one is active.
+                await resendPendingAskUserQuestion(sessionId: sessionId, to: client)
             } catch {
                 logger.error("Failed to decode session subscribe: \(error.localizedDescription)")
             }
@@ -320,6 +373,14 @@ final class ConnectionManager: ObservableObject {
                 await handleRewindSelection(payload: payload, client: client)
             } catch {
                 logger.error("Failed to handle rewind selection: \(error.localizedDescription)")
+            }
+
+        case .askUserQuestionResponse:
+            do {
+                let payload = try message.decodePayload(AskUserQuestionResponsePayload.self)
+                await appDelegate?.handleAskUserQuestionResponse(sessionId: payload.sessionId, answers: payload.answers)
+            } catch {
+                logger.error("Failed to handle AskUserQuestion response: \(error.localizedDescription)")
             }
 
         default:

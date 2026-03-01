@@ -33,6 +33,7 @@
 		3D79F3D2AC1738237F5FF7CB /* SessionListModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD4F94005F234CC1764797BF /* SessionListModel.swift */; };
 		421C8CC638EF49CDCB2C843F /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FF246A4A3131A5AB9E40961A /* IOKit.framework */; };
 		4E3485D895FFF52BC23DB649 /* AppIcon-Dark@3x.png in Resources */ = {isa = PBXBuildFile; fileRef = 2FB30D19FCA8885324E1C3F2 /* AppIcon-Dark@3x.png */; };
+		4FCA31A4B2E33D039185C6D8 /* AskUserQuestionCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 550F0D20164E87817511190D /* AskUserQuestionCardView.swift */; };
 		52EA4D3614E7CD7C01FAFCEA /* BLECentral.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63C417099683EF822F4B30DF /* BLECentral.swift */; };
 		54B68596DB033B25770224FE /* BonjourBrowser.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7DE45B3FC97C8DC7FADEB16 /* BonjourBrowser.swift */; };
 		55510F0B7A6D0C0A189E42AE /* SessionPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A3E4297A1ED29FEAA7E6D5E /* SessionPickerView.swift */; };
@@ -122,6 +123,7 @@
 		4E0AAE0D253D1FCC52BEC9C1 /* ProjectFileScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectFileScanner.swift; sourceTree = "<group>"; };
 		50C657DCB9087A3FB0B1E315 /* ConversationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationView.swift; sourceTree = "<group>"; };
 		50CDFFCE4495E7D88AFCF8C4 /* SocketClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocketClient.swift; sourceTree = "<group>"; };
+		550F0D20164E87817511190D /* AskUserQuestionCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AskUserQuestionCardView.swift; sourceTree = "<group>"; };
 		563031AC1EAF150E0A7AAF5B /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
 		575956E033E5EF90DEBBE923 /* BalconyCLI */ = {isa = PBXFileReference; includeInIndex = 0; path = BalconyCLI; sourceTree = BUILT_PRODUCTS_DIR; };
 		63C417099683EF822F4B30DF /* BLECentral.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BLECentral.swift; sourceTree = "<group>"; };
@@ -418,6 +420,7 @@
 			isa = PBXGroup;
 			children = (
 				D68E9482CD96A6EAD061F6F8 /* ANSIColorMapper.swift */,
+				550F0D20164E87817511190D /* AskUserQuestionCardView.swift */,
 				50C657DCB9087A3FB0B1E315 /* ConversationView.swift */,
 				81F089DFF6FB911071280E29 /* FilePickerMenu.swift */,
 				37B5F7A0DDF8C4003E6BD6B9 /* HeadlessTerminalParser.swift */,
@@ -739,6 +742,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				9F156723BD078A153B7FEED7 /* ANSIColorMapper.swift in Sources */,
+				4FCA31A4B2E33D039185C6D8 /* AskUserQuestionCardView.swift in Sources */,
 				52EA4D3614E7CD7C01FAFCEA /* BLECentral.swift in Sources */,
 				FF5E320946ACE90AC2B967F0 /* BalconyTheme.swift in Sources */,
 				39BA738A247CAB3676A4C7C8 /* BalconyiOSApp.swift in Sources */,

@@ -74,3 +74,96 @@ public struct HookDismissPayload: Codable, Sendable {
         self.sessionId = sessionId
     }
 }
+
+// MARK: - AskUserQuestion Payloads
+
+/// Payload for forwarding AskUserQuestion from Mac to iOS via WebSocket.
+public struct AskUserQuestionPayload: Codable, Sendable {
+    /// The Claude Code session ID (used in response back to Mac for hook lookup).
+    public let sessionId: String
+
+    /// The PTY session ID (matches iOS activeSession.id for routing/matching).
+    public let ptySessionId: String?
+
+    /// The structured questions to present to the user.
+    public let questions: [Question]
+
+    /// When the question was received.
+    public let timestamp: Date
+
+    public struct Question: Codable, Sendable {
+        public let question: String
+        public let header: String
+        public let options: [Option]
+        public let multiSelect: Bool
+
+        public struct Option: Codable, Sendable {
+            public let label: String
+            public let description: String?
+
+            public init(label: String, description: String?) {
+                self.label = label
+                self.description = description
+            }
+        }
+
+        public init(question: String, header: String, options: [Option], multiSelect: Bool) {
+            self.question = question
+            self.header = header
+            self.options = options
+            self.multiSelect = multiSelect
+        }
+    }
+
+    public init(sessionId: String, ptySessionId: String?, questions: [Question], timestamp: Date = Date()) {
+        self.sessionId = sessionId
+        self.ptySessionId = ptySessionId
+        self.questions = questions
+        self.timestamp = timestamp
+    }
+
+    /// Create from an AskUserQuestionInfo.
+    public init(from info: AskUserQuestionInfo) {
+        self.sessionId = info.sessionId
+        self.ptySessionId = info.ptySessionId
+        self.questions = info.questions.map { q in
+            Question(
+                question: q.question,
+                header: q.header,
+                options: q.options.map { o in
+                    Question.Option(label: o.label, description: o.description)
+                },
+                multiSelect: q.multiSelect
+            )
+        }
+        self.timestamp = info.timestamp
+    }
+}
+
+/// Payload for dismissing an AskUserQuestion card on iOS.
+public struct AskUserQuestionDismissPayload: Codable, Sendable {
+    /// The Claude Code session ID.
+    public let sessionId: String
+
+    /// The PTY session ID (matches iOS activeSession.id for routing).
+    public let ptySessionId: String?
+
+    public init(sessionId: String, ptySessionId: String? = nil) {
+        self.sessionId = sessionId
+        self.ptySessionId = ptySessionId
+    }
+}
+
+/// Payload for sending AskUserQuestion answers from iOS to Mac.
+public struct AskUserQuestionResponsePayload: Codable, Sendable {
+    /// The Claude Code session ID (used by Mac for hook response lookup).
+    public let sessionId: String
+
+    /// Answers mapped by question text → selected option label (or custom text).
+    public let answers: [String: String]
+
+    public init(sessionId: String, answers: [String: String]) {
+        self.sessionId = sessionId
+        self.answers = answers
+    }
+}

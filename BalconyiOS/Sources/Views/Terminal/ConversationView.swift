@@ -18,7 +18,10 @@ struct ConversationView: View {
     let showModelPicker: Bool
     let rewindTurns: [RewindTurnInfo]
     let showRewindPicker: Bool
+    let pendingAskUserQuestion: AskUserQuestionPayload?
     var onSendInput: ((String) -> Void)?
+    var onSubmitAskUserQuestion: (([String: String]) -> Void)?
+    var onDismissAskUserQuestion: (() -> Void)?
     var onSelectSession: ((SessionInfo) -> Void)?
     var onRequestSessionPicker: (() -> Void)?
     var onDismissSessionPicker: (() -> Void)?
@@ -253,6 +256,16 @@ struct ConversationView: View {
                     .padding(.horizontal, BalconyTheme.spacingSM)
                     .padding(.bottom, BalconyTheme.spacingMD)
                     .transition(.menuPanel)
+                }
+                // Structured AskUserQuestion card — takes priority over terminal-detected prompts
+                else if let askQuestion = pendingAskUserQuestion {
+                    AskUserQuestionCardView(
+                        payload: askQuestion,
+                        onComplete: { answers in onSubmitAskUserQuestion?(answers) },
+                        onDismiss: { onDismissAskUserQuestion?() }
+                    )
+                    .padding(.bottom, BalconyTheme.spacingSM)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
                 // Interactive prompt overlay — takes priority over slash/file menus
                 else if let prompt = activePrompt, !promptJustAnswered {
@@ -1029,7 +1042,8 @@ private struct ConversationEmptyView: View {
         currentModelId: nil,
         showModelPicker: false,
         rewindTurns: [],
-        showRewindPicker: false
+        showRewindPicker: false,
+        pendingAskUserQuestion: nil
     )
     .background(BalconyTheme.background)
 }

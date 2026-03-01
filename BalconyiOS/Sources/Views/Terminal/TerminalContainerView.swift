@@ -38,10 +38,17 @@ struct TerminalContainerView: View {
                     showModelPicker: sessionManager.showModelPicker,
                     rewindTurns: sessionManager.rewindTurns,
                     showRewindPicker: sessionManager.showRewindPicker,
+                    pendingAskUserQuestion: sessionManager.pendingAskUserQuestion,
                     onSendInput: { text in
                         Task {
                             await sessionManager.sendInput(text, to: session)
                         }
+                    },
+                    onSubmitAskUserQuestion: { answers in
+                        Task { await sessionManager.submitAskUserQuestionResponse(answers: answers) }
+                    },
+                    onDismissAskUserQuestion: {
+                        sessionManager.dismissAskUserQuestion()
                     },
                     onSelectSession: { session in
                         Task {

@@ -30,6 +30,9 @@ final class SessionManager: ObservableObject {
     /// Idle prompt data (Claude waiting for user input, from Mac hook listener).
     @Published var pendingIdlePrompt: IdlePromptPayload?
 
+    /// Structured AskUserQuestion data (from Mac hook listener).
+    @Published var pendingAskUserQuestion: AskUserQuestionPayload?
+
     /// Text currently in the Mac's input box (after ❯). Used to pre-fill the iOS input.
     @Published var pendingInputText: String = ""
 
@@ -148,6 +151,7 @@ final class SessionManager: ObservableObject {
             activePrompt = nil
             pendingHookData = nil
             pendingIdlePrompt = nil
+            pendingAskUserQuestion = nil
             pendingInputText = ""
             projectFiles = []
         }
@@ -364,6 +368,10 @@ final class SessionManager: ObservableObject {
             handleIdlePrompt(message)
         case .idlePromptDismiss:
             handleIdlePromptDismiss(message)
+        case .askUserQuestion:
+            handleAskUserQuestion(message)
+        case .askUserQuestionDismiss:
+            handleAskUserQuestionDismiss(message)
         default:
             break
         }
@@ -392,6 +400,7 @@ final class SessionManager: ObservableObject {
                 activePrompt = nil
                 pendingHookData = nil
                 pendingIdlePrompt = nil
+                pendingAskUserQuestion = nil
                 pendingInputText = ""
                 projectFiles = []
             }
@@ -521,6 +530,50 @@ final class SessionManager: ObservableObject {
         } catch {
             logger.error("Failed to decode idle prompt dismiss: \(error.localizedDescription)")
         }
+    }
+
+    private func handleAskUserQuestion(_ message: BalconyMessage) {
+        do {
+            let payload = try message.decodePayload(AskUserQuestionPayload.self)
+            // Match using PTY session ID (what iOS subscribes with)
+            guard payload.ptySessionId == activeSession?.id else { return }
+            pendingAskUserQuestion = payload
+            logger.info("Received AskUserQuestion: \(payload.questions.count) question(s) pty=\(payload.ptySessionId ?? "nil")")
+        } catch {
+            logger.error("Failed to decode AskUserQuestion: \(error.localizedDescription)")
+        }
+    }
+
+    private func handleAskUserQuestionDismiss(_ message: BalconyMessage) {
+        do {
+            let payload = try message.decodePayload(AskUserQuestionDismissPayload.self)
+            // Match using PTY session ID (what iOS subscribes with)
+            guard payload.ptySessionId == activeSession?.id else { return }
+            pendingAskUserQuestion = nil
+            logger.info("AskUserQuestion dismissed for session: \(payload.ptySessionId ?? "nil")")
+        } catch {
+            logger.error("Failed to decode AskUserQuestion dismiss: \(error.localizedDescription)")
+        }
+    }
+
+    /// Submit AskUserQuestion answers back to Mac.
+    func submitAskUserQuestionResponse(answers: [String: String]) async {
+        guard let question = pendingAskUserQuestion,
+              let connectionManager else { return }
+        do {
+            let payload = AskUserQuestionResponsePayload(sessionId: question.sessionId, answers: answers)
+            let msg = try BalconyMessage.create(type: .askUserQuestionResponse, payload: payload)
+            try await connectionManager.send(msg)
+            pendingAskUserQuestion = nil
+            logger.info("Sent AskUserQuestion response for session: \(question.sessionId)")
+        } catch {
+            logger.error("Failed to send AskUserQuestion response: \(error.localizedDescription)")
+        }
+    }
+
+    /// Dismiss AskUserQuestion card without answering.
+    func dismissAskUserQuestion() {
+        pendingAskUserQuestion = nil
     }
 }
 

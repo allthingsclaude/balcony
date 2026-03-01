@@ -49,4 +49,9 @@ public enum MessageType: String, Codable, Sendable {
     // Idle prompt (Claude stopped and is waiting for user input)
     case idlePrompt
     case idlePromptDismiss
+
+    // AskUserQuestion (structured multi-option questions from Claude)
+    case askUserQuestion
+    case askUserQuestionDismiss
+    case askUserQuestionResponse
 }

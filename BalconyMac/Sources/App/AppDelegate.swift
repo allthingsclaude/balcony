@@ -56,6 +56,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             self.promptPanelController.showAskUserQuestion(askInfo)
         }
+        // Forward AskUserQuestion to iOS
+        hookEventHandler.onForwardAskUserQuestionToiOS = { [weak self] askInfo in
+            guard let self else { return }
+            Task {
+                await self.connectionManager.forwardAskUserQuestion(askInfo)
+            }
+        }
+        // Dismiss AskUserQuestion card on iOS when answered on Mac
+        hookEventHandler.onAskUserQuestionDismissed = { [weak self] sessionId, ptySessionId in
+            guard let self else { return }
+            Task {
+                await self.connectionManager.forwardAskUserQuestionDismiss(sessionId: sessionId, ptySessionId: ptySessionId)
+            }
+        }
 
         hookEventHandler.onPromptDismissed = { [weak self] sessionId in
             guard let self else { return }
@@ -327,6 +341,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Forward to connected iOS clients
         await connectionManager.forwardSessionEvent(event)
+    }
+
+    // MARK: - AskUserQuestion Response (from iOS)
+
+    /// Handle an AskUserQuestion response received from iOS.
+    @MainActor
+    func handleAskUserQuestionResponse(sessionId: String, answers: [String: String]) async {
+        guard let askInfo = hookEventHandler.pendingAskUserQuestion(for: sessionId) else {
+            logger.debug("Ignoring stale AskUserQuestion response for session \(sessionId)")
+            return
+        }
+
+        // Build updatedInput: original toolInput + answers dict
+        var updatedInput: [String: Any] = askInfo.toolInput?.mapValues { $0.value } ?? [:]
+        updatedInput["answers"] = answers
+
+        // Send approval with the answers included in the response
+        await hookListener.sendPermissionResponse(
+            sessionId: sessionId,
+            decision: "allow",
+            updatedInput: updatedInput
+        )
+        hookEventHandler.dismissPrompt(for: sessionId)
     }
 
     // MARK: - Session Picker

@@ -84,6 +84,16 @@ final class HookEventHandler: ObservableObject {
     /// Called when an AskUserQuestion tool is detected (rich multi-option prompt).
     var onAskUserQuestionReceived: ((AskUserQuestionInfo) -> Void)?
 
+    /// Called to forward AskUserQuestion to iOS via WebSocket.
+    var onForwardAskUserQuestionToiOS: ((AskUserQuestionInfo) -> Void)?
+
+    /// Called when an AskUserQuestion is dismissed (answered from any surface).
+    /// Parameters: (claudeSessionId, ptySessionId?)
+    var onAskUserQuestionDismissed: ((String, String?) -> Void)?
+
+    /// Pending AskUserQuestion data per session (for resending on reconnect and response handling).
+    private var pendingAskUserQuestions: [String: AskUserQuestionInfo] = [:]
+
     // MARK: - Configuration
 
     /// Threshold of new PTY output bytes that indicates the prompt was answered
@@ -150,7 +160,9 @@ final class HookEventHandler: ObservableObject {
                 sq.outputSincePrompt = 0
                 sessionQueues[sessionId] = sq
                 pendingPrompts[sessionId] = promptInfo
+                pendingAskUserQuestions[sessionId] = askInfo
                 onAskUserQuestionReceived?(askInfo)
+                onForwardAskUserQuestionToiOS?(askInfo)
                 return
             }
 
@@ -270,6 +282,11 @@ final class HookEventHandler: ObservableObject {
         sq.state = .answered
         sq.outputSincePrompt = 0
 
+        // Clean up AskUserQuestion state if this was one
+        if let removedAsk = pendingAskUserQuestions.removeValue(forKey: sessionId) {
+            onAskUserQuestionDismissed?(sessionId, removedAsk.ptySessionId)
+        }
+
         pendingPrompts.removeValue(forKey: sessionId)
         logger.info("Prompt dismissed for session: \(sessionId)")
         onPromptDismissed?(sessionId)
@@ -325,6 +342,16 @@ final class HookEventHandler: ObservableObject {
         pendingIdlePrompts[sessionId]
     }
 
+    /// Get the current AskUserQuestion info by Claude session ID.
+    func pendingAskUserQuestion(for sessionId: String) -> AskUserQuestionInfo? {
+        pendingAskUserQuestions[sessionId]
+    }
+
+    /// Get the current AskUserQuestion info by PTY session ID (for reconnect resend).
+    func pendingAskUserQuestion(forPTYSession ptySessionId: String) -> AskUserQuestionInfo? {
+        pendingAskUserQuestions.values.first { $0.ptySessionId == ptySessionId }
+    }
+
     // MARK: - Session Lifecycle
 
     /// Clear all prompt state for a session that has ended.
@@ -333,6 +360,7 @@ final class HookEventHandler: ObservableObject {
             pendingPrompts.removeValue(forKey: sessionId)
             logger.debug("Cleared prompt state for ended session: \(sessionId)")
         }
+        pendingAskUserQuestions.removeValue(forKey: sessionId)
         pendingIdlePrompts.removeValue(forKey: sessionId)
         lastStopData.removeValue(forKey: sessionId)
         pendingIdleNotifications.removeValue(forKey: sessionId)
