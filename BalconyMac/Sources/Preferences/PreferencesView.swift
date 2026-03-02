@@ -132,9 +132,10 @@ private struct AwayDetectionTab: View {
     @AppStorage(PreferencesManager.idleThresholdKey) private var idleThreshold = 120
     @AppStorage(PreferencesManager.awayThresholdKey) private var awayThreshold = 300
     @AppStorage(PreferencesManager.awayDistanceKey) private var awayDistance = 1
-    @AppStorage(PreferencesManager.awaySustainKey) private var awaySustain = 10
+    @AppStorage(PreferencesManager.awaySustainKey) private var awaySustain = 3
 
     private static let distanceOptions = [1, 2, 3, 5, 10]
+    private static let sustainOptions = [2, 3, 5, 10, 30]
 
     var body: some View {
         Form {
@@ -144,7 +145,11 @@ private struct AwayDetectionTab: View {
                         Text("~\(meters) meter\(meters == 1 ? "" : "s")").tag(meters)
                     }
                 }
-                Stepper("Sustain time: \(awaySustain)s", value: $awaySustain, in: 5...120, step: 5)
+                Picker("Sustain time", selection: $awaySustain) {
+                    ForEach(Self.sustainOptions, id: \.self) { seconds in
+                        Text("\(seconds)s").tag(seconds)
+                    }
+                }
                 Text("Signal must hold for this long before status changes.")
                     .font(.caption)
                     .foregroundStyle(.secondary)

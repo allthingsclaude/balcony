@@ -19,7 +19,7 @@ final class AwayDetector: ObservableObject {
     /// Hysteresis: the candidate status must be sustained for enough consecutive
     /// poll cycles (derived from sustain time / poll interval) before the published
     /// status actually changes.
-    static let pollInterval: TimeInterval = 2.0
+    private var currentPollInterval: TimeInterval = 1.0
     private var candidateStatus: AwayStatus?
     private var candidatePollCount = 0
 
@@ -32,21 +32,48 @@ final class AwayDetector: ObservableObject {
     /// Start polling for away signals.
     func startDetecting() {
         registerScreenLockObservers()
-
-        pollTimer = Timer.scheduledTimer(withTimeInterval: Self.pollInterval, repeats: true) { [weak self] _ in
-            Task { @MainActor [weak self] in
-                self?.updateSignals()
-            }
-        }
-        logger.info("Away detection started (poll: \(Self.pollInterval)s)")
+        startPollTimer()
+        observeSustainChanges()
+        logger.info("Away detection started")
     }
 
     /// Stop polling.
     func stopDetecting() {
         pollTimer?.invalidate()
         pollTimer = nil
+        if let obs = defaultsObserver {
+            NotificationCenter.default.removeObserver(obs)
+            defaultsObserver = nil
+        }
         removeScreenLockObservers()
         logger.info("Away detection stopped")
+    }
+
+    private func startPollTimer() {
+        pollTimer?.invalidate()
+        let sustain = PreferencesManager.shared.awaySustain
+        currentPollInterval = PreferencesManager.pollInterval(forSustain: sustain)
+        pollTimer = Timer.scheduledTimer(withTimeInterval: currentPollInterval, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.updateSignals()
+            }
+        }
+        logger.info("Poll timer started (\(self.currentPollInterval)s for \(sustain)s sustain)")
+    }
+
+    /// Restart the poll timer when sustain preference changes.
+    private func observeSustainChanges() {
+        defaultsObserver = NotificationCenter.default.addObserver(
+            forName: UserDefaults.didChangeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            guard let self else { return }
+            let newInterval = PreferencesManager.pollInterval(forSustain: PreferencesManager.shared.awaySustain)
+            if newInterval != self.currentPollInterval {
+                self.startPollTimer()
+            }
+        }
     }
 
     // MARK: - Signal Collection
@@ -78,7 +105,7 @@ final class AwayDetector: ObservableObject {
         }
 
         // For all other transitions, require sustained signal to avoid flapping
-        let requiredPolls = max(1, Int(Double(prefs.awaySustain) / Self.pollInterval))
+        let requiredPolls = max(1, Int(Double(prefs.awaySustain) / currentPollInterval))
         if rawStatus != currentStatus {
             if rawStatus == candidateStatus {
                 candidatePollCount += 1

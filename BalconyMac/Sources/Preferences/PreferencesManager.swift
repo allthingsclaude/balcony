@@ -39,7 +39,7 @@ final class PreferencesManager {
         notifyOnDisconnectKey: true,
         soundEffectKey: "",
         awayDistanceKey: 1,
-        awaySustainKey: 10,
+        awaySustainKey: 3,
     ]
 
     // MARK: - General
@@ -89,10 +89,19 @@ final class PreferencesManager {
         return distance != 0 ? distance : 1
     }
 
-    /// Seconds the signal must sustain before an away/present transition commits (default 30).
+    /// Seconds the signal must sustain before an away/present transition commits (default 3).
     var awaySustain: Int {
         let sustain = UserDefaults.standard.integer(forKey: Self.awaySustainKey)
-        return sustain != 0 ? sustain : 10
+        return sustain != 0 ? sustain : 3
+    }
+
+    /// Poll interval scaled to sustain time. Fast (1s) for short sustains, slower for longer ones.
+    static func pollInterval(forSustain sustain: Int) -> TimeInterval {
+        switch sustain {
+        case ...5: return 1.0
+        case ...10: return 2.0
+        default: return 5.0
+        }
     }
 
     /// Convert a distance in meters to an approximate BLE RSSI threshold in dBm.

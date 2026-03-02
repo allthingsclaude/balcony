@@ -45,7 +45,7 @@ final class ConnectionManager: ObservableObject {
     /// Distance threshold in meters beyond which the phone is "away" (matches Mac default).
     private let awayDistanceMeters: Double = 1.0
     /// Seconds the distance signal must sustain before toggling `isPhoneAway`.
-    private let awaySustainSeconds: Double = 10.0
+    private let awaySustainSeconds: Double = 3.0
 
     private let bonjourBrowser = BonjourBrowser()
     private let webSocketClient = WebSocketClient()
@@ -300,8 +300,8 @@ final class ConnectionManager: ObservableObject {
                 self.bleRSSI = Int(self.smoothedRSSI!.rounded())
             }
 
-        // Track sustained away/present for auto-notification toggle
-        awayCancellable = bleCentral.$rssi
+        // Track sustained away/present using smoothed RSSI for auto-notification toggle
+        awayCancellable = $bleRSSI
             .compactMap { $0 }
             .map { [weak self] rssi -> Bool in
                 guard let self else { return false }
