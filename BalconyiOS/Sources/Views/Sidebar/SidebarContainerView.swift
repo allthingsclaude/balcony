@@ -55,6 +55,8 @@ struct SidebarContainerView: View {
                     safeAreaBottom: safeBottom
                 )
                 .frame(width: sidebarWidth)
+                .scaleEffect(sidebarScale(sidebarWidth: sidebarWidth), anchor: .leading)
+                .opacity(sidebarOpacity(sidebarWidth: sidebarWidth))
 
                 // MARK: - Main Content (slides right to reveal sidebar)
                 mainContent
@@ -64,6 +66,18 @@ struct SidebarContainerView: View {
                     .shadow(color: .black.opacity(isSidebarOpen || dragOffset > 0 ? (colorScheme == .dark ? 0.2 : 0.08) : 0), radius: 16, x: -5)
                     .disabled(isSidebarOpen)
 
+                // MARK: - Edge drag zone (beats ScrollView gestures)
+                if !isSidebarOpen {
+                    Color.clear
+                        .contentShape(Rectangle())
+                        .frame(width: 24)
+                        .frame(maxHeight: .infinity)
+                        .ignoresSafeArea()
+                        .highPriorityGesture(
+                            edgeDragGesture(sidebarWidth: sidebarWidth)
+                        )
+                }
+
                 // MARK: - Tap-to-dismiss overlay
                 if isSidebarOpen {
                     Color.clear
@@ -71,6 +85,9 @@ struct SidebarContainerView: View {
                         .ignoresSafeArea()
                         .offset(x: contentOffset(sidebarWidth: sidebarWidth))
                         .onTapGesture { closeSidebar() }
+                        .highPriorityGesture(
+                            edgeSwipeGesture(sidebarWidth: sidebarWidth)
+                        )
                         .accessibilityLabel("Close sidebar")
                         .accessibilityAddTraits(.isButton)
                 }
@@ -312,7 +329,7 @@ struct SidebarContainerView: View {
         .background(BalconyTheme.surfaceSecondary.opacity(0.5))
     }
 
-    // MARK: - Content Offset
+    // MARK: - Content Offset & Sidebar Transform
 
     private func contentOffset(sidebarWidth: CGFloat) -> CGFloat {
         if isSidebarOpen {
@@ -320,6 +337,24 @@ struct SidebarContainerView: View {
         } else {
             return max(0, dragOffset)
         }
+    }
+
+    /// Fraction of sidebar reveal (0 = fully hidden, 1 = fully open).
+    private func revealFraction(sidebarWidth: CGFloat) -> CGFloat {
+        guard sidebarWidth > 0 else { return 0 }
+        return contentOffset(sidebarWidth: sidebarWidth) / sidebarWidth
+    }
+
+    /// Sidebar scales from 0.92 → 1.0 as it reveals.
+    private func sidebarScale(sidebarWidth: CGFloat) -> CGFloat {
+        let fraction = revealFraction(sidebarWidth: sidebarWidth)
+        return 0.95 + 0.05 * fraction
+    }
+
+    /// Sidebar fades from 0.5 → 1.0 as it reveals.
+    private func sidebarOpacity(sidebarWidth: CGFloat) -> CGFloat {
+        let fraction = revealFraction(sidebarWidth: sidebarWidth)
+        return 0.5 + 0.5 * fraction
     }
 
     // MARK: - Gestures
@@ -333,21 +368,41 @@ struct SidebarContainerView: View {
                         dragOffset = value.translation.width
                     }
                 } else {
-                    // Swiping right to open — only from left edge
-                    if value.startLocation.x < 30 && value.translation.width > 0 {
+                    // Swiping right to open — from anywhere on the content
+                    if value.translation.width > 0 {
                         dragOffset = min(value.translation.width, sidebarWidth)
                     }
                 }
             }
             .onEnded { value in
+                let fromEdge = value.startLocation.x < 40
                 if isSidebarOpen {
                     if value.translation.width < -60 || value.predictedEndTranslation.width < -100 {
                         isSidebarOpen = false
                     }
                 } else {
-                    if value.translation.width > 60 || value.predictedEndTranslation.width > 100 {
+                    // Lower threshold for edge swipes so they feel more reliable
+                    let distanceThreshold: CGFloat = fromEdge ? 30 : 60
+                    let predictedThreshold: CGFloat = fromEdge ? 50 : 100
+                    if value.translation.width > distanceThreshold || value.predictedEndTranslation.width > predictedThreshold {
                         isSidebarOpen = true
                     }
+                }
+                dragOffset = 0
+            }
+    }
+
+    /// Edge-only drag with low minimum distance — always beats ScrollView.
+    private func edgeDragGesture(sidebarWidth: CGFloat) -> some Gesture {
+        DragGesture(minimumDistance: 8)
+            .onChanged { value in
+                if value.translation.width > 0 {
+                    dragOffset = min(value.translation.width, sidebarWidth)
+                }
+            }
+            .onEnded { value in
+                if value.translation.width > 30 || value.predictedEndTranslation.width > 50 {
+                    isSidebarOpen = true
                 }
                 dragOffset = 0
             }
