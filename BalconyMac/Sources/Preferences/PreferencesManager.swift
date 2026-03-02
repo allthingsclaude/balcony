@@ -23,6 +23,8 @@ final class PreferencesManager {
     static let notifyOnConnectKey = "notifyOnConnect"
     static let notifyOnDisconnectKey = "notifyOnDisconnect"
     static let soundEffectKey = "soundEffect"
+    static let awayDistanceKey = "awayDistance"
+    static let awaySustainKey = "awaySustain"
 
     // MARK: - Defaults
 
@@ -36,6 +38,8 @@ final class PreferencesManager {
         notifyOnConnectKey: true,
         notifyOnDisconnectKey: true,
         soundEffectKey: "",
+        awayDistanceKey: 1,
+        awaySustainKey: 10,
     ]
 
     // MARK: - General
@@ -77,6 +81,29 @@ final class PreferencesManager {
     var awayThreshold: Int {
         let threshold = UserDefaults.standard.integer(forKey: Self.awayThresholdKey)
         return threshold != 0 ? threshold : 300
+    }
+
+    /// Distance in meters beyond which the phone is considered "away" (default 1).
+    var awayDistance: Int {
+        let distance = UserDefaults.standard.integer(forKey: Self.awayDistanceKey)
+        return distance != 0 ? distance : 1
+    }
+
+    /// Seconds the signal must sustain before an away/present transition commits (default 30).
+    var awaySustain: Int {
+        let sustain = UserDefaults.standard.integer(forKey: Self.awaySustainKey)
+        return sustain != 0 ? sustain : 10
+    }
+
+    /// Convert a distance in meters to an approximate BLE RSSI threshold in dBm.
+    ///
+    /// Uses the log-distance path loss model:
+    ///   RSSI = measuredPower - 10 * n * log10(distance)
+    /// where measuredPower = -59 dBm (typical BLE at 1m) and n = 2.5 (indoor).
+    static func rssiThreshold(forMeters meters: Int) -> Int {
+        guard meters > 0 else { return -40 }
+        let rssi = -59.0 - 25.0 * log10(Double(meters))
+        return Int(rssi)
     }
 
     // MARK: - Notifications
@@ -126,6 +153,7 @@ final class PreferencesManager {
             Self.displayNameKey, Self.sessionRefreshIntervalKey,
             Self.bonjourEnabledKey, Self.bleEnabledKey,
             Self.notifyOnConnectKey, Self.notifyOnDisconnectKey, Self.soundEffectKey,
+            Self.awayDistanceKey, Self.awaySustainKey,
         ]
         for key in allKeys {
             UserDefaults.standard.removeObject(forKey: key)

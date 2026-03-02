@@ -16,7 +16,8 @@ struct SessionSidebarView: View {
         VStack(spacing: 0) {
             // Connected Mac header
             ConnectedMacHeaderView(
-                deviceName: connectionManager.connectedDevice?.name ?? "Mac"
+                deviceName: connectionManager.connectedDevice?.name ?? "Mac",
+                bleRSSI: connectionManager.bleRSSI
             )
             .padding(.leading, BalconyTheme.spacingMD)
             .padding(.trailing, BalconyTheme.spacingLG)
@@ -147,6 +148,7 @@ struct SessionSidebarView: View {
 
 struct ConnectedMacHeaderView: View {
     let deviceName: String
+    var bleRSSI: Int?
 
     var body: some View {
         HStack(spacing: BalconyTheme.spacingMD) {
@@ -161,6 +163,16 @@ struct ConnectedMacHeaderView: View {
                     Text("Connected")
                         .font(.caption2)
                         .foregroundStyle(BalconyTheme.accent)
+                }
+                if let rssi = bleRSSI {
+                    HStack(spacing: 4) {
+                        Image(systemName: signalIconName(for: rssi))
+                            .font(.system(size: 8))
+                            .foregroundStyle(BalconyTheme.textSecondary)
+                        Text(distanceLabel(for: rssi))
+                            .font(.system(size: 10))
+                            .foregroundStyle(BalconyTheme.textSecondary)
+                    }
                 }
             }
 
@@ -177,6 +189,38 @@ struct ConnectedMacHeaderView: View {
         )
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Connected to \(deviceName)")
+    }
+
+    // MARK: - RSSI Helpers
+
+    /// Approximate distance from BLE RSSI using log-distance path loss model.
+    private func estimatedDistance(for rssi: Int) -> Double {
+        // RSSI = measuredPower - 10 * n * log10(d)
+        // d = 10^((measuredPower - RSSI) / (10 * n))
+        let measuredPower = -59.0 // typical BLE RSSI at 1m
+        let n = 2.5 // indoor path loss exponent
+        return pow(10.0, (measuredPower - Double(rssi)) / (10.0 * n))
+    }
+
+    private func distanceLabel(for rssi: Int) -> String {
+        let meters = estimatedDistance(for: rssi)
+        if meters < 1 {
+            return "Very close"
+        } else if meters < 10 {
+            return "~\(Int(meters.rounded()))m away"
+        } else {
+            return ">10m away"
+        }
+    }
+
+    private func signalIconName(for rssi: Int) -> String {
+        if rssi > -60 {
+            return "wifi" // strong
+        } else if rssi > -75 {
+            return "wifi" // medium
+        } else {
+            return "wifi.exclamationmark" // weak
+        }
     }
 }
 

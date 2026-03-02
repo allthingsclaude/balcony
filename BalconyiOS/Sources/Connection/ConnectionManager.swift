@@ -1,6 +1,7 @@
 import Foundation
 import UIKit
 import Network
+import Combine
 import BalconyShared
 import os
 
@@ -21,6 +22,9 @@ final class ConnectionManager: ObservableObject {
     @Published var connectionError: String?
     @Published var connectedDevice: DeviceInfo?
 
+    /// Latest BLE RSSI reading in dBm. Updated continuously while scanning.
+    @Published var bleRSSI: Int?
+
     /// The device ID of the last successfully connected Mac (persisted for auto-reconnect).
     var lastConnectedDeviceId: String? {
         get { UserDefaults.standard.string(forKey: Self.lastConnectedDeviceIdKey) }
@@ -28,6 +32,9 @@ final class ConnectionManager: ObservableObject {
     }
 
     private var autoConnectTask: Task<Void, Never>?
+    private var rssiCancellable: AnyCancellable?
+    private var rssiDisplayCancellable: AnyCancellable?
+    private var lastReportedRSSI: Int?
 
     private let bonjourBrowser = BonjourBrowser()
     private let webSocketClient = WebSocketClient()
@@ -145,6 +152,7 @@ final class ConnectionManager: ObservableObject {
             connectedDevice = device
             savePairedDevice(device)
             lastConnectedDeviceId = device.id
+            startRSSIReporting()
             logger.info("Connected to \(device.name)")
         } catch {
             logger.error("Connection failed: \(error.localizedDescription)")
@@ -203,6 +211,7 @@ final class ConnectionManager: ObservableObject {
             connectedDevice = device
             savePairedDevice(device)
             lastConnectedDeviceId = device.id
+            startRSSIReporting()
             logger.info("Connected to \(host):\(port) via QR")
         } catch {
             logger.error("Direct connection failed: \(error.localizedDescription)")
@@ -218,6 +227,7 @@ final class ConnectionManager: ObservableObject {
     func disconnect() async {
         autoConnectTask?.cancel()
         autoConnectTask = nil
+        stopRSSIReporting()
         await webSocketClient.disconnect()
         isConnected = false
         isReconnecting = false
@@ -253,6 +263,51 @@ final class ConnectionManager: ObservableObject {
     /// Send a message to the connected Mac.
     func send(_ message: BalconyMessage) async throws {
         try await webSocketClient.send(message)
+    }
+
+    // MARK: - RSSI Reporting
+
+    /// Start observing BLE RSSI and forwarding to Mac, debounced every 5 seconds.
+    private func startRSSIReporting() {
+        lastReportedRSSI = nil
+
+        // Update published property for UI (throttled to avoid excessive redraws)
+        rssiDisplayCancellable = bleCentral.$rssi
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] value in
+                self?.bleRSSI = value
+            }
+
+        // Send debounced reports to Mac
+        rssiCancellable = bleCentral.$rssi
+            .compactMap { $0 }
+            .removeDuplicates()
+            .debounce(for: .seconds(5), scheduler: DispatchQueue.main)
+            .sink { [weak self] rssi in
+                guard let self, self.isConnected else { return }
+                // Only send if value changed significantly (≥5 dBm)
+                if let last = self.lastReportedRSSI, abs(rssi - last) < 5 { return }
+                self.lastReportedRSSI = rssi
+                Task {
+                    do {
+                        let payload = BLERSSIReportPayload(rssi: rssi)
+                        let msg = try BalconyMessage.create(type: .bleRSSIReport, payload: payload)
+                        try await self.send(msg)
+                    } catch {
+                        self.logger.error("Failed to send RSSI report: \(error.localizedDescription)")
+                    }
+                }
+            }
+    }
+
+    /// Stop RSSI reporting.
+    private func stopRSSIReporting() {
+        rssiCancellable?.cancel()
+        rssiCancellable = nil
+        rssiDisplayCancellable?.cancel()
+        rssiDisplayCancellable = nil
+        lastReportedRSSI = nil
+        bleRSSI = nil
     }
 
     // MARK: - Endpoint Resolution

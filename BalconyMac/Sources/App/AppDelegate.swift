@@ -14,6 +14,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let sessionListModel = SessionListModel()
     let sessionFileReader = SessionFileReader()
     let modelListProvider = ModelListProvider()
+    let awayDetector = AwayDetector()
 
     /// Pre-resolved PTY session IDs for idle prompts (Claude session ID → PTY session ID).
     /// Stored when the idle prompt is shown so text responses route to the correct PTY
@@ -280,6 +281,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
+        // Wire away detector to connection manager signals
+        awayDetector.bleRSSIProvider = { [weak self] in
+            self?.connectionManager.latestBLERSSI
+        }
+        awayDetector.networkPresenceProvider = { [weak self] in
+            !(self?.connectionManager.connectedDevices.isEmpty ?? true)
+        }
+        awayDetector.startDetecting()
+
         // Periodically refresh session message counts
         startSessionRefreshTimer()
 
@@ -300,6 +310,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         logger.info("BalconyMac terminating")
+        awayDetector.stopDetecting()
         sessionRefreshTimer?.invalidate()
         if let observer = defaultsObserver {
             NotificationCenter.default.removeObserver(observer)

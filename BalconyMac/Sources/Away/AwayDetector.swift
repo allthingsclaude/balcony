@@ -14,6 +14,14 @@ final class AwayDetector: ObservableObject {
     private var pollTimer: Timer?
     private var screenLocked = false
     private var lockObservers: [NSObjectProtocol] = []
+    private var defaultsObserver: NSObjectProtocol?
+
+    /// Hysteresis: the candidate status must be sustained for enough consecutive
+    /// poll cycles (derived from sustain time / poll interval) before the published
+    /// status actually changes.
+    static let pollInterval: TimeInterval = 2.0
+    private var candidateStatus: AwayStatus?
+    private var candidatePollCount = 0
 
     /// External signal providers. Set these before calling startDetecting.
     var bleRSSIProvider: (() -> Int?)?
@@ -22,15 +30,15 @@ final class AwayDetector: ObservableObject {
     // MARK: - Lifecycle
 
     /// Start polling for away signals.
-    func startDetecting(interval: TimeInterval = 10.0) {
+    func startDetecting() {
         registerScreenLockObservers()
 
-        pollTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
+        pollTimer = Timer.scheduledTimer(withTimeInterval: Self.pollInterval, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in
                 self?.updateSignals()
             }
         }
-        logger.info("Away detection started (interval: \(interval)s)")
+        logger.info("Away detection started (poll: \(Self.pollInterval)s)")
     }
 
     /// Stop polling.
@@ -55,11 +63,47 @@ final class AwayDetector: ObservableObject {
             onLocalNetwork: onLocalNetwork
         )
 
-        let newStatus = currentSignals.computeStatus()
+        let prefs = PreferencesManager.shared
+        let rssiThreshold = PreferencesManager.rssiThreshold(forMeters: prefs.awayDistance)
+        let rawStatus = currentSignals.computeStatus(
+            idleThreshold: prefs.idleThreshold,
+            awayThreshold: prefs.awayThreshold,
+            rssiThreshold: rssiThreshold
+        )
+
+        // Screen lock/unlock transitions immediately (no hysteresis needed)
+        if rawStatus == .locked || currentStatus == .locked {
+            commitStatus(rawStatus)
+            return
+        }
+
+        // For all other transitions, require sustained signal to avoid flapping
+        let requiredPolls = max(1, Int(Double(prefs.awaySustain) / Self.pollInterval))
+        if rawStatus != currentStatus {
+            if rawStatus == candidateStatus {
+                candidatePollCount += 1
+            } else {
+                candidateStatus = rawStatus
+                candidatePollCount = 1
+            }
+
+            if candidatePollCount >= requiredPolls {
+                commitStatus(rawStatus)
+            }
+        } else {
+            // Signal matches current status — reset any pending transition
+            candidateStatus = nil
+            candidatePollCount = 0
+        }
+    }
+
+    private func commitStatus(_ newStatus: AwayStatus) {
         if newStatus != currentStatus {
             logger.info("Away status changed: \(String(describing: self.currentStatus)) -> \(String(describing: newStatus))")
             currentStatus = newStatus
         }
+        candidateStatus = nil
+        candidatePollCount = 0
     }
 
     // MARK: - System Idle Time

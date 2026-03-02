@@ -131,10 +131,25 @@ private struct NotificationsTab: View {
 private struct AwayDetectionTab: View {
     @AppStorage(PreferencesManager.idleThresholdKey) private var idleThreshold = 120
     @AppStorage(PreferencesManager.awayThresholdKey) private var awayThreshold = 300
+    @AppStorage(PreferencesManager.awayDistanceKey) private var awayDistance = 1
+    @AppStorage(PreferencesManager.awaySustainKey) private var awaySustain = 10
+
+    private static let distanceOptions = [1, 2, 3, 5, 10]
 
     var body: some View {
         Form {
-            Section("Thresholds") {
+            Section("Proximity") {
+                Picker("Away distance", selection: $awayDistance) {
+                    ForEach(Self.distanceOptions, id: \.self) { meters in
+                        Text("~\(meters) meter\(meters == 1 ? "" : "s")").tag(meters)
+                    }
+                }
+                Stepper("Sustain time: \(awaySustain)s", value: $awaySustain, in: 5...120, step: 5)
+                Text("Signal must hold for this long before status changes.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Section("Inactivity Thresholds") {
                 Stepper("Idle threshold: \(idleThreshold)s", value: $idleThreshold, in: 30...600, step: 30)
                 Stepper("Away threshold: \(awayThreshold)s", value: $awayThreshold, in: 60...1800, step: 60)
             }

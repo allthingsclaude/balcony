@@ -36,14 +36,23 @@ public struct AwaySignals: Codable, Sendable {
     }
 
     /// Compute the away status from current signals.
-    public func computeStatus() -> AwayStatus {
+    ///
+    /// - Parameters:
+    ///   - idleThreshold: Seconds of inactivity before marking idle (default 120).
+    ///   - awayThreshold: Seconds of inactivity contributing to idle when signal is weak (default 300).
+    ///   - rssiThreshold: BLE RSSI in dBm below which the device is considered far away (default -80).
+    public func computeStatus(
+        idleThreshold: Int = 120,
+        awayThreshold: Int = 300,
+        rssiThreshold: Int = -80
+    ) -> AwayStatus {
         if screenLocked {
             return .locked
         } else if bleRSSI == nil && !onLocalNetwork {
             return .away
-        } else if idleSeconds > 300 || (bleRSSI != nil && bleRSSI! < -80) {
+        } else if idleSeconds > awayThreshold || (bleRSSI != nil && bleRSSI! < rssiThreshold) {
             return .idle
-        } else if idleSeconds > 120 {
+        } else if idleSeconds > idleThreshold {
             return .idle
         } else {
             return .present

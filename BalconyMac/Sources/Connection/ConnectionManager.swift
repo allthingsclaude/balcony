@@ -13,6 +13,9 @@ final class ConnectionManager: ObservableObject {
     @Published var connectedDevices: [DeviceInfo] = []
     @Published var isServerRunning = false
 
+    /// Latest BLE RSSI reported by a connected iOS device. Nil when no device connected.
+    private(set) var latestBLERSSI: Int?
+
     /// Icon name reflecting current connection state for the menu bar.
     var statusIconName: String {
         if !isServerRunning {
@@ -294,6 +297,9 @@ final class ConnectionManager: ObservableObject {
             if let info = client.deviceInfo {
                 connectedDevices.removeAll { $0.id == info.id }
             }
+            if connectedDevices.isEmpty {
+                latestBLERSSI = nil
+            }
             postDeviceNotification(title: "Device Disconnected", body: "\(deviceName) disconnected", isConnect: false)
             logger.info("Client disconnected: \(client.id)")
 
@@ -420,6 +426,15 @@ final class ConnectionManager: ObservableObject {
                 await appDelegate?.handleAskUserQuestionResponse(sessionId: payload.sessionId, answers: payload.answers)
             } catch {
                 logger.error("Failed to handle AskUserQuestion response: \(error.localizedDescription)")
+            }
+
+        case .bleRSSIReport:
+            do {
+                let payload = try message.decodePayload(BLERSSIReportPayload.self)
+                latestBLERSSI = payload.rssi
+                logger.debug("BLE RSSI update from iOS: \(payload.rssi) dBm")
+            } catch {
+                logger.error("Failed to decode BLE RSSI report: \(error.localizedDescription)")
             }
 
         default:
