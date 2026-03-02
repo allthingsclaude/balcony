@@ -6,7 +6,7 @@ struct SettingsView: View {
     @AppStorage("notify.sessionEvents") private var notifySessionEvents = true
     @AppStorage("notify.toolApprovals") private var notifyToolApprovals = true
     @AppStorage("notify.sessionComplete") private var notifySessionComplete = true
-    @AppStorage("notificationSound") private var notificationSound: String = NotificationSound.chime.rawValue
+    @AppStorage("notificationSound") private var notificationSound: String = NotificationSound.noir.rawValue
     @State private var showResetConfirmation = false
 
     var body: some View {

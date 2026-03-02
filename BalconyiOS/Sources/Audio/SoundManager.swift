@@ -99,8 +99,8 @@ final class SoundManager {
 
     /// Play the user's preferred notification sound from UserDefaults.
     func playNotification() {
-        let raw = UserDefaults.standard.string(forKey: "notificationSound") ?? NotificationSound.chime.rawValue
-        let sound = NotificationSound(rawValue: raw) ?? .chime
+        let raw = UserDefaults.standard.string(forKey: "notificationSound") ?? NotificationSound.noir.rawValue
+        let sound = NotificationSound(rawValue: raw) ?? .noir
         play(sound)
     }
 }
