@@ -230,7 +230,7 @@ struct SidebarContainerView: View {
                     .navigationBarTitleDisplayMode(.inline)
                     .toolbar {
                         ToolbarItem(placement: .navigationBarLeading) {
-                            sidebarButton
+                            sidebarButtonWithIndicator
                         }
                         ToolbarItem(placement: .navigationBarTrailing) {
                             EscButton {
@@ -249,17 +249,47 @@ struct SidebarContainerView: View {
                         .navigationBarTitleDisplayMode(.inline)
                         .toolbar {
                             ToolbarItem(placement: .navigationBarLeading) {
-                                sidebarButton
+                                sidebarButtonWithIndicator
                             }
                         }
                 }
+            }
+        }
+        .overlayPreferenceValue(SidebarButtonAnchorKey.self) { anchor in
+            if let anchor {
+                GeometryReader { geo in
+                    let point = geo[anchor]
+                    ZStack {
+                        if hasOtherSessionActivity {
+                            SidebarActivityDot(pulsing: otherSessionNeedsAttention)
+                                .transition(.scale.combined(with: .opacity))
+                        }
+                    }
+                    .position(x: point.x - 0, y: point.y - 15)
+                    .animation(.easeOut(duration: 0.3), value: hasOtherSessionActivity)
+                }
+                .allowsHitTesting(false)
             }
         }
     }
 
     // MARK: - Sidebar Button
 
-    private var sidebarButton: some View {
+    /// Whether any session other than the currently selected one needs attention.
+    private var hasOtherSessionActivity: Bool {
+        sessionManager.sessions.contains { session in
+            session.id != selectedSession?.id && (session.needsAttention || session.awaitingInput)
+        }
+    }
+
+    /// Whether the activity comes from a session needing attention (vs just awaiting input).
+    private var otherSessionNeedsAttention: Bool {
+        sessionManager.sessions.contains { session in
+            session.id != selectedSession?.id && session.needsAttention
+        }
+    }
+
+    private var sidebarButtonWithIndicator: some View {
         Button {
             BalconyTheme.hapticLight()
             openSidebar()
@@ -269,6 +299,7 @@ struct SidebarContainerView: View {
                 .foregroundStyle(BalconyTheme.textPrimary)
         }
         .accessibilityLabel("Open sidebar")
+        .anchorPreference(key: SidebarButtonAnchorKey.self, value: .trailing) { $0 }
     }
 
     // MARK: - Connection Banner
@@ -454,6 +485,49 @@ struct SidebarContainerView: View {
         case .completed: return 2
         case .error: return 3
         }
+    }
+}
+
+// MARK: - Sidebar Activity Dot
+
+/// Small orange indicator next to the hamburger icon, matching the 7pt sidebar dot.
+private struct SidebarActivityDot: View {
+    let pulsing: Bool
+    @State private var isPulsing = false
+
+    var body: some View {
+        Circle()
+            .fill(BalconyTheme.accent)
+            .frame(width: 7, height: 7)
+            .opacity(pulsing && isPulsing ? 0.3 : 1.0)
+            .onChange(of: pulsing) { newValue in
+                if newValue {
+                    withAnimation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true)) {
+                        isPulsing = true
+                    }
+                } else {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        isPulsing = false
+                    }
+                }
+            }
+            .onAppear {
+                if pulsing {
+                    withAnimation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true)) {
+                        isPulsing = true
+                    }
+                }
+            }
+            .transition(.scale.combined(with: .opacity))
+    }
+}
+
+// MARK: - Anchor Preference Key
+
+private struct SidebarButtonAnchorKey: PreferenceKey {
+    static let defaultValue: Anchor<CGPoint>? = nil
+    static func reduce(value: inout Anchor<CGPoint>?, nextValue: () -> Anchor<CGPoint>?) {
+        value = nextValue() ?? value
     }
 }
 
