@@ -31,6 +31,17 @@ struct MenuBarView: View {
     @State private var showingQRCode = false
 
     var body: some View {
+        Group {
+            if showingQRCode {
+                qrCodeSection
+            } else {
+                mainContent
+            }
+        }
+        .animation(.none, value: showingQRCode)
+    }
+
+    private var mainContent: some View {
         VStack(spacing: 16) {
             // Header
             headerSection
@@ -53,9 +64,6 @@ struct MenuBarView: View {
         .padding(16)
         .frame(width: 320)
         .background(MenuBarTheme.background)
-        .sheet(isPresented: $showingQRCode) {
-            QRCodePairingView(connectionManager: connectionManager)
-        }
     }
 
     // MARK: - Header
@@ -193,6 +201,62 @@ struct MenuBarView: View {
             .buttonStyle(.plain)
             .foregroundStyle(.secondary)
             .focusable(false)
+        }
+    }
+
+    // MARK: - QR Code
+
+    @State private var pairingURL: String?
+    @State private var pairingError: String?
+
+    private var qrCodeSection: some View {
+        VStack(spacing: 16) {
+            HStack {
+                Button(action: { showingQRCode = false }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "chevron.left")
+                            .font(.caption2)
+                        Text("Back")
+                            .font(.caption)
+                    }
+                    .padding(.vertical, 6)
+                    .padding(.trailing, 12)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .focusable(false)
+
+                Spacer()
+            }
+
+            if let url = pairingURL {
+                QRCodeView(pairingURL: url)
+            } else if let error = pairingError {
+                VStack(spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle")
+                        .font(.largeTitle)
+                        .foregroundStyle(.red)
+                    Text(error)
+                        .foregroundStyle(.red)
+                        .font(.caption)
+                        .multilineTextAlignment(.center)
+                }
+            } else {
+                ProgressView("Generating pairing code...")
+                    .frame(maxWidth: .infinity, minHeight: 240)
+            }
+        }
+        .padding(16)
+        .frame(width: 320)
+        .background(MenuBarTheme.background)
+        .task(id: showingQRCode) {
+            guard showingQRCode, pairingURL == nil else { return }
+            do {
+                pairingURL = try await connectionManager.generatePairingURL()
+            } catch {
+                pairingError = "Failed to generate pairing code: \(error.localizedDescription)"
+            }
         }
     }
 
