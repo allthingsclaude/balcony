@@ -81,7 +81,7 @@ struct ContentView: View {
             LaunchScreenView()
                 .zIndex(1)
         }
-        .background(BalconyTheme.background)
+        .background(BalconyTheme.background.ignoresSafeArea())
         .animation(.spring(response: 0.5, dampingFraction: 0.85), value: showConnected)
         .onChange(of: connectionManager.isConnected) { connected in
             showConnected = connected

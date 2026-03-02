@@ -257,16 +257,31 @@ final class ConnectionManager: ObservableObject {
         logger.info("Auto-connect cancelled")
     }
 
-    /// Attempt to auto-connect to a previously connected device.
+    /// Attempt to auto-connect to a previously connected device (30s timeout).
     private func attemptAutoConnect(to device: DeviceInfo) {
         logger.info("Auto-connecting to \(device.name)")
         isAutoConnecting = true
         autoConnectTask = Task { [weak self] in
-            await self?.connect(to: device)
+            // Race the connection against a 30-second timeout
+            let connected = await withTaskGroup(of: Bool.self) { group in
+                group.addTask { @MainActor [weak self] in
+                    await self?.connect(to: device)
+                    return self?.isConnected ?? false
+                }
+                group.addTask {
+                    try? await Task.sleep(nanoseconds: 30_000_000_000)
+                    return false
+                }
+                let result = await group.next() ?? false
+                group.cancelAll()
+                return result
+            }
+
             guard let self, !Task.isCancelled else { return }
-            // If connection failed, silently clear auto-connecting state
-            if !self.isConnected {
+            if !connected {
                 self.isAutoConnecting = false
+                self.isConnecting = false
+                self.logger.info("Auto-connect timed out for \(device.name)")
             }
         }
     }
@@ -364,47 +379,57 @@ final class ConnectionManager: ObservableObject {
 
     // MARK: - Endpoint Resolution
 
-    /// Resolve a Bonjour NWEndpoint to a concrete host and port.
+    /// Resolve a Bonjour NWEndpoint to a concrete host and port, with a timeout.
     private func resolveEndpoint(_ endpoint: NWEndpoint) async -> (String, Int)? {
-        await withCheckedContinuation { continuation in
-            let connection = NWConnection(to: endpoint, using: .tcp)
-            connection.stateUpdateHandler = { [weak connection] state in
-                switch state {
-                case .ready:
-                    // Extract the resolved host and port from the current path
-                    if let innerEndpoint = connection?.currentPath?.remoteEndpoint,
-                       case .hostPort(let host, let port) = innerEndpoint {
-                        let rawHost: String
-                        switch host {
-                        case .ipv4(let addr):
-                            rawHost = "\(addr)"
-                        case .ipv6(let addr):
-                            rawHost = "\(addr)"
-                        case .name(let name, _):
-                            rawHost = name
-                        @unknown default:
-                            rawHost = "\(host)"
+        await withTaskGroup(of: (String, Int)?.self) { group in
+            group.addTask {
+                await withCheckedContinuation { continuation in
+                    let connection = NWConnection(to: endpoint, using: .tcp)
+                    connection.stateUpdateHandler = { [weak connection] state in
+                        switch state {
+                        case .ready:
+                            if let innerEndpoint = connection?.currentPath?.remoteEndpoint,
+                               case .hostPort(let host, let port) = innerEndpoint {
+                                let rawHost: String
+                                switch host {
+                                case .ipv4(let addr):
+                                    rawHost = "\(addr)"
+                                case .ipv6(let addr):
+                                    rawHost = "\(addr)"
+                                case .name(let name, _):
+                                    rawHost = name
+                                @unknown default:
+                                    rawHost = "\(host)"
+                                }
+                                let hostString = String(rawHost.prefix(while: { $0 != "%" }))
+                                connection?.stateUpdateHandler = nil
+                                connection?.cancel()
+                                continuation.resume(returning: (hostString, Int(port.rawValue)))
+                            } else {
+                                connection?.stateUpdateHandler = nil
+                                connection?.cancel()
+                                continuation.resume(returning: nil)
+                            }
+                        case .failed:
+                            connection?.stateUpdateHandler = nil
+                            connection?.cancel()
+                            continuation.resume(returning: nil)
+                        default:
+                            break
                         }
-                        // Strip interface scope suffix (e.g. "%en0") that breaks URLs
-                        let hostString = String(rawHost.prefix(while: { $0 != "%" }))
-                        // Prevent .cancelled from resuming again
-                        connection?.stateUpdateHandler = nil
-                        connection?.cancel()
-                        continuation.resume(returning: (hostString, Int(port.rawValue)))
-                    } else {
-                        connection?.stateUpdateHandler = nil
-                        connection?.cancel()
-                        continuation.resume(returning: nil)
                     }
-                case .failed:
-                    connection?.stateUpdateHandler = nil
-                    connection?.cancel()
-                    continuation.resume(returning: nil)
-                default:
-                    break
+                    connection.start(queue: .global())
                 }
             }
-            connection.start(queue: .global())
+
+            group.addTask {
+                try? await Task.sleep(nanoseconds: 10_000_000_000) // 10s timeout
+                return nil
+            }
+
+            let result = await group.next() ?? nil
+            group.cancelAll()
+            return result
         }
     }
 

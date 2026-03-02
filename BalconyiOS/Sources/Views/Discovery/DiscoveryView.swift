@@ -235,18 +235,7 @@ private struct SearchPulseView: View {
         ZStack {
             if !reduceMotion {
                 ForEach(0..<3, id: \.self) { index in
-                    Circle()
-                        .stroke(BalconyTheme.accent.opacity(animate ? 0 : 0.25), lineWidth: 1.5)
-                        .frame(
-                            width: animate ? 120 : 56,
-                            height: animate ? 120 : 56
-                        )
-                        .animation(
-                            .easeOut(duration: 2.4)
-                            .repeatForever(autoreverses: false)
-                            .delay(Double(index) * 0.8),
-                            value: animate
-                        )
+                    PulseRing(index: index, animate: animate)
                 }
             }
 
@@ -264,6 +253,35 @@ private struct SearchPulseView: View {
         .onAppear {
             if !reduceMotion { animate = true }
         }
+    }
+}
+
+/// Individual pulse ring that manages its own repeating animation via TimelineView.
+private struct PulseRing: View {
+    let index: Int
+    let animate: Bool
+
+    private let duration: Double = 2.4
+    private let baseSize: CGFloat = 56
+    private let maxSize: CGFloat = 120
+
+    var body: some View {
+        TimelineView(.animation(paused: !animate)) { timeline in
+            let elapsed = timeline.date.timeIntervalSinceReferenceDate
+            let staggerDelay = Double(index) * 0.8
+            let progress = fract((elapsed - staggerDelay) / duration)
+            let eased = 1 - (1 - progress) * (1 - progress) // easeOut quad
+            let size = baseSize + (maxSize - baseSize) * eased
+            let opacity = 0.25 * (1 - eased)
+
+            Circle()
+                .stroke(BalconyTheme.accent.opacity(opacity), lineWidth: 1.5)
+                .frame(width: size, height: size)
+        }
+    }
+
+    private func fract(_ x: Double) -> Double {
+        x - x.rounded(.down)
     }
 }
 
