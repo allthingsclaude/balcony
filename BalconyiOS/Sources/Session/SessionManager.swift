@@ -388,6 +388,20 @@ final class SessionManager: ObservableObject {
     private func handleSessionList(_ message: BalconyMessage) {
         do {
             let payload = try message.decodePayload(SessionListPayload.self)
+            let oldSessions = sessions
+
+            // Check for background session state transitions before replacing
+            for newSession in payload.sessions where newSession.id != activeSession?.id {
+                if let old = oldSessions.first(where: { $0.id == newSession.id }) {
+                    let attentionTransition = !old.needsAttention && newSession.needsAttention
+                    let inputTransition = !old.awaitingInput && newSession.awaitingInput
+                    if attentionTransition || inputTransition {
+                        SoundManager.shared.playNotification()
+                        break  // One sound per update is enough
+                    }
+                }
+            }
+
             sessions = payload.sessions
             logger.info("Received session list: \(payload.sessions.count) sessions")
 

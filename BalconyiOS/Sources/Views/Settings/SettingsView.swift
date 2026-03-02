@@ -6,6 +6,7 @@ struct SettingsView: View {
     @AppStorage("notify.sessionEvents") private var notifySessionEvents = true
     @AppStorage("notify.toolApprovals") private var notifyToolApprovals = true
     @AppStorage("notify.sessionComplete") private var notifySessionComplete = true
+    @AppStorage("notificationSound") private var notificationSound: String = NotificationSound.chime.rawValue
     @State private var showResetConfirmation = false
 
     var body: some View {
@@ -33,6 +34,16 @@ struct SettingsView: View {
                     Toggle("Session Events", isOn: $notifySessionEvents)
                     Toggle("Tool Approvals", isOn: $notifyToolApprovals)
                     Toggle("Session Complete", isOn: $notifySessionComplete)
+                    Picker("Notification Sound", selection: $notificationSound) {
+                        ForEach(NotificationSound.allCases) { sound in
+                            Text(sound.displayName).tag(sound.rawValue)
+                        }
+                    }
+                    .onChange(of: notificationSound) { newValue in
+                        if let sound = NotificationSound(rawValue: newValue) {
+                            SoundManager.shared.play(sound)
+                        }
+                    }
                 }
 
                 Section("Security") {
