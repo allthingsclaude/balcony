@@ -13,8 +13,7 @@ struct SessionListView: View {
                 LazyVStack(spacing: 0) {
                     // Connected Mac header
                     ConnectedMacHeaderView(
-                        deviceName: connectionManager.connectedDevice?.name ?? "Mac",
-                        bleRSSI: connectionManager.bleRSSI
+                        deviceName: connectionManager.connectedDevice?.name ?? "Mac"
                     )
                     .padding(.horizontal, BalconyTheme.spacingLG)
                     .padding(.top, BalconyTheme.spacingSM)

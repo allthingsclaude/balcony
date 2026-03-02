@@ -25,6 +25,10 @@ final class ConnectionManager: ObservableObject {
     /// Latest BLE RSSI reading in dBm. Updated continuously while scanning.
     @Published var bleRSSI: Int?
 
+    /// Whether the phone has been sustained beyond the away-distance threshold.
+    /// Toggles after the signal holds for `awaySustainSeconds`.
+    @Published var isPhoneAway: Bool = false
+
     /// The device ID of the last successfully connected Mac (persisted for auto-reconnect).
     var lastConnectedDeviceId: String? {
         get { UserDefaults.standard.string(forKey: Self.lastConnectedDeviceIdKey) }
@@ -34,7 +38,14 @@ final class ConnectionManager: ObservableObject {
     private var autoConnectTask: Task<Void, Never>?
     private var rssiCancellable: AnyCancellable?
     private var rssiDisplayCancellable: AnyCancellable?
+    private var awayCancellable: AnyCancellable?
     private var lastReportedRSSI: Int?
+    private var smoothedRSSI: Double?
+
+    /// Distance threshold in meters beyond which the phone is "away" (matches Mac default).
+    private let awayDistanceMeters: Double = 1.0
+    /// Seconds the distance signal must sustain before toggling `isPhoneAway`.
+    private let awaySustainSeconds: Double = 10.0
 
     private let bonjourBrowser = BonjourBrowser()
     private let webSocketClient = WebSocketClient()
@@ -271,11 +282,36 @@ final class ConnectionManager: ObservableObject {
     private func startRSSIReporting() {
         lastReportedRSSI = nil
 
-        // Update published property for UI (throttled to avoid excessive redraws)
+        // Update published property for UI with exponential moving average to smooth jitter
+        smoothedRSSI = nil
         rssiDisplayCancellable = bleCentral.$rssi
             .receive(on: DispatchQueue.main)
             .sink { [weak self] value in
-                self?.bleRSSI = value
+                guard let self, let raw = value else {
+                    self?.bleRSSI = value
+                    return
+                }
+                if let prev = self.smoothedRSSI {
+                    // EMA: alpha=0.3 weights new readings but dampens spikes
+                    self.smoothedRSSI = 0.3 * Double(raw) + 0.7 * prev
+                } else {
+                    self.smoothedRSSI = Double(raw)
+                }
+                self.bleRSSI = Int(self.smoothedRSSI!.rounded())
+            }
+
+        // Track sustained away/present for auto-notification toggle
+        awayCancellable = bleCentral.$rssi
+            .compactMap { $0 }
+            .map { [weak self] rssi -> Bool in
+                guard let self else { return false }
+                let distance = Self.estimatedDistance(for: rssi)
+                return distance > self.awayDistanceMeters
+            }
+            .removeDuplicates()
+            .debounce(for: .seconds(awaySustainSeconds), scheduler: DispatchQueue.main)
+            .sink { [weak self] away in
+                self?.isPhoneAway = away
             }
 
         // Send debounced reports to Mac
@@ -306,8 +342,19 @@ final class ConnectionManager: ObservableObject {
         rssiCancellable = nil
         rssiDisplayCancellable?.cancel()
         rssiDisplayCancellable = nil
+        awayCancellable?.cancel()
+        awayCancellable = nil
         lastReportedRSSI = nil
+        smoothedRSSI = nil
         bleRSSI = nil
+        isPhoneAway = false
+    }
+
+    /// Estimate distance in meters from a BLE RSSI value using log-distance path loss model.
+    static func estimatedDistance(for rssi: Int) -> Double {
+        let measuredPower = -59.0 // Typical BLE RSSI at 1 meter
+        let n = 2.5 // Indoor path-loss exponent
+        return pow(10.0, (measuredPower - Double(rssi)) / (10.0 * n))
     }
 
     // MARK: - Endpoint Resolution

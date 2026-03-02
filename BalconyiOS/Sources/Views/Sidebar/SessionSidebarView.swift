@@ -5,6 +5,7 @@ import BalconyShared
 struct SessionSidebarView: View {
     @EnvironmentObject var sessionManager: SessionManager
     @EnvironmentObject var connectionManager: ConnectionManager
+    @AppStorage("notificationsEnabled") private var notificationsEnabled = false
     let selectedSessionId: String?
     let onSelectSession: (Session) -> Void
     let onSettings: () -> Void
@@ -16,8 +17,7 @@ struct SessionSidebarView: View {
         VStack(spacing: 0) {
             // Connected Mac header
             ConnectedMacHeaderView(
-                deviceName: connectionManager.connectedDevice?.name ?? "Mac",
-                bleRSSI: connectionManager.bleRSSI
+                deviceName: connectionManager.connectedDevice?.name ?? "Mac"
             )
             .padding(.leading, BalconyTheme.spacingMD)
             .padding(.trailing, BalconyTheme.spacingLG)
@@ -53,54 +53,62 @@ struct SessionSidebarView: View {
 
             Spacer(minLength: 0)
 
-            // Bottom actions
+            // Bottom section
             VStack(spacing: 0) {
                 Divider()
                     .overlay(BalconyTheme.separator)
 
-                VStack(spacing: 2) {
-                    // Settings
-                    Button(action: onSettings) {
-                        HStack(spacing: BalconyTheme.spacingSM) {
-                            Image(systemName: "gearshape")
-                                .font(.system(size: 14))
-                                .foregroundStyle(BalconyTheme.textSecondary)
-                                .frame(width: 24)
-                            Text("Settings")
-                                .font(BalconyTheme.bodyFont(14))
-                                .foregroundStyle(BalconyTheme.textPrimary)
-                            Spacer()
-                        }
-                        .padding(.horizontal, BalconyTheme.spacingMD)
-                        .padding(.vertical, 10)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
+                VStack(spacing: BalconyTheme.spacingSM) {
+                    // Proximity card
+                    ProximityCardView(
+                        bleRSSI: connectionManager.bleRSSI,
+                        notificationsEnabled: $notificationsEnabled
+                    )
 
-                    // Disconnect
-                    Button(action: onDisconnect) {
-                        HStack(spacing: BalconyTheme.spacingSM) {
-                            Image(systemName: "rectangle.portrait.and.arrow.forward")
-                                .font(.system(size: 14))
-                                .foregroundStyle(BalconyTheme.accent)
-                                .rotationEffect(.degrees(180))
-                                .frame(width: 24)
-                            Text("Disconnect")
-                                .font(BalconyTheme.bodyFont(14))
-                                .foregroundStyle(BalconyTheme.accent)
-                            Spacer()
+                    // Settings & Disconnect on one line, indented to align with card contents
+                    HStack {
+                        Button(action: onSettings) {
+                            HStack(spacing: BalconyTheme.spacingXS) {
+                                Image(systemName: "gearshape")
+                                    .font(.system(size: 13))
+                                    .foregroundStyle(BalconyTheme.textSecondary)
+                                Text("Settings")
+                                    .font(BalconyTheme.bodyFont(13))
+                                    .foregroundStyle(BalconyTheme.textPrimary)
+                            }
+                            .padding(.vertical, 8)
+                            .contentShape(Rectangle())
                         }
-                        .padding(.horizontal, BalconyTheme.spacingMD)
-                        .padding(.vertical, 10)
-                        .contentShape(Rectangle())
+                        .buttonStyle(.plain)
+
+                        Spacer()
+
+                        Button(action: onDisconnect) {
+                            HStack(spacing: BalconyTheme.spacingXS) {
+                                Image(systemName: "rectangle.portrait.and.arrow.forward")
+                                    .font(.system(size: 13))
+                                    .foregroundStyle(BalconyTheme.accent)
+                                    .rotationEffect(.degrees(180))
+                                Text("Disconnect")
+                                    .font(BalconyTheme.bodyFont(13))
+                                    .foregroundStyle(BalconyTheme.accent)
+                            }
+                            .padding(.vertical, 8)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
+                    .padding(.horizontal, BalconyTheme.spacingMD)
                 }
+                .padding(.horizontal, BalconyTheme.spacingMD)
                 .padding(.vertical, BalconyTheme.spacingSM)
                 .padding(.bottom, safeAreaBottom)
             }
         }
         .background(BalconyTheme.sidebarBackground.ignoresSafeArea())
+        .onChange(of: connectionManager.isPhoneAway) { isAway in
+            notificationsEnabled = isAway
+        }
     }
 
     // MARK: - Sorted Sessions
@@ -148,7 +156,6 @@ struct SessionSidebarView: View {
 
 struct ConnectedMacHeaderView: View {
     let deviceName: String
-    var bleRSSI: Int?
 
     var body: some View {
         HStack(spacing: BalconyTheme.spacingMD) {
@@ -163,16 +170,6 @@ struct ConnectedMacHeaderView: View {
                     Text("Connected")
                         .font(.caption2)
                         .foregroundStyle(BalconyTheme.accent)
-                }
-                if let rssi = bleRSSI {
-                    HStack(spacing: 4) {
-                        Image(systemName: signalIconName(for: rssi))
-                            .font(.system(size: 8))
-                            .foregroundStyle(BalconyTheme.textSecondary)
-                        Text(distanceLabel(for: rssi))
-                            .font(.system(size: 10))
-                            .foregroundStyle(BalconyTheme.textSecondary)
-                    }
                 }
             }
 
@@ -190,22 +187,65 @@ struct ConnectedMacHeaderView: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Connected to \(deviceName)")
     }
+}
 
-    // MARK: - RSSI Helpers
+// MARK: - Proximity Card
 
-    /// Approximate distance from BLE RSSI using log-distance path loss model.
-    private func estimatedDistance(for rssi: Int) -> Double {
-        // RSSI = measuredPower - 10 * n * log10(d)
-        // d = 10^((measuredPower - RSSI) / (10 * n))
-        let measuredPower = -59.0 // typical BLE RSSI at 1m
-        let n = 2.5 // indoor path loss exponent
-        return pow(10.0, (measuredPower - Double(rssi)) / (10.0 * n))
+/// Card showing BLE proximity distance and a manual notifications toggle.
+struct ProximityCardView: View {
+    let bleRSSI: Int?
+    @Binding var notificationsEnabled: Bool
+
+    var body: some View {
+        HStack(spacing: BalconyTheme.spacingSM) {
+            // Signal icon — brand orange, opacity fades with distance
+            Image(systemName: signalIconName)
+                .font(.system(size: 14))
+                .foregroundStyle(BalconyTheme.accent.opacity(signalOpacity))
+                .frame(width: 20)
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(distanceText)
+                    .font(BalconyTheme.bodyFont(12))
+                    .foregroundStyle(isNear ? BalconyTheme.textPrimary : BalconyTheme.accent)
+                Text(notificationsEnabled ? "Notifications on" : "Notifications off")
+                    .font(.system(size: 10))
+                    .foregroundStyle(BalconyTheme.textSecondary)
+            }
+
+            Spacer()
+
+            // Manual toggle
+            Toggle("", isOn: $notificationsEnabled)
+                .labelsHidden()
+                .tint(BalconyTheme.accent)
+                .scaleEffect(0.8)
+        }
+        .padding(.horizontal, BalconyTheme.spacingMD)
+        .padding(.vertical, BalconyTheme.spacingSM)
+        .background(
+            RoundedRectangle(cornerRadius: BalconyTheme.radiusSM)
+                .fill(BalconyTheme.surfaceSecondary)
+        )
+        .animation(.easeInOut(duration: 0.3), value: bleRSSI)
     }
 
-    private func distanceLabel(for rssi: Int) -> String {
-        let meters = estimatedDistance(for: rssi)
+    // MARK: - Helpers
+
+    private var estimatedMeters: Double? {
+        guard let rssi = bleRSSI else { return nil }
+        return ConnectionManager.estimatedDistance(for: rssi)
+    }
+
+    private var isNear: Bool {
+        guard let meters = estimatedMeters else { return false }
+        return meters < 1
+    }
+
+    private var distanceText: String {
+        guard let meters = estimatedMeters else { return "No signal" }
         if meters < 1 {
-            return "Very close"
+            return "At your desk"
         } else if meters < 10 {
             return "~\(Int(meters.rounded()))m away"
         } else {
@@ -213,15 +253,18 @@ struct ConnectedMacHeaderView: View {
         }
     }
 
-    private func signalIconName(for rssi: Int) -> String {
-        if rssi > -60 {
-            return "wifi" // strong
-        } else if rssi > -75 {
-            return "wifi" // medium
-        } else {
-            return "wifi.exclamationmark" // weak
-        }
+    private var signalIconName: String {
+        guard bleRSSI != nil else { return "antenna.radiowaves.left.and.right.slash" }
+        return "antenna.radiowaves.left.and.right"
     }
+
+    /// Opacity decreases as distance grows: 1.0 at desk, ~0.35 at 10m+, 0.3 if no signal.
+    private var signalOpacity: Double {
+        guard let meters = estimatedMeters else { return 0.3 }
+        let clamped = min(max(meters, 0), 10)
+        return 1.0 - (clamped / 10.0) * 0.65
+    }
+
 }
 
 // MARK: - Sidebar Session Row
