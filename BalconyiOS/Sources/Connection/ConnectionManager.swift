@@ -291,6 +291,7 @@ final class ConnectionManager: ObservableObject {
                     self?.bleRSSI = value
                     return
                 }
+                let isFirst = self.smoothedRSSI == nil
                 if let prev = self.smoothedRSSI {
                     // EMA: alpha=0.3 weights new readings but dampens spikes
                     self.smoothedRSSI = 0.3 * Double(raw) + 0.7 * prev
@@ -298,6 +299,10 @@ final class ConnectionManager: ObservableObject {
                     self.smoothedRSSI = Double(raw)
                 }
                 self.bleRSSI = Int(self.smoothedRSSI!.rounded())
+                // Set initial away state immediately on first reading (skip debounce)
+                if isFirst {
+                    self.isPhoneAway = Self.estimatedDistance(for: Int(self.smoothedRSSI!.rounded())) > self.awayDistanceMeters
+                }
             }
 
         // Track sustained away/present using smoothed RSSI for auto-notification toggle
