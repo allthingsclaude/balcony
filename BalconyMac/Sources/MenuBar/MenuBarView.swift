@@ -182,16 +182,19 @@ struct MenuBarView: View {
             .help("Pair New Device")
             .focusable(false)
 
-            Button(action: {
-                NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
-                NSApp.activate(ignoringOtherApps: true)
-            }) {
+            SettingsLink {
                 Image(systemName: "gearshape")
                     .font(.caption)
             }
+            .simultaneousGesture(TapGesture().onEnded {
+                DispatchQueue.main.async {
+                    NSApp.keyWindow?.close()
+                    NSApp.activate(ignoringOtherApps: true)
+                }
+            })
             .buttonStyle(.plain)
             .foregroundStyle(.secondary)
-            .help("Preferences")
+            .help("Settings")
             .focusable(false)
 
             Button(action: { NSApplication.shared.terminate(nil) }) {

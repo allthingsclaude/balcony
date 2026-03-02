@@ -1,39 +1,62 @@
+import AppKit
 import SwiftUI
 import ServiceManagement
 
 struct PreferencesView: View {
-    @AppStorage("wsPort") private var wsPort = 29170
-    @AppStorage("idleThreshold") private var idleThreshold = 120
-    @AppStorage("awayThreshold") private var awayThreshold = 300
-    @State private var loginItemEnabled = SMAppService.mainApp.status == .enabled
-
     var body: some View {
         TabView {
-            // General
-            Form {
-                Section("Server") {
-                    TextField("WebSocket Port", value: $wsPort, format: .number)
-                }
-                Section("Startup") {
-                    Toggle("Start at login", isOn: $loginItemEnabled)
-                        .onChange(of: loginItemEnabled) { _, newValue in
-                            toggleLoginItem(enabled: newValue)
-                        }
-                }
-            }
-            .tabItem { Label("General", systemImage: "gear") }
-            .frame(width: 400, height: 200)
+            GeneralTab()
+                .tabItem { Label("General", systemImage: "gear") }
 
-            // Away Detection
-            Form {
-                Section("Away Detection") {
-                    Stepper("Idle threshold: \(idleThreshold)s", value: $idleThreshold, in: 30...600, step: 30)
-                    Stepper("Away threshold: \(awayThreshold)s", value: $awayThreshold, in: 60...1800, step: 60)
-                }
-            }
-            .tabItem { Label("Away Detection", systemImage: "person.wave.2") }
-            .frame(width: 400, height: 200)
+            ConnectionTab()
+                .tabItem { Label("Connection", systemImage: "network") }
+
+            NotificationsTab()
+                .tabItem { Label("Notifications", systemImage: "bell") }
+
+            AwayDetectionTab()
+                .tabItem { Label("Away Detection", systemImage: "person.wave.2") }
+
+            AdvancedTab()
+                .tabItem { Label("Advanced", systemImage: "gearshape.2") }
         }
+        .frame(width: 450, height: 300)
+    }
+}
+
+// MARK: - General Tab
+
+private struct GeneralTab: View {
+    @State private var loginItemEnabled = SMAppService.mainApp.status == .enabled
+    @AppStorage(PreferencesManager.displayNameKey) private var displayName = ""
+    @AppStorage(PreferencesManager.sessionRefreshIntervalKey) private var sessionRefreshInterval = 10
+
+    private var displayNamePlaceholder: String {
+        Host.current().localizedName ?? "Mac"
+    }
+
+    var body: some View {
+        Form {
+            Section("Startup") {
+                Toggle("Start at login", isOn: $loginItemEnabled)
+                    .onChange(of: loginItemEnabled) { _, newValue in
+                        toggleLoginItem(enabled: newValue)
+                    }
+            }
+            Section("Identity") {
+                TextField("Computer name", text: $displayName, prompt: Text(displayNamePlaceholder))
+                    .textFieldStyle(.roundedBorder)
+            }
+            Section("Session Monitoring") {
+                Stepper(
+                    "Refresh interval: \(sessionRefreshInterval)s",
+                    value: $sessionRefreshInterval,
+                    in: 5...60,
+                    step: 5
+                )
+            }
+        }
+        .formStyle(.grouped)
     }
 
     private func toggleLoginItem(enabled: Bool) {
@@ -44,8 +67,103 @@ struct PreferencesView: View {
                 try SMAppService.mainApp.unregister()
             }
         } catch {
-            // Revert toggle on failure
             loginItemEnabled = SMAppService.mainApp.status == .enabled
         }
+    }
+}
+
+// MARK: - Connection Tab
+
+private struct ConnectionTab: View {
+    @AppStorage(PreferencesManager.wsPortKey) private var wsPort = 29170
+    @AppStorage(PreferencesManager.bonjourEnabledKey) private var bonjourEnabled = true
+    @AppStorage(PreferencesManager.bleEnabledKey) private var bleEnabled = true
+
+    var body: some View {
+        Form {
+            Section("WebSocket Server") {
+                TextField("Port", value: $wsPort, format: .number)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 100)
+            }
+            Section("Discovery") {
+                Toggle("Enable Bonjour discovery", isOn: $bonjourEnabled)
+                Toggle("Enable Bluetooth LE", isOn: $bleEnabled)
+            }
+        }
+        .formStyle(.grouped)
+    }
+}
+
+// MARK: - Notifications Tab
+
+private struct NotificationsTab: View {
+    @AppStorage(PreferencesManager.notifyOnConnectKey) private var notifyOnConnect = true
+    @AppStorage(PreferencesManager.notifyOnDisconnectKey) private var notifyOnDisconnect = true
+    @AppStorage(PreferencesManager.soundEffectKey) private var soundEffect = ""
+
+    var body: some View {
+        Form {
+            Section("Device Events") {
+                Toggle("Notify on device connect", isOn: $notifyOnConnect)
+                Toggle("Notify on device disconnect", isOn: $notifyOnDisconnect)
+            }
+            Section("Sound Effect") {
+                Picker("Sound", selection: $soundEffect) {
+                    Text("None").tag("")
+                    Divider()
+                    ForEach(PreferencesManager.availableSounds, id: \.self) { name in
+                        Text(name).tag(name)
+                    }
+                }
+                .onChange(of: soundEffect) { _, newValue in
+                    guard !newValue.isEmpty else { return }
+                    NSSound(named: NSSound.Name(newValue))?.play()
+                }
+            }
+        }
+        .formStyle(.grouped)
+    }
+}
+
+// MARK: - Away Detection Tab
+
+private struct AwayDetectionTab: View {
+    @AppStorage(PreferencesManager.idleThresholdKey) private var idleThreshold = 120
+    @AppStorage(PreferencesManager.awayThresholdKey) private var awayThreshold = 300
+
+    var body: some View {
+        Form {
+            Section("Thresholds") {
+                Stepper("Idle threshold: \(idleThreshold)s", value: $idleThreshold, in: 30...600, step: 30)
+                Stepper("Away threshold: \(awayThreshold)s", value: $awayThreshold, in: 60...1800, step: 60)
+            }
+        }
+        .formStyle(.grouped)
+    }
+}
+
+// MARK: - Advanced Tab
+
+private struct AdvancedTab: View {
+    @State private var showResetConfirmation = false
+
+    var body: some View {
+        Form {
+            Section("Danger Zone") {
+                Button("Reset All Settings", role: .destructive) {
+                    showResetConfirmation = true
+                }
+                .alert("Reset All Settings?", isPresented: $showResetConfirmation) {
+                    Button("Cancel", role: .cancel) {}
+                    Button("Reset", role: .destructive) {
+                        PreferencesManager.shared.resetAll()
+                    }
+                } message: {
+                    Text("This will restore all preferences to their default values.")
+                }
+            }
+        }
+        .formStyle(.grouped)
     }
 }

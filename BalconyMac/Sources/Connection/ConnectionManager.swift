@@ -1,4 +1,6 @@
+import AppKit
 import Foundation
+import UserNotifications
 import BalconyShared
 import os
 
@@ -43,9 +45,10 @@ final class ConnectionManager: ObservableObject {
         port: Int = 29170,
         ptySessionManager: PTYSessionManager
     ) {
+        let prefs = PreferencesManager.shared
         self.port = port
         self.webSocketServer = WebSocketServer(port: port)
-        self.bonjourAdvertiser = BonjourAdvertiser(port: UInt16(port))
+        self.bonjourAdvertiser = BonjourAdvertiser(port: UInt16(port), deviceName: prefs.displayName)
         self.blePeripheral = BLEPeripheral()
         self.ptySessionManager = ptySessionManager
     }
@@ -78,9 +81,15 @@ final class ConnectionManager: ObservableObject {
             }
         }
 
+        let prefs = PreferencesManager.shared
         let keyPair = try await serverCrypto.generateKeyPair()
-        bonjourAdvertiser.startAdvertising(publicKeyFingerprint: keyPair.fingerprint)
-        blePeripheral.startAdvertising(deviceName: Host.current().localizedName ?? "Mac")
+
+        if prefs.bonjourEnabled {
+            bonjourAdvertiser.startAdvertising(publicKeyFingerprint: keyPair.fingerprint)
+        }
+        if prefs.bleEnabled {
+            blePeripheral.startAdvertising(deviceName: prefs.displayName)
+        }
 
         isServerRunning = true
         logger.info("All connection services started")
@@ -95,6 +104,25 @@ final class ConnectionManager: ObservableObject {
         connectedDevices = []
         isServerRunning = false
         logger.info("All connection services stopped")
+    }
+
+    // MARK: - Notifications
+
+    private func postDeviceNotification(title: String, body: String, isConnect: Bool) {
+        let prefs = PreferencesManager.shared
+        let shouldNotify = isConnect ? prefs.notifyOnConnect : prefs.notifyOnDisconnect
+        guard shouldNotify else { return }
+
+        let soundName = prefs.soundEffect
+        if !soundName.isEmpty {
+            NSSound(named: NSSound.Name(soundName))?.play()
+        }
+
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
+        UNUserNotificationCenter.current().add(request)
     }
 
     // MARK: - Device Management
@@ -258,12 +286,15 @@ final class ConnectionManager: ObservableObject {
         case .clientAuthenticated(let client, let deviceInfo):
             connectedDevices.append(deviceInfo)
             logger.info("Client authenticated: \(deviceInfo.name)")
+            postDeviceNotification(title: "Device Connected", body: "\(deviceInfo.name) connected", isConnect: true)
             await sendSessionList(to: client)
 
         case .clientDisconnected(let client):
+            let deviceName = client.deviceInfo?.name ?? client.id
             if let info = client.deviceInfo {
                 connectedDevices.removeAll { $0.id == info.id }
             }
+            postDeviceNotification(title: "Device Disconnected", body: "\(deviceName) disconnected", isConnect: false)
             logger.info("Client disconnected: \(client.id)")
 
         case .messageReceived(let client, let message):

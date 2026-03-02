@@ -23,6 +23,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Timer that periodically refreshes session message counts.
     private var sessionRefreshTimer: Timer?
 
+    /// Observation token for UserDefaults changes.
+    private var defaultsObserver: NSObjectProtocol?
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         logger.info("BalconyMac launched")
 
@@ -279,11 +282,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Periodically refresh session message counts
         startSessionRefreshTimer()
+
+        // Restart timer when session refresh interval changes
+        defaultsObserver = NotificationCenter.default.addObserver(
+            forName: UserDefaults.didChangeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            guard let self else { return }
+            let currentInterval = self.sessionRefreshTimer?.timeInterval ?? 0
+            let newInterval = TimeInterval(PreferencesManager.shared.sessionRefreshInterval)
+            if currentInterval != newInterval {
+                self.startSessionRefreshTimer()
+            }
+        }
     }
 
     func applicationWillTerminate(_ notification: Notification) {
         logger.info("BalconyMac terminating")
         sessionRefreshTimer?.invalidate()
+        if let observer = defaultsObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
 
         Task {
             try? await connectionManager.stop()
@@ -363,7 +383,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Start a timer that periodically refreshes session message counts.
     private func startSessionRefreshTimer() {
         sessionRefreshTimer?.invalidate()
-        sessionRefreshTimer = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { [weak self] _ in
+        let interval = TimeInterval(PreferencesManager.shared.sessionRefreshInterval)
+        sessionRefreshTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
             guard let self else { return }
             Task { @MainActor in
                 await self.refreshSessionList()
