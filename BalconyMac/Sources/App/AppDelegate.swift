@@ -51,7 +51,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         hookEventHandler.onForwardToiOS = { [weak self] promptInfo in
             guard let self else { return }
             Task {
-                await self.connectionManager.forwardHookEvent(promptInfo)
+                let ptyId = await self.resolvePTYSessionId(
+                    claudeSessionId: promptInfo.sessionId,
+                    cwd: promptInfo.cwd,
+                    ptySessionId: promptInfo.ptySessionId
+                )
+                await self.connectionManager.forwardHookEvent(promptInfo, resolvedPTYSessionId: ptyId)
+                await self.connectionManager.broadcastSessionList()
             }
         }
         // Wire AskUserQuestion: show rich panel with actual question and options
@@ -68,6 +74,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard let self else { return }
             Task {
                 await self.connectionManager.forwardAskUserQuestion(askInfo)
+                await self.connectionManager.broadcastSessionList()
             }
         }
         // Dismiss AskUserQuestion card on iOS when answered on Mac
@@ -75,53 +82,71 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard let self else { return }
             Task {
                 await self.connectionManager.forwardAskUserQuestionDismiss(sessionId: sessionId, ptySessionId: ptySessionId)
+                await self.connectionManager.broadcastSessionList()
             }
         }
 
-        hookEventHandler.onPromptDismissed = { [weak self] sessionId in
+        hookEventHandler.onPromptDismissed = { [weak self] sessionId, ptySessionId in
             guard let self else { return }
             self.promptPanelController.dismissPrompt(for: sessionId)
             Task {
-                await self.connectionManager.forwardHookDismiss(sessionId: sessionId)
+                let resolvedPty: String
+                if let pty = ptySessionId {
+                    resolvedPty = pty
+                } else {
+                    resolvedPty = await self.resolvePTYSessionId(claudeSessionId: sessionId, cwd: nil)
+                }
+                await self.connectionManager.forwardHookDismiss(sessionId: sessionId, ptySessionId: resolvedPty)
+                await self.connectionManager.broadcastSessionList()
             }
         }
 
-        // Wire idle prompt callbacks — only show for sessions with a PTY wrapper,
-        // since text input requires the PTY bridge to deliver keystrokes.
+        // Wire idle prompt callbacks
         hookEventHandler.onIdlePromptReceived = { [weak self] info in
             guard let self else { return }
 
-            // Only show idle prompts for sessions running through the BalconyCLI wrapper,
-            // since text input requires the PTY bridge to deliver keystrokes.
-            guard let ptyId = info.ptySessionId else {
-                self.logger.debug("Skipping idle prompt — not a BalconyCLI-wrapped session: \(info.sessionId)")
-                self.hookEventHandler.dismissIdlePrompt(for: info.sessionId)
-                return
-            }
+            // Resolve PTY session ID via direct value or fallback chain
+            Task {
+                let ptyId = await self.resolvePTYSessionId(
+                    claudeSessionId: info.sessionId,
+                    cwd: info.cwd,
+                    ptySessionId: info.ptySessionId
+                )
+                self.idlePromptPTYMapping[info.sessionId] = ptyId
+                self.hookEventHandler.registerPTYMapping(ptySessionId: ptyId, claudeSessionId: info.sessionId)
 
-            self.idlePromptPTYMapping[info.sessionId] = ptyId
-            self.hookEventHandler.registerPTYMapping(ptySessionId: ptyId, claudeSessionId: info.sessionId)
-
-            if let detected = info.detectedOptions {
-                self.promptPanelController.showMultiOptionPrompt(info, options: detected.options)
-            } else {
-                self.promptPanelController.showIdlePrompt(info)
+                if let detected = info.detectedOptions {
+                    self.promptPanelController.showMultiOptionPrompt(info, options: detected.options)
+                } else {
+                    self.promptPanelController.showIdlePrompt(info)
+                }
             }
         }
         hookEventHandler.onForwardIdleToiOS = { [weak self] info in
             guard let self else { return }
-            // Only forward if wrapped (ptySessionId present)
-            guard info.ptySessionId != nil else { return }
             Task {
-                await self.connectionManager.forwardIdlePrompt(info)
+                let ptyId = await self.resolvePTYSessionId(
+                    claudeSessionId: info.sessionId,
+                    cwd: info.cwd,
+                    ptySessionId: info.ptySessionId
+                )
+                await self.connectionManager.forwardIdlePrompt(info, resolvedPTYSessionId: ptyId)
+                await self.connectionManager.broadcastSessionList()
             }
         }
-        hookEventHandler.onIdlePromptDismissed = { [weak self] sessionId in
+        hookEventHandler.onIdlePromptDismissed = { [weak self] sessionId, ptySessionId in
             guard let self else { return }
             self.idlePromptPTYMapping.removeValue(forKey: sessionId)
             self.promptPanelController.dismissPrompt(for: sessionId)
             Task {
-                await self.connectionManager.forwardIdlePromptDismiss(sessionId: sessionId)
+                let resolvedPty: String
+                if let pty = ptySessionId {
+                    resolvedPty = pty
+                } else {
+                    resolvedPty = await self.resolvePTYSessionId(claudeSessionId: sessionId, cwd: nil)
+                }
+                await self.connectionManager.forwardIdlePromptDismiss(sessionId: sessionId, ptySessionId: resolvedPty)
+                await self.connectionManager.broadcastSessionList()
             }
         }
 

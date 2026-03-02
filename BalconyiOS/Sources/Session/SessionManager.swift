@@ -33,6 +33,12 @@ final class SessionManager: ObservableObject {
     /// Structured AskUserQuestion data (from Mac hook listener).
     @Published var pendingAskUserQuestion: AskUserQuestionPayload?
 
+    /// Session IDs that have a pending permission or question prompt (needs user action).
+    @Published var sessionsNeedingAttention: Set<String> = []
+
+    /// Session IDs where AI is idle and waiting for the user's next prompt.
+    @Published var sessionsAwaitingInput: Set<String> = []
+
     /// Text currently in the Mac's input box (after ❯). Used to pre-fill the iOS input.
     @Published var pendingInputText: String = ""
 
@@ -155,6 +161,7 @@ final class SessionManager: ObservableObject {
             pendingInputText = ""
             projectFiles = []
         }
+        // Keep sidebar dot state — don't clear sets here, the session may still need attention
 
         guard let connectionManager else { return }
         do {
@@ -171,6 +178,7 @@ final class SessionManager: ObservableObject {
         logger.info("Sending input to session: \(session.id)")
         // Clear idle prompt when user starts responding
         if input == "\r" && pendingIdlePrompt != nil {
+            sessionsAwaitingInput.remove(session.id)
             pendingIdlePrompt = nil
         }
         guard let connectionManager else { return }
@@ -403,7 +411,13 @@ final class SessionManager: ObservableObject {
                 pendingAskUserQuestion = nil
                 pendingInputText = ""
                 projectFiles = []
+                sessionsNeedingAttention.remove(active.id)
+                sessionsAwaitingInput.remove(active.id)
             }
+            // Clean up sets for any sessions that no longer exist
+            let currentIds = Set(payload.sessions.map(\.id))
+            sessionsNeedingAttention.formIntersection(currentIds)
+            sessionsAwaitingInput.formIntersection(currentIds)
         } catch {
             logger.error("Failed to decode session list: \(error.localizedDescription)")
         }
@@ -492,6 +506,11 @@ final class SessionManager: ObservableObject {
         do {
             let payload = try message.decodePayload(HookEventPayload.self)
             guard payload.sessionId == activeSession?.id else { return }
+            // Track for sidebar dot using activeSession.id (PTY session ID)
+            if let sid = activeSession?.id {
+                sessionsNeedingAttention.insert(sid)
+                sessionsAwaitingInput.remove(sid)
+            }
             pendingHookData = payload
             logger.info("Received hook event: \(payload.toolName) session=\(payload.sessionId)")
         } catch {
@@ -503,6 +522,9 @@ final class SessionManager: ObservableObject {
         do {
             let payload = try message.decodePayload(HookDismissPayload.self)
             guard payload.sessionId == activeSession?.id else { return }
+            if let sid = activeSession?.id {
+                sessionsNeedingAttention.remove(sid)
+            }
             pendingHookData = nil
             logger.info("Hook prompt dismissed for session: \(payload.sessionId)")
         } catch {
@@ -514,6 +536,11 @@ final class SessionManager: ObservableObject {
         do {
             let payload = try message.decodePayload(IdlePromptPayload.self)
             guard payload.sessionId == activeSession?.id else { return }
+            // Track for sidebar dot — idle means "your turn to type"
+            if let sid = activeSession?.id {
+                sessionsAwaitingInput.insert(sid)
+                sessionsNeedingAttention.remove(sid)
+            }
             pendingIdlePrompt = payload
             logger.info("Received idle prompt: session=\(payload.sessionId)")
         } catch {
@@ -525,6 +552,9 @@ final class SessionManager: ObservableObject {
         do {
             let payload = try message.decodePayload(HookDismissPayload.self)
             guard payload.sessionId == activeSession?.id else { return }
+            if let sid = activeSession?.id {
+                sessionsAwaitingInput.remove(sid)
+            }
             pendingIdlePrompt = nil
             logger.info("Idle prompt dismissed for session: \(payload.sessionId)")
         } catch {
@@ -535,8 +565,12 @@ final class SessionManager: ObservableObject {
     private func handleAskUserQuestion(_ message: BalconyMessage) {
         do {
             let payload = try message.decodePayload(AskUserQuestionPayload.self)
-            // Match using PTY session ID (what iOS subscribes with)
             guard payload.ptySessionId == activeSession?.id else { return }
+            // Track for sidebar dot
+            if let sid = activeSession?.id {
+                sessionsNeedingAttention.insert(sid)
+                sessionsAwaitingInput.remove(sid)
+            }
             pendingAskUserQuestion = payload
             logger.info("Received AskUserQuestion: \(payload.questions.count) question(s) pty=\(payload.ptySessionId ?? "nil")")
         } catch {
@@ -547,8 +581,10 @@ final class SessionManager: ObservableObject {
     private func handleAskUserQuestionDismiss(_ message: BalconyMessage) {
         do {
             let payload = try message.decodePayload(AskUserQuestionDismissPayload.self)
-            // Match using PTY session ID (what iOS subscribes with)
             guard payload.ptySessionId == activeSession?.id else { return }
+            if let sid = activeSession?.id {
+                sessionsNeedingAttention.remove(sid)
+            }
             pendingAskUserQuestion = nil
             logger.info("AskUserQuestion dismissed for session: \(payload.ptySessionId ?? "nil")")
         } catch {

@@ -157,49 +157,78 @@ final class ConnectionManager: ObservableObject {
     // MARK: - Hook Event Forwarding
 
     /// Forward a permission prompt info to subscribed iOS clients.
-    func forwardHookEvent(_ promptInfo: PermissionPromptInfo) async {
+    /// Routes using the resolved PTY session ID (what iOS subscribes to).
+    func forwardHookEvent(_ promptInfo: PermissionPromptInfo, resolvedPTYSessionId: String) async {
         do {
-            let payload = HookEventPayload(from: promptInfo)
+            let payload = HookEventPayload(
+                sessionId: resolvedPTYSessionId,
+                toolName: promptInfo.toolName,
+                command: promptInfo.command,
+                filePath: promptInfo.filePath,
+                riskLevel: promptInfo.riskLevel.rawValue,
+                timestamp: promptInfo.timestamp
+            )
             let msg = try BalconyMessage.create(type: .hookEvent, payload: payload)
-            await webSocketServer.sendToSubscribers(of: promptInfo.sessionId, message: msg)
-            logger.info("Forwarded hook event to iOS: \(promptInfo.toolName) session=\(promptInfo.sessionId)")
+            await webSocketServer.sendToSubscribers(of: resolvedPTYSessionId, message: msg)
+            logger.info("Forwarded hook event to iOS: \(promptInfo.toolName) pty=\(resolvedPTYSessionId)")
         } catch {
             logger.error("Failed to forward hook event: \(error.localizedDescription)")
         }
     }
 
     /// Resend pending hook event to a specific client (for reconnect sync).
+    /// The `sessionId` here is the PTY session ID (from sessionSubscribe).
     private func resendPendingHookEvent(sessionId: String, to client: ConnectedClient) async {
-        guard let info = hookEventHandler?.pendingPrompt(for: sessionId) else { return }
+        // Try direct PTY match first, then fall back to Claude session ID mapping
+        let info = hookEventHandler?.pendingPrompt(forPTYSession: sessionId)
+            ?? hookEventHandler?.pendingPrompt(forResolvedPTYSession: sessionId)
+        guard let info else { return }
         do {
-            let payload = HookEventPayload(from: info)
+            let payload = HookEventPayload(
+                sessionId: sessionId,
+                toolName: info.toolName,
+                command: info.command,
+                filePath: info.filePath,
+                riskLevel: info.riskLevel.rawValue,
+                timestamp: info.timestamp
+            )
             let msg = try BalconyMessage.create(type: .hookEvent, payload: payload)
             await webSocketServer.send(msg, to: client)
-            logger.info("Resent pending hook event on reconnect: \(info.toolName) session=\(sessionId)")
+            logger.info("Resent pending hook event on reconnect: \(info.toolName) pty=\(sessionId)")
         } catch {
             logger.error("Failed to resend hook event: \(error.localizedDescription)")
         }
     }
 
     /// Notify iOS clients that a permission prompt was dismissed.
-    func forwardHookDismiss(sessionId: String) async {
+    /// Routes using the PTY session ID (what iOS subscribes to).
+    func forwardHookDismiss(sessionId: String, ptySessionId: String?) async {
+        guard let ptySessionId else {
+            logger.debug("Skipping hook dismiss forward — no PTY session ID")
+            return
+        }
         do {
-            let payload = HookDismissPayload(sessionId: sessionId)
+            let payload = HookDismissPayload(sessionId: ptySessionId)
             let msg = try BalconyMessage.create(type: .hookDismiss, payload: payload)
-            await webSocketServer.sendToSubscribers(of: sessionId, message: msg)
-            logger.info("Forwarded hook dismiss to iOS: session=\(sessionId)")
+            await webSocketServer.sendToSubscribers(of: ptySessionId, message: msg)
+            logger.info("Forwarded hook dismiss to iOS: pty=\(ptySessionId)")
         } catch {
             logger.error("Failed to forward hook dismiss: \(error.localizedDescription)")
         }
     }
 
     /// Forward an idle prompt (Claude waiting for input) to subscribed iOS clients.
-    func forwardIdlePrompt(_ info: IdlePromptInfo) async {
+    /// Routes using the resolved PTY session ID (what iOS subscribes to).
+    func forwardIdlePrompt(_ info: IdlePromptInfo, resolvedPTYSessionId: String) async {
         do {
-            let payload = IdlePromptPayload(from: info)
+            let payload = IdlePromptPayload(
+                sessionId: resolvedPTYSessionId,
+                lastAssistantMessage: info.lastAssistantMessage,
+                timestamp: info.timestamp
+            )
             let msg = try BalconyMessage.create(type: .idlePrompt, payload: payload)
-            await webSocketServer.sendToSubscribers(of: info.sessionId, message: msg)
-            logger.info("Forwarded idle prompt to iOS: session=\(info.sessionId)")
+            await webSocketServer.sendToSubscribers(of: resolvedPTYSessionId, message: msg)
+            logger.info("Forwarded idle prompt to iOS: pty=\(resolvedPTYSessionId)")
         } catch {
             logger.error("Failed to forward idle prompt: \(error.localizedDescription)")
         }
@@ -255,13 +284,38 @@ final class ConnectionManager: ObservableObject {
         }
     }
 
-    /// Notify iOS clients that an idle prompt was dismissed.
-    func forwardIdlePromptDismiss(sessionId: String) async {
+    /// Resend pending idle prompt to a specific client (for reconnect sync).
+    /// The `sessionId` here is the PTY session ID (from sessionSubscribe).
+    private func resendPendingIdlePrompt(sessionId: String, to client: ConnectedClient) async {
+        let info = hookEventHandler?.pendingIdlePrompt(forPTYSession: sessionId)
+            ?? hookEventHandler?.pendingIdlePrompt(forResolvedPTYSession: sessionId)
+        guard let info else { return }
         do {
-            let payload = HookDismissPayload(sessionId: sessionId)
+            let payload = IdlePromptPayload(
+                sessionId: sessionId,
+                lastAssistantMessage: info.lastAssistantMessage,
+                timestamp: info.timestamp
+            )
+            let msg = try BalconyMessage.create(type: .idlePrompt, payload: payload)
+            await webSocketServer.send(msg, to: client)
+            logger.info("Resent pending idle prompt on reconnect: pty=\(sessionId)")
+        } catch {
+            logger.error("Failed to resend idle prompt: \(error.localizedDescription)")
+        }
+    }
+
+    /// Notify iOS clients that an idle prompt was dismissed.
+    /// Routes using the PTY session ID (what iOS subscribes to).
+    func forwardIdlePromptDismiss(sessionId: String, ptySessionId: String?) async {
+        guard let ptySessionId else {
+            logger.debug("Skipping idle prompt dismiss forward — no PTY session ID")
+            return
+        }
+        do {
+            let payload = HookDismissPayload(sessionId: ptySessionId)
             let msg = try BalconyMessage.create(type: .idlePromptDismiss, payload: payload)
-            await webSocketServer.sendToSubscribers(of: sessionId, message: msg)
-            logger.info("Forwarded idle prompt dismiss to iOS: session=\(sessionId)")
+            await webSocketServer.sendToSubscribers(of: ptySessionId, message: msg)
+            logger.info("Forwarded idle prompt dismiss to iOS: pty=\(ptySessionId)")
         } catch {
             logger.error("Failed to forward idle prompt dismiss: \(error.localizedDescription)")
         }
@@ -347,6 +401,9 @@ final class ConnectionManager: ObservableObject {
 
                 // Resend pending AskUserQuestion if one is active.
                 await resendPendingAskUserQuestion(sessionId: sessionId, to: client)
+
+                // Resend pending idle prompt if Claude is waiting for input.
+                await resendPendingIdlePrompt(sessionId: sessionId, to: client)
             } catch {
                 logger.error("Failed to decode session subscribe: \(error.localizedDescription)")
             }
@@ -480,8 +537,10 @@ final class ConnectionManager: ObservableObject {
 
     // MARK: - Session List
 
-    private func broadcastSessionList() async {
-        let sessions = await ptySessionManager.getActiveSessions()
+    /// Broadcast the session list to all connected iOS clients (public for hook state changes).
+    func broadcastSessionList() async {
+        var sessions = await ptySessionManager.getActiveSessions()
+        enrichSessionsWithHookState(&sessions)
         do {
             let payload = SessionListPayload(sessions: sessions)
             let msg = try BalconyMessage.create(type: .sessionList, payload: payload)
@@ -492,13 +551,23 @@ final class ConnectionManager: ObservableObject {
     }
 
     private func sendSessionList(to client: ConnectedClient) async {
-        let sessions = await ptySessionManager.getActiveSessions()
+        var sessions = await ptySessionManager.getActiveSessions()
+        enrichSessionsWithHookState(&sessions)
         do {
             let payload = SessionListPayload(sessions: sessions)
             let msg = try BalconyMessage.create(type: .sessionList, payload: payload)
             await webSocketServer.send(msg, to: client)
         } catch {
             logger.error("Failed to send session list to \(client.id): \(error.localizedDescription)")
+        }
+    }
+
+    /// Enrich sessions with per-session attention state from the hook event handler.
+    private func enrichSessionsWithHookState(_ sessions: inout [Session]) {
+        guard let handler = hookEventHandler else { return }
+        for i in sessions.indices {
+            sessions[i].needsAttention = handler.hasAttentionNeeded(forPTYSession: sessions[i].id)
+            sessions[i].awaitingInput = handler.hasIdlePrompt(forPTYSession: sessions[i].id)
         }
     }
 

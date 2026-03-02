@@ -12,6 +12,11 @@ public struct Session: Codable, Identifiable, Hashable, Sendable {
     public var cols: UInt16?
     public var rows: UInt16?
 
+    /// Session has a pending permission prompt or question needing user action.
+    public var needsAttention: Bool
+    /// AI finished and is waiting for the user's next prompt.
+    public var awaitingInput: Bool
+
     public var projectName: String {
         (projectPath as NSString).lastPathComponent
     }
@@ -25,7 +30,9 @@ public struct Session: Codable, Identifiable, Hashable, Sendable {
         messageCount: Int = 0,
         cwd: String? = nil,
         cols: UInt16? = nil,
-        rows: UInt16? = nil
+        rows: UInt16? = nil,
+        needsAttention: Bool = false,
+        awaitingInput: Bool = false
     ) {
         self.id = id
         self.projectPath = projectPath
@@ -36,6 +43,8 @@ public struct Session: Codable, Identifiable, Hashable, Sendable {
         self.cwd = cwd
         self.cols = cols
         self.rows = rows
+        self.needsAttention = needsAttention
+        self.awaitingInput = awaitingInput
     }
 }
 

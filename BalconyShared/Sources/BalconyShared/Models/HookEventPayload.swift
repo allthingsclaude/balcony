@@ -30,8 +30,9 @@ public struct HookEventPayload: Codable, Sendable {
     }
 
     /// Create from a PermissionPromptInfo.
+    /// Uses the PTY session ID (what iOS subscribes to) for correct routing/matching.
     public init(from info: PermissionPromptInfo) {
-        self.sessionId = info.sessionId
+        self.sessionId = info.ptySessionId ?? info.sessionId
         self.toolName = info.toolName
         self.command = info.command
         self.filePath = info.filePath
@@ -58,8 +59,9 @@ public struct IdlePromptPayload: Codable, Sendable {
     }
 
     /// Create from an IdlePromptInfo.
+    /// Uses the PTY session ID (what iOS subscribes to) for correct routing/matching.
     public init(from info: IdlePromptInfo) {
-        self.sessionId = info.sessionId
+        self.sessionId = info.ptySessionId ?? info.sessionId
         self.lastAssistantMessage = info.lastAssistantMessage
         self.timestamp = info.timestamp
     }

@@ -36,7 +36,9 @@ struct SessionSidebarView: View {
                         ForEach(sortedSessions) { session in
                             SidebarSessionRow(
                                 session: session,
-                                isSelected: session.id == selectedSessionId
+                                isSelected: session.id == selectedSessionId,
+                                needsAttention: session.needsAttention,
+                                awaitingInput: session.awaitingInput
                             )
                             .contentShape(Rectangle())
                             .onTapGesture {
@@ -273,6 +275,10 @@ struct ProximityCardView: View {
 struct SidebarSessionRow: View {
     let session: Session
     let isSelected: Bool
+    let needsAttention: Bool
+    let awaitingInput: Bool
+
+    @State private var isPulsing = false
 
     var body: some View {
         HStack(spacing: BalconyTheme.spacingSM) {
@@ -321,6 +327,24 @@ struct SidebarSessionRow: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(session.projectName), \(session.status.rawValue)")
         .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .onChange(of: needsAttention) { newValue in
+            if newValue {
+                withAnimation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true)) {
+                    isPulsing = true
+                }
+            } else {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    isPulsing = false
+                }
+            }
+        }
+        .onAppear {
+            if needsAttention {
+                withAnimation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true)) {
+                    isPulsing = true
+                }
+            }
+        }
     }
 
     // MARK: - Helpers
@@ -353,9 +377,25 @@ struct SidebarSessionRow: View {
         return path
     }
 
+    /// Status dot: gray while AI works, pulsating orange when needs attention, static orange when idle.
+    @ViewBuilder
     private var statusDot: some View {
-        Circle()
-            .fill(avatarColor)
-            .frame(width: 7, height: 7)
+        if needsAttention {
+            // Pulsating orange — AI needs your decision (permission prompt, question)
+            Circle()
+                .fill(BalconyTheme.accent)
+                .frame(width: 7, height: 7)
+                .opacity(isPulsing ? 0.3 : 1.0)
+        } else if awaitingInput {
+            // Static orange — AI finished, your turn to prompt
+            Circle()
+                .fill(BalconyTheme.accent)
+                .frame(width: 7, height: 7)
+        } else {
+            // Gray — AI is working or session is done
+            Circle()
+                .fill(BalconyTheme.textSecondary.opacity(isDimmed ? 0.4 : 0.5))
+                .frame(width: 7, height: 7)
+        }
     }
 }

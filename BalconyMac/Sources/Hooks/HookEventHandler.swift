@@ -67,7 +67,8 @@ final class HookEventHandler: ObservableObject {
     var onPromptReceived: ((PermissionPromptInfo) -> Void)?
 
     /// Called when a prompt is dismissed (answered from any surface).
-    var onPromptDismissed: ((String) -> Void)?
+    /// Parameters: (claudeSessionId, ptySessionId?)
+    var onPromptDismissed: ((String, String?) -> Void)?
 
     /// Called to forward hook events to iOS via WebSocket.
     var onForwardToiOS: ((PermissionPromptInfo) -> Void)?
@@ -76,7 +77,8 @@ final class HookEventHandler: ObservableObject {
     var onIdlePromptReceived: ((IdlePromptInfo) -> Void)?
 
     /// Called when an idle prompt is dismissed (user started typing).
-    var onIdlePromptDismissed: ((String) -> Void)?
+    /// Parameters: (claudeSessionId, ptySessionId?)
+    var onIdlePromptDismissed: ((String, String?) -> Void)?
 
     /// Called to forward idle prompt events to iOS via WebSocket.
     var onForwardIdleToiOS: ((IdlePromptInfo) -> Void)?
@@ -278,6 +280,9 @@ final class HookEventHandler: ObservableObject {
     func dismissPrompt(for sessionId: String) {
         guard var sq = sessionQueues[sessionId], !sq.isIdle else { return }
 
+        // Capture PTY session ID before transitioning
+        let ptySessionId = sq.activeInfo?.ptySessionId
+
         // Transition current prompt to answered
         sq.state = .answered
         sq.outputSincePrompt = 0
@@ -289,7 +294,7 @@ final class HookEventHandler: ObservableObject {
 
         pendingPrompts.removeValue(forKey: sessionId)
         logger.info("Prompt dismissed for session: \(sessionId)")
-        onPromptDismissed?(sessionId)
+        onPromptDismissed?(sessionId, ptySessionId)
 
         // Check queue for next prompt
         if !sq.queue.isEmpty {
@@ -320,9 +325,9 @@ final class HookEventHandler: ObservableObject {
 
     /// Dismiss the idle prompt for a session (user started typing or new output arrived).
     func dismissIdlePrompt(for sessionId: String) {
-        guard pendingIdlePrompts.removeValue(forKey: sessionId) != nil else { return }
+        guard let info = pendingIdlePrompts.removeValue(forKey: sessionId) else { return }
         logger.info("Idle prompt dismissed for session: \(sessionId)")
-        onIdlePromptDismissed?(sessionId)
+        onIdlePromptDismissed?(sessionId, info.ptySessionId)
     }
 
     // MARK: - Queries
@@ -342,6 +347,35 @@ final class HookEventHandler: ObservableObject {
         pendingIdlePrompts[sessionId]
     }
 
+    /// Get the current active prompt info by PTY session ID (for reconnect resend).
+    func pendingPrompt(forPTYSession ptySessionId: String) -> PermissionPromptInfo? {
+        pendingPrompts.values.first { $0.ptySessionId == ptySessionId }
+    }
+
+    /// Get the current idle prompt info by PTY session ID (for reconnect resend).
+    func pendingIdlePrompt(forPTYSession ptySessionId: String) -> IdlePromptInfo? {
+        pendingIdlePrompts.values.first { $0.ptySessionId == ptySessionId }
+    }
+
+    /// Get the current active prompt info using the PTY→Claude session mapping.
+    /// Used when ptySessionId is nil on the info (non-BalconyCLI sessions).
+    func pendingPrompt(forResolvedPTYSession ptySessionId: String) -> PermissionPromptInfo? {
+        guard let claudeIds = ptyToClaudeSessionIds[ptySessionId] else { return nil }
+        for claudeId in claudeIds {
+            if let info = pendingPrompts[claudeId] { return info }
+        }
+        return nil
+    }
+
+    /// Get the current idle prompt info using the PTY→Claude session mapping.
+    func pendingIdlePrompt(forResolvedPTYSession ptySessionId: String) -> IdlePromptInfo? {
+        guard let claudeIds = ptyToClaudeSessionIds[ptySessionId] else { return nil }
+        for claudeId in claudeIds {
+            if let info = pendingIdlePrompts[claudeId] { return info }
+        }
+        return nil
+    }
+
     /// Get the current AskUserQuestion info by Claude session ID.
     func pendingAskUserQuestion(for sessionId: String) -> AskUserQuestionInfo? {
         pendingAskUserQuestions[sessionId]
@@ -350,6 +384,26 @@ final class HookEventHandler: ObservableObject {
     /// Get the current AskUserQuestion info by PTY session ID (for reconnect resend).
     func pendingAskUserQuestion(forPTYSession ptySessionId: String) -> AskUserQuestionInfo? {
         pendingAskUserQuestions.values.first { $0.ptySessionId == ptySessionId }
+    }
+
+    // MARK: - Per-Session Attention State
+
+    /// Check if a PTY session has an active prompt or question needing user action.
+    func hasAttentionNeeded(forPTYSession ptySessionId: String) -> Bool {
+        guard let claudeIds = ptyToClaudeSessionIds[ptySessionId] else { return false }
+        for claudeId in claudeIds {
+            if pendingPrompts[claudeId] != nil { return true }
+        }
+        return false
+    }
+
+    /// Check if a PTY session has an idle prompt (AI waiting for user input).
+    func hasIdlePrompt(forPTYSession ptySessionId: String) -> Bool {
+        guard let claudeIds = ptyToClaudeSessionIds[ptySessionId] else { return false }
+        for claudeId in claudeIds {
+            if pendingIdlePrompts[claudeId] != nil { return true }
+        }
+        return false
     }
 
     // MARK: - Session Lifecycle
