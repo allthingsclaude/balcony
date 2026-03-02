@@ -125,7 +125,7 @@ struct DiscoveryView: View {
                 }
             }
         }
-        .background(BalconyTheme.background)
+        .background(BalconyTheme.background.ignoresSafeArea())
         .animation(.easeInOut(duration: 0.3), value: connectionManager.isAutoConnecting)
         .navigationTitle("")
         .overlay(alignment: .bottom) {

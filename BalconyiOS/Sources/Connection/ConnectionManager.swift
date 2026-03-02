@@ -77,7 +77,9 @@ final class ConnectionManager: ObservableObject {
                     }
 
                     // Auto-connect if this matches the last connected device
+                    // (guard against re-triggering if we already tried and failed)
                     if !self.isConnected && !self.isConnecting && !self.isAutoConnecting,
+                       self.autoConnectTask == nil,
                        let lastId = self.lastConnectedDeviceId,
                        deviceInfo.id == lastId {
                         self.attemptAutoConnect(to: deviceInfo)
@@ -281,7 +283,10 @@ final class ConnectionManager: ObservableObject {
             if !connected {
                 self.isAutoConnecting = false
                 self.isConnecting = false
-                self.logger.info("Auto-connect timed out for \(device.name)")
+                // Don't show error alert for auto-connect — it wasn't user-initiated
+                self.connectionError = nil
+                self.autoConnectTask = nil
+                self.logger.info("Auto-connect failed for \(device.name)")
             }
         }
     }
