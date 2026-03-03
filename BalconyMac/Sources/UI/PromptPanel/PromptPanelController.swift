@@ -8,6 +8,17 @@ import os
 /// Borderless panel that can still become key (accept keyboard input).
 private class KeyablePanel: NSPanel {
     override var canBecomeKey: Bool { true }
+
+    /// Called when the user presses ESC to dismiss the panel.
+    var onCancel: (() -> Void)?
+
+    override func sendEvent(_ event: NSEvent) {
+        if event.type == .keyDown, event.keyCode == 53 {
+            onCancel?()
+            return
+        }
+        super.sendEvent(event)
+    }
 }
 
 /// Transparent overlay that darkens collapsed panels. Passes all mouse events through.
@@ -242,6 +253,13 @@ final class PromptPanelController {
     // MARK: - Private — Panel Setup
 
     private func configureAndShow(panel: NSPanel, hostingView: NSHostingView<some View>, sessionId: String) {
+        // Wire up ESC key to dismiss
+        if let keyablePanel = panel as? KeyablePanel {
+            keyablePanel.onCancel = { [weak self] in
+                self?.dismissPrompt(for: sessionId)
+            }
+        }
+
         let fittingSize = hostingView.fittingSize
         let width = max(fittingSize.width, 340)
         let height = fittingSize.height
