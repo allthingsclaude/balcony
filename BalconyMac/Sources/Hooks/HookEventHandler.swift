@@ -110,6 +110,16 @@ final class HookEventHandler: ObservableObject {
         ptyToClaudeSessionIds[ptySessionId, default: []].insert(claudeSessionId)
     }
 
+    /// Look up the PTY session ID for a Claude session ID (reverse lookup).
+    func ptySessionId(for claudeSessionId: String) -> String? {
+        for (ptyId, claudeIds) in ptyToClaudeSessionIds {
+            if claudeIds.contains(claudeSessionId) {
+                return ptyId
+            }
+        }
+        return nil
+    }
+
     // MARK: - Event Processing
 
     /// Handle a raw hook event from HookListener.

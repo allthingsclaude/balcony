@@ -16,6 +16,7 @@ actor PTYSessionManager {
     private var serverFD: Int32 = -1
     private var clientFDs: [Int32: PTYClientState] = [:]
     private var sessions: [String: Session] = [:]
+    private var sessionPIDs: [String: Int32] = [:]
     private var sessionBuffers: [String: Data] = [:]
     /// Maximum session buffer size (4 MB). Older output is trimmed when exceeded.
     private static let maxBufferSize = 4 * 1024 * 1024
@@ -240,6 +241,7 @@ actor PTYSessionManager {
                 rows: info.rows
             )
             sessions[info.sessionId] = session
+            sessionPIDs[info.sessionId] = info.pid
             clientFDs[fd]?.sessionId = info.sessionId
 
             logger.info("PTY session registered: \(info.sessionId) (pid=\(info.pid), args=\(info.args))")
@@ -248,6 +250,7 @@ actor PTYSessionManager {
         case 0x05: // Session ended
             guard let state = clientFDs[fd], let sessionId = state.sessionId else { return }
             sessions.removeValue(forKey: sessionId)
+            sessionPIDs.removeValue(forKey: sessionId)
             sessionBuffers.removeValue(forKey: sessionId)
             logger.info("PTY session ended: \(sessionId)")
             onSessionEvent?(.sessionEnded(sessionId))
@@ -268,12 +271,20 @@ actor PTYSessionManager {
 
         if let sessionId = state.sessionId {
             sessions.removeValue(forKey: sessionId)
+            sessionPIDs.removeValue(forKey: sessionId)
             sessionBuffers.removeValue(forKey: sessionId)
             logger.info("CLI client disconnected, session ended: \(sessionId)")
             onSessionEvent?(.sessionEnded(sessionId))
         } else {
             logger.info("CLI client disconnected (no session)")
         }
+    }
+
+    // MARK: - Process Info
+
+    /// Get the PID of the Claude process for a session.
+    func pid(for sessionId: String) -> Int32? {
+        sessionPIDs[sessionId]
     }
 
     // MARK: - Sending to CLI

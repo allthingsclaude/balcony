@@ -87,7 +87,25 @@ private struct PanelBackground: View {
     }
 }
 
-// MARK: - Dismiss Button
+// MARK: - Header Buttons
+
+/// Small button to focus the terminal/IDE where the CLI runs.
+private struct FocusButton: View {
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "macwindow")
+                .font(.system(size: 8, weight: .bold))
+                .foregroundStyle(PanelTheme.textTertiary)
+                .frame(width: 18, height: 18)
+                .background(PanelTheme.surface)
+                .clipShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .help("Focus terminal")
+    }
+}
 
 /// Small X button for dismissing panels.
 private struct DismissButton: View {
@@ -112,6 +130,7 @@ private struct DismissButton: View {
 struct PromptPanelView: View {
     let info: PermissionPromptInfo
     let onAction: (String) -> Void
+    let onFocus: () -> Void
     let onDismiss: () -> Void
 
     var body: some View {
@@ -143,6 +162,7 @@ struct PromptPanelView: View {
 
                 riskBadge
 
+                FocusButton(action: onFocus)
                 DismissButton(action: onDismiss)
             }
             .padding(.horizontal, 14)
@@ -269,6 +289,7 @@ struct PromptPanelView: View {
 struct IdlePromptPanelView: View {
     let info: IdlePromptInfo
     let onSubmit: (String) -> Void
+    let onFocus: () -> Void
     let onDismiss: () -> Void
 
     @State private var responseText = ""
@@ -301,6 +322,7 @@ struct IdlePromptPanelView: View {
 
                 Spacer()
 
+                FocusButton(action: onFocus)
                 DismissButton(action: onDismiss)
             }
             .padding(.horizontal, 14)
@@ -384,6 +406,7 @@ struct MultiOptionPanelView: View {
     let options: [ParsedOption]
     let onSelect: (ParsedOption) -> Void
     let onTextSubmit: (String) -> Void
+    let onFocus: () -> Void
     let onDismiss: () -> Void
 
     @State private var otherText = ""
@@ -417,6 +440,7 @@ struct MultiOptionPanelView: View {
 
                 Spacer()
 
+                FocusButton(action: onFocus)
                 DismissButton(action: onDismiss)
             }
             .padding(.horizontal, 14)
@@ -544,6 +568,7 @@ struct MultiOptionPanelView: View {
 struct AskUserQuestionPanelView: View {
     let info: AskUserQuestionInfo
     let onComplete: ([AskUserQuestionAnswer]) -> Void
+    let onFocus: () -> Void
     let onDismiss: () -> Void
 
     @State private var currentIndex = 0
@@ -603,6 +628,7 @@ struct AskUserQuestionPanelView: View {
                         .clipShape(Capsule())
                 }
 
+                FocusButton(action: onFocus)
                 DismissButton(action: onDismiss)
             }
             .padding(.horizontal, 14)

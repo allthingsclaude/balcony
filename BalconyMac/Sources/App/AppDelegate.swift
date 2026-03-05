@@ -84,6 +84,59 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    // MARK: - Focus
+
+    /// Activate the terminal/IDE app that owns the given session's CLI process
+    /// and raise the specific window matching the session's working directory.
+    func focusSession(_ sessionId: String) {
+        Task {
+            let ptyId = hookEventHandler.ptySessionId(for: sessionId) ?? sessionId
+            guard let pid = await ptySessionManager.pid(for: ptyId) else { return }
+
+            let sessions = await ptySessionManager.getActiveSessions()
+            let cwd = sessions.first(where: { $0.id == ptyId })?.cwd
+
+            guard let app = Self.findParentApp(of: pid),
+                  let appURL = app.bundleURL else { return }
+
+            if let cwd {
+                // Open the project folder with the app — if VS Code/iTerm already has
+                // this folder open, macOS will focus that specific window.
+                let folderURL = URL(fileURLWithPath: cwd)
+                let config = NSWorkspace.OpenConfiguration()
+                config.activates = true
+                try? await NSWorkspace.shared.open([folderURL], withApplicationAt: appURL, configuration: config)
+            } else {
+                app.activate()
+            }
+        }
+    }
+
+    /// Walk the process tree upward from `pid` to find the first NSRunningApplication.
+    private static func findParentApp(of pid: Int32) -> NSRunningApplication? {
+        var current = pid
+        for _ in 0..<10 {
+            if let app = NSRunningApplication(processIdentifier: current),
+               app.bundleIdentifier != nil {
+                return app
+            }
+            let parent = parentPID(of: current)
+            if parent <= 1 || parent == current { break }
+            current = parent
+        }
+        return nil
+    }
+
+    /// Get the parent PID of a process using sysctl.
+    private static func parentPID(of pid: Int32) -> Int32 {
+        var info = kinfo_proc()
+        var size = MemoryLayout<kinfo_proc>.size
+        var mib: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_PID, pid]
+        let result = sysctl(&mib, UInt32(mib.count), &info, &size, nil, 0)
+        guard result == 0 else { return -1 }
+        return info.kp_eproc.e_ppid
+    }
+
     // MARK: - Service Startup
 
     /// Start all core services (PTY, hooks, connections, away detection).
@@ -215,6 +268,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 await self.connectionManager.forwardIdlePromptDismiss(sessionId: sessionId, ptySessionId: resolvedPty)
                 await self.connectionManager.broadcastSessionList()
             }
+        }
+
+        // Wire focus button to activate the terminal/IDE
+        promptPanelController.onFocus = { [weak self] sessionId in
+            self?.focusSession(sessionId)
         }
 
         // Wire idle prompt panel text response to PTY input

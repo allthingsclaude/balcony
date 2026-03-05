@@ -104,6 +104,9 @@ final class PromptPanelController {
     /// Passes (sessionId, arrow key sequence to navigate to Other, typed text).
     var onMultiOptionOtherResponse: ((String, String, String) -> Void)?
 
+    /// Called when the user clicks "Focus" to switch to the terminal/IDE. Passes sessionId.
+    var onFocus: ((String) -> Void)?
+
     /// Called when all questions in an AskUserQuestion are answered.
     /// Passes (sessionId, info with original toolInput, answers dict: [questionText: answerLabel]).
     var onAskUserQuestionSubmit: ((String, AskUserQuestionInfo, [String: String]) -> Void)?
@@ -138,6 +141,9 @@ final class PromptPanelController {
                 onAction: { [weak self] keystroke in
                     self?.handleAction(sessionId: sessionId, keystroke: keystroke)
                 },
+                onFocus: { [weak self] in
+                    self?.onFocus?(sessionId)
+                },
                 onDismiss: { [weak self] in
                     self?.dismissPrompt(for: sessionId)
                 }
@@ -159,6 +165,9 @@ final class PromptPanelController {
                 info: info,
                 onSubmit: { [weak self] text in
                     self?.handleTextSubmit(sessionId: sessionId, text: text)
+                },
+                onFocus: { [weak self] in
+                    self?.onFocus?(sessionId)
                 },
                 onDismiss: { [weak self] in
                     self?.dismissPrompt(for: sessionId)
@@ -187,6 +196,9 @@ final class PromptPanelController {
                     // "Other" option: navigate to it, activate, type text
                     self?.handleMultiOptionOther(sessionId: sessionId, text: text, options: options)
                 },
+                onFocus: { [weak self] in
+                    self?.onFocus?(sessionId)
+                },
                 onDismiss: { [weak self] in
                     self?.dismissPrompt(for: sessionId)
                 }
@@ -208,6 +220,9 @@ final class PromptPanelController {
                 info: info,
                 onComplete: { [weak self] answers in
                     self?.handleAskUserQuestionComplete(sessionId: sessionId, info: info, answers: answers)
+                },
+                onFocus: { [weak self] in
+                    self?.onFocus?(sessionId)
                 },
                 onDismiss: { [weak self] in
                     self?.dismissPrompt(for: sessionId)
