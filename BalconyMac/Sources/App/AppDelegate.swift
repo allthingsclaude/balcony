@@ -34,6 +34,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Whether services have been started.
     private var servicesStarted = false
 
+    /// Global monitor for double-Cmd hotkey.
+    private var hotkeyMonitor: Any?
+
+    /// Timestamp of the last Cmd key release (for double-tap detection).
+    private var lastCmdRelease: TimeInterval = 0
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         logger.info("BalconyMac launched")
 
@@ -65,6 +71,48 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         startServices()
+    }
+
+    // MARK: - Global Hotkey (Double-Cmd)
+
+    private func startHotkeyMonitor() {
+        hotkeyMonitor = NSEvent.addGlobalMonitorForEvents(matching: .flagsChanged) { [weak self] event in
+            guard let self else { return }
+            let cmdPressed = event.modifierFlags.contains(.command)
+            let onlyCmd = event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command
+
+            if cmdPressed && onlyCmd {
+                // Cmd pressed (alone) — nothing to do yet, wait for release
+                return
+            }
+
+            if !cmdPressed {
+                // A modifier was released. Check if Cmd was just released (no other modifiers held).
+                let remaining = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+                guard remaining.isEmpty else { return }
+
+                let now = ProcessInfo.processInfo.systemUptime
+                let elapsed = now - self.lastCmdRelease
+                self.lastCmdRelease = now
+
+                if elapsed < 0.35 {
+                    // Double-tap detected
+                    self.lastCmdRelease = 0
+                    DispatchQueue.main.async {
+                        if self.promptPanelController.hasPanels {
+                            self.promptPanelController.activateFrontmostPanel()
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func stopHotkeyMonitor() {
+        if let monitor = hotkeyMonitor {
+            NSEvent.removeMonitor(monitor)
+            hotkeyMonitor = nil
+        }
     }
 
     // MARK: - Sound
@@ -440,6 +488,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         awayDetector.startDetecting()
 
+        // Start global hotkey monitor (double-Cmd to focus panel)
+        startHotkeyMonitor()
+
         // Periodically refresh session message counts
         startSessionRefreshTimer()
 
@@ -460,6 +511,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         logger.info("BalconyMac terminating")
+        stopHotkeyMonitor()
         awayDetector.stopDetecting()
         sessionRefreshTimer?.invalidate()
         if let observer = defaultsObserver {

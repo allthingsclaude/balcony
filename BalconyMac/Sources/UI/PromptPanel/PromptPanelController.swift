@@ -252,6 +252,33 @@ final class PromptPanelController {
         if !isExpanded {
             updateZOrdering()
         }
+
+        // If no more panels, restore focus to the previously active app
+        if panels.isEmpty {
+            restorePreviousApp()
+        }
+    }
+
+    /// Whether there are any visible panels.
+    var hasPanels: Bool { !panels.isEmpty }
+
+    /// The app that was active before the panel was focused via hotkey.
+    private var previousApp: NSRunningApplication?
+
+    /// Activate the frontmost panel and make it key so it accepts keyboard input.
+    func activateFrontmostPanel() {
+        guard let entry = panels.first else { return }
+        // Remember the currently active app so we can restore focus after dismiss
+        previousApp = NSWorkspace.shared.frontmostApplication
+        NSApp.activate(ignoringOtherApps: true)
+        entry.panel.makeKeyAndOrderFront(nil)
+    }
+
+    /// Restore focus to the app that was active before the panel was focused.
+    private func restorePreviousApp() {
+        guard let app = previousApp else { return }
+        previousApp = nil
+        app.activate()
     }
 
     /// Dismiss all panels (e.g., on app termination).
