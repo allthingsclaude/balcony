@@ -328,6 +328,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard let self else { return }
             Task {
                 let ptySessionId = self.resolveIdlePromptPTYSessionId(sessionId)
+                self.logger.info("Text response: claude=\(sessionId) → pty=\(ptySessionId) text='\(text.prefix(50))'")
 
                 // Send the text first, then Enter separately after a brief delay.
                 // Writing them as one chunk causes Claude Code's TUI to treat it as
@@ -560,8 +561,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Resolve the PTY session ID for an idle prompt response, using the cached mapping first.
     private func resolveIdlePromptPTYSessionId(_ sessionId: String) -> String {
         if let cached = idlePromptPTYMapping.removeValue(forKey: sessionId) {
+            logger.info("Resolved idle PTY session: \(sessionId) → \(cached)")
             return cached
         }
+        // Fallback: try reverse lookup from hookEventHandler
+        if let ptyId = hookEventHandler.ptySessionId(for: sessionId) {
+            logger.info("Resolved idle PTY session via hook handler: \(sessionId) → \(ptyId)")
+            return ptyId
+        }
+        logger.warning("No PTY mapping for idle session \(sessionId), using raw ID")
         return sessionId
     }
 
