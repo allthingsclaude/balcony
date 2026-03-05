@@ -26,8 +26,10 @@
 		223A4C34360AD4E93AE28D98 /* ModelPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 384815D580E792BAFCB0E9F0 /* ModelPickerView.swift */; };
 		2496CBE03C1E577AD24E7496 /* NIO in Frameworks */ = {isa = PBXBuildFile; productRef = E76BB04E002C60E874E1993D /* NIO */; };
 		2D59B119C66E821CA94AE3BC /* ModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C02C757F4FB8D345A6EFEF9 /* ModelTests.swift */; };
+		317033FB7D44506BEB1F3913 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = A9AF8E9A667BF8CEAC035713 /* Sparkle */; };
 		3261E64ED66B84A2877F1B55 /* AppIcon-Light@3x.png in Resources */ = {isa = PBXBuildFile; fileRef = BCD629D558A0EB0C9FFE3086 /* AppIcon-Light@3x.png */; };
 		341C959AD5EDFD51716EB1D7 /* AwayDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BEB54F3C74377613045762F /* AwayDetector.swift */; };
+		3602DA1E96A89D5D617FBD96 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 2DE6CDF60C97FB394173111A /* PrivacyInfo.xcprivacy */; };
 		370911902C6A736936F626CC /* AppIcon-Dark@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = DBCB78142A84C2BC6966A788 /* AppIcon-Dark@2x.png */; };
 		39672130F6211BFA094822B5 /* HookEventTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B724AECF0BADC73232DA7457 /* HookEventTests.swift */; };
 		39BA738A247CAB3676A4C7C8 /* BalconyiOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0D9E9C67B880DC32F63487B /* BalconyiOSApp.swift */; };
@@ -47,6 +49,7 @@
 		663D66965E45C127C3FF27DD /* TerminalContainerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AF99EBC38F153B19FDEB53A /* TerminalContainerView.swift */; };
 		6ADD5A55445484CB8EDF48B3 /* CryptoManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D952D21F5F35A1506E4A4D08 /* CryptoManagerTests.swift */; };
 		6B4353EBEE2E8A5A6B8E1AFF /* NIOHTTP1 in Frameworks */ = {isa = PBXBuildFile; productRef = D5859053BEF37E29C28D0EF6 /* NIOHTTP1 */; };
+		6D0A2E05B4BB51E209736639 /* UpdaterService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 257A291FF11C38CFEA2032D8 /* UpdaterService.swift */; };
 		704FCFFB9BF2203E604A8771 /* HookEventHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0214B334EED13B38D88E1BD9 /* HookEventHandler.swift */; };
 		70F9D9C57ED6A8DEDB398CA6 /* BalconyShared in Frameworks */ = {isa = PBXBuildFile; productRef = 1288CDF4C3C16983C23C8679 /* BalconyShared */; };
 		76791B96E22D92E5CE70994C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D95B51D498D493A07AD8D145 /* Assets.xcassets */; };
@@ -79,6 +82,7 @@
 		B098C729F8B817D207DB3AC2 /* BalconyMacApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 886E3C57A893FC1E5B991BA6 /* BalconyMacApp.swift */; };
 		B5332132DD670D9915D73222 /* ConnectionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAE1288EF0CA05A15B0E30FF /* ConnectionManager.swift */; };
 		B6798FB8D55B6691C4162C6D /* WebSocketServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F43204098DB6C4D61A3C700 /* WebSocketServer.swift */; };
+		B6E83F22966C3FC028EF5390 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 2229221233369502B0CE1FFF /* PrivacyInfo.xcprivacy */; };
 		B8B852BB44C301BF582E80A6 /* TerminalLine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 037E15271FF9FC402D02B51B /* TerminalLine.swift */; };
 		BAC73425A4C54FCCD6036774 /* MenuBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 669BE9921928194372E5B944 /* MenuBarView.swift */; };
 		BDFFEF7010DECCDDE79DAAC6 /* SessionListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8781800E637EC256C88F313C /* SessionListView.swift */; };
@@ -121,11 +125,14 @@
 		14954C747CB9B37EFDCE1BEA /* PreferencesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesView.swift; sourceTree = "<group>"; };
 		160D61822B93FBE67A1C20C2 /* SessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionManager.swift; sourceTree = "<group>"; };
 		1C4666F5F2F672B0D7E53B59 /* StatusBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusBadge.swift; sourceTree = "<group>"; };
+		2229221233369502B0CE1FFF /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		239E33293B61A3D9C500BB82 /* SetupFlowModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupFlowModel.swift; sourceTree = "<group>"; };
 		2567EAF959E0FF8C09874F18 /* BLEPeripheral.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BLEPeripheral.swift; sourceTree = "<group>"; };
+		257A291FF11C38CFEA2032D8 /* UpdaterService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdaterService.swift; sourceTree = "<group>"; };
 		26C123194F77AD4BC1D2CA02 /* PromptPanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromptPanelView.swift; sourceTree = "<group>"; };
 		29C23B5584D65228ECB8AF8D /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		2B8CD6ADB9FA981C5E289B32 /* SessionFileReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionFileReader.swift; sourceTree = "<group>"; };
+		2DE6CDF60C97FB394173111A /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		2E860783542070F02AED00B7 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		2EAEA92A0B879C8CC2EF8F97 /* MessageProtocolTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageProtocolTests.swift; sourceTree = "<group>"; };
 		2FB30D19FCA8885324E1C3F2 /* AppIcon-Dark@3x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon-Dark@3x.png"; sourceTree = "<group>"; };
@@ -229,6 +236,7 @@
 				1E628833070E34E4A040D51C /* NIOWebSocket in Frameworks */,
 				AB80212ED780C5118B5682C5 /* NIOSSL in Frameworks */,
 				ABED7ACDE162DA6ED5ED1DB1 /* NIOTransportServices in Frameworks */,
+				317033FB7D44506BEB1F3913 /* Sparkle in Frameworks */,
 				421C8CC638EF49CDCB2C843F /* IOKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -361,6 +369,7 @@
 			children = (
 				DCA6BF545418A547B3FCD2B6 /* AlternateIcons */,
 				3123259349761E36C5D1B239 /* Assets.xcassets */,
+				2229221233369502B0CE1FFF /* PrivacyInfo.xcprivacy */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -390,6 +399,7 @@
 			children = (
 				29C23B5584D65228ECB8AF8D /* AppDelegate.swift */,
 				886E3C57A893FC1E5B991BA6 /* BalconyMacApp.swift */,
+				257A291FF11C38CFEA2032D8 /* UpdaterService.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -575,6 +585,7 @@
 			isa = PBXGroup;
 			children = (
 				D95B51D498D493A07AD8D145 /* Assets.xcassets */,
+				2DE6CDF60C97FB394173111A /* PrivacyInfo.xcprivacy */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -657,6 +668,7 @@
 				6ED48EC9E94F4FC97A96DE5A /* NIOWebSocket */,
 				D9B0C7A19BA675671F251FBE /* NIOSSL */,
 				F37EA6D4A2F37910EE004F34 /* NIOTransportServices */,
+				A9AF8E9A667BF8CEAC035713 /* Sparkle */,
 			);
 			productName = BalconyMac;
 			productReference = A2992E0888E0EBC79BA14280 /* BalconyMac.app */;
@@ -739,6 +751,7 @@
 			mainGroup = 506E5A171C9E6F17609103DC;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+				522E670A4637465851ED366F /* XCRemoteSwiftPackageReference "Sparkle" */,
 				3D30A12B8C804AAC736C39EA /* XCRemoteSwiftPackageReference "SwiftTerm" */,
 				D125E1B764D3A72CC0C29450 /* XCRemoteSwiftPackageReference "swift-nio" */,
 				A1DAC1B605F89BAF640B003F /* XCRemoteSwiftPackageReference "swift-nio-ssl" */,
@@ -767,6 +780,7 @@
 				3C3D008A990E7C943ED629EA /* AppIcon-Light@2x.png in Resources */,
 				3261E64ED66B84A2877F1B55 /* AppIcon-Light@3x.png in Resources */,
 				FA3AE27251B5AA926F8955B1 /* Assets.xcassets in Resources */,
+				B6E83F22966C3FC028EF5390 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -775,6 +789,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				76791B96E22D92E5CE70994C /* Assets.xcassets in Resources */,
+				3602DA1E96A89D5D617FBD96 /* PrivacyInfo.xcprivacy in Resources */,
 				563AE052AC62B60B0509C80B /* BalconyCLI in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -885,6 +900,7 @@
 				1A26A405DD459E9DFE1945B5 /* SetupWindowController.swift in Sources */,
 				DE3744B22608B9130AA240C6 /* SlashCommandScanner.swift in Sources */,
 				DFFB8C76E4D453A641002387 /* StatusItemManager.swift in Sources */,
+				6D0A2E05B4BB51E209736639 /* UpdaterService.swift in Sources */,
 				E50D03AEEA94650D2FA831C6 /* WebSocketClientHandler.swift in Sources */,
 				B6798FB8D55B6691C4162C6D /* WebSocketServer.swift in Sources */,
 			);
@@ -1243,6 +1259,14 @@
 				minimumVersion = 1.10.0;
 			};
 		};
+		522E670A4637465851ED366F /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.8.1;
+			};
+		};
 		A1DAC1B605F89BAF640B003F /* XCRemoteSwiftPackageReference "swift-nio-ssl" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/apple/swift-nio-ssl.git";
@@ -1278,6 +1302,11 @@
 		79417DF319AEB98518662E44 /* BalconyShared */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = BalconyShared;
+		};
+		A9AF8E9A667BF8CEAC035713 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 522E670A4637465851ED366F /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
 		};
 		D5859053BEF37E29C28D0EF6 /* NIOHTTP1 */ = {
 			isa = XCSwiftPackageProductDependency;

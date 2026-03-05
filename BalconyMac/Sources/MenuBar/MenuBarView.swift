@@ -26,6 +26,7 @@ private enum MenuBarTheme {
 // MARK: - Menu Bar View
 
 struct MenuBarView: View {
+    @ObservedObject var updaterService: UpdaterService
     @EnvironmentObject private var connectionManager: ConnectionManager
     @EnvironmentObject private var sessionListModel: SessionListModel
     @State private var showingQRCode = false
@@ -172,6 +173,16 @@ struct MenuBarView: View {
     private var footerSection: some View {
         HStack {
             Spacer()
+
+            Button(action: { updaterService.checkForUpdates() }) {
+                Image(systemName: "arrow.triangle.2.circlepath")
+                    .font(.caption)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.secondary)
+            .help("Check for Updates")
+            .focusable(false)
+            .disabled(!updaterService.canCheckForUpdates)
 
             Button(action: { showingQRCode = true }) {
                 Image(systemName: "qrcode")

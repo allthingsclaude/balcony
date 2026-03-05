@@ -18,6 +18,12 @@
     <string>14.0</string>
     <key>LSUIElement</key>
     <true/>
+    <key>SUEnableAutomaticChecks</key>
+    <true/>
+    <key>SUFeedURL</key>
+    <string>https://allthingsclaude.github.io/balcony/appcast.xml</string>
+    <key>SUPublicEDKey</key>
+    <string>0Y/fgay6lWHRxqpxECSMG38IXYiVlolaDTAK9jXwgxM=</string>
     <key>NSBluetoothAlwaysUsageDescription</key>
     <string>Balcony uses Bluetooth to detect when your iPhone is nearby for away detection.</string>
     <key>NSLocalNetworkUsageDescription</key>

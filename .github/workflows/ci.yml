@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: macos-15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Install xcodegen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Test BalconyShared
+        run: cd BalconyShared && swift test
+
+      - name: Build BalconyMac
+        run: |
+          xcodebuild \
+            -project Balcony.xcodeproj \
+            -scheme BalconyMac \
+            -configuration Debug \
+            build
+
+      - name: Build BalconyiOS
+        run: |
+          xcodebuild \
+            -project Balcony.xcodeproj \
+            -scheme BalconyiOS \
+            -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            build

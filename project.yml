@@ -24,6 +24,9 @@ packages:
   SwiftTerm:
     url: https://github.com/migueldeicaza/SwiftTerm.git
     from: "1.10.0"
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle.git
+    from: "2.8.1"
 
 settings:
   base:
@@ -76,6 +79,7 @@ targets:
         package: swift-nio-ssl
       - product: NIOTransportServices
         package: swift-nio-transport-services
+      - package: Sparkle
       - sdk: IOKit.framework
     postBuildScripts:
       - script: |

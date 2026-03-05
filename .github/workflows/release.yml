@@ -1,0 +1,236 @@
+name: Release macOS
+
+on:
+  push:
+    tags: ["v*"]
+
+env:
+  APP_NAME: Balcony
+  SCHEME: BalconyMac
+
+jobs:
+  release:
+    runs-on: macos-15
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+
+      # ── Extract version from tag ──────────────────────────────────────
+      - name: Extract version
+        id: version
+        run: |
+          TAG="${GITHUB_REF#refs/tags/v}"
+          if ! [[ "$TAG" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Error: Invalid version tag format '$TAG'. Expected X.Y.Z"
+            exit 1
+          fi
+          echo "version=$TAG" >> "$GITHUB_OUTPUT"
+          echo "tag=v$TAG" >> "$GITHUB_OUTPUT"
+          BUILD=$(git rev-list --count HEAD)
+          echo "build=$BUILD" >> "$GITHUB_OUTPUT"
+          echo "Version: $TAG (build $BUILD)"
+
+      # ── Set up signing keychain ───────────────────────────────────────
+      - name: Set up keychain
+        env:
+          MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+          MACOS_CERTIFICATE_PWD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          CERT_PATH="$RUNNER_TEMP/certificate.p12"
+          KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
+
+          echo "$MACOS_CERTIFICATE" | base64 --decode > "$CERT_PATH"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$CERT_PATH" -P "$MACOS_CERTIFICATE_PWD" \
+            -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple: \
+            -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychains -d user -s "$KEYCHAIN_PATH"
+
+      # ── Install xcodegen and generate project ─────────────────────────
+      - name: Generate Xcode project
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      # ── Archive ───────────────────────────────────────────────────────
+      - name: Archive
+        run: |
+          xcodebuild archive \
+            -project Balcony.xcodeproj \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -archivePath "$RUNNER_TEMP/$APP_NAME.xcarchive" \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_ALLOWED=NO
+
+      # ── Export archive ────────────────────────────────────────────────
+      - name: Export archive
+        run: |
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/$APP_NAME.xcarchive" \
+            -exportPath "$RUNNER_TEMP/export" \
+            -exportOptionsPlist exportOptions-mac.plist
+
+      # ── Inject version into exported app ──────────────────────────────
+      - name: Set version in app
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          BUILD_NUMBER: ${{ steps.version.outputs.build }}
+        run: |
+          APP="$RUNNER_TEMP/export/$APP_NAME.app"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$APP/Contents/Info.plist"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" "$APP/Contents/Info.plist"
+
+      # ── Re-sign with Developer ID ─────────────────────────────────────
+      - name: Code sign
+        env:
+          CODESIGN_IDENTITY: ${{ secrets.MACOS_CERTIFICATE_NAME }}
+        run: |
+          APP="$RUNNER_TEMP/export/$APP_NAME.app"
+          ENTITLEMENTS="BalconyMac/Resources/BalconyMac.entitlements"
+          codesign --deep --force --options runtime \
+            --sign "$CODESIGN_IDENTITY" \
+            --entitlements "$ENTITLEMENTS" \
+            --timestamp \
+            "$APP"
+
+      # ── Notarize .app ─────────────────────────────────────────────────
+      - name: Notarize app
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          bash Scripts/notarize.sh "$RUNNER_TEMP/export/$APP_NAME.app"
+
+      # ── Create DMG ────────────────────────────────────────────────────
+      - name: Create DMG
+        run: |
+          bash Scripts/create-dmg.sh \
+            "$RUNNER_TEMP/export/$APP_NAME.app" \
+            "$APP_NAME-${{ steps.version.outputs.version }}.dmg"
+
+      # ── Sign + notarize DMG ───────────────────────────────────────────
+      - name: Sign and notarize DMG
+        env:
+          CODESIGN_IDENTITY: ${{ secrets.MACOS_CERTIFICATE_NAME }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          DMG="$APP_NAME-${{ steps.version.outputs.version }}.dmg"
+          codesign --force --sign "$CODESIGN_IDENTITY" --timestamp "$DMG"
+          bash Scripts/notarize.sh "$DMG"
+
+      # ── Sign with Sparkle EdDSA key ───────────────────────────────────
+      - name: Sparkle EdDSA signature
+        id: sparkle
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          DMG="$APP_NAME-${{ steps.version.outputs.version }}.dmg"
+          SIZE=$(stat -f%z "$DMG")
+          echo "size=$SIZE" >> "$GITHUB_OUTPUT"
+
+          # Find sign_update in Sparkle build artifacts
+          SIGN_UPDATE=$(find .build -name "sign_update" -type f 2>/dev/null | head -1)
+          if [[ -z "$SIGN_UPDATE" ]]; then
+            echo "Downloading sign_update from Sparkle release..."
+            SPARKLE_VERSION="2.8.1"
+            SPARKLE_URL="https://github.com/sparkle-project/Sparkle/releases/download/${SPARKLE_VERSION}/Sparkle-${SPARKLE_VERSION}.tar.xz"
+            SPARKLE_ARCHIVE="$RUNNER_TEMP/Sparkle-${SPARKLE_VERSION}.tar.xz"
+            curl -sL -o "$SPARKLE_ARCHIVE" "$SPARKLE_URL"
+            tar xJf "$SPARKLE_ARCHIVE" --include="*/bin/sign_update" -C "$RUNNER_TEMP"
+            SIGN_UPDATE="$RUNNER_TEMP/bin/sign_update"
+            chmod +x "$SIGN_UPDATE"
+          fi
+
+          SIGNATURE=$("$SIGN_UPDATE" "$DMG" --ed-key-file <(echo "$SPARKLE_PRIVATE_KEY") | grep "sparkle:edSignature" | sed 's/.*sparkle:edSignature="\([^"]*\)".*/\1/')
+          echo "signature=$SIGNATURE" >> "$GITHUB_OUTPUT"
+
+      # ── Create GitHub Release ─────────────────────────────────────────
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          DMG="$APP_NAME-${{ steps.version.outputs.version }}.dmg"
+          gh release create "${{ steps.version.outputs.tag }}" "$DMG" \
+            --title "$APP_NAME ${{ steps.version.outputs.version }}" \
+            --generate-notes
+
+      # ── Update appcast.xml on gh-pages ────────────────────────────────
+      - name: Update appcast
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          BUILD="${{ steps.version.outputs.build }}"
+          DMG="$APP_NAME-$VERSION.dmg"
+          SIZE="${{ steps.sparkle.outputs.size }}"
+          SIGNATURE="${{ steps.sparkle.outputs.signature }}"
+          PUB_DATE="$(date -u '+%a, %d %b %Y %H:%M:%S +0000')"
+          DMG_URL="https://github.com/${{ github.repository }}/releases/download/v$VERSION/$DMG"
+
+          git clone --branch gh-pages --single-branch \
+            "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" \
+            gh-pages-dir
+
+          cd gh-pages-dir
+
+          export APPCAST_VERSION="$VERSION"
+          export APPCAST_BUILD="$BUILD"
+          export APPCAST_PUB_DATE="$PUB_DATE"
+          export APPCAST_DMG_URL="$DMG_URL"
+          export APPCAST_SIZE="$SIZE"
+          export APPCAST_SIGNATURE="$SIGNATURE"
+
+          python3 -c "
+          import os, html
+
+          v = html.escape(os.environ['APPCAST_VERSION'])
+          b = html.escape(os.environ['APPCAST_BUILD'])
+          pub = html.escape(os.environ['APPCAST_PUB_DATE'])
+          url = html.escape(os.environ['APPCAST_DMG_URL'])
+          size = html.escape(os.environ['APPCAST_SIZE'])
+          sig = html.escape(os.environ['APPCAST_SIGNATURE'])
+
+          item = f'''        <item>
+                      <title>Version {v}</title>
+                      <pubDate>{pub}</pubDate>
+                      <sparkle:version>{b}</sparkle:version>
+                      <sparkle:shortVersionString>{v}</sparkle:shortVersionString>
+                      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+                      <enclosure
+                          url=\"{url}\"
+                          length=\"{size}\"
+                          type=\"application/octet-stream\"
+                          sparkle:edSignature=\"{sig}\"
+                      />
+                  </item>
+          '''
+
+          appcast = open('appcast.xml').read()
+          appcast = appcast.replace('</channel>', item + '    </channel>')
+          open('appcast.xml', 'w').write(appcast)
+          "
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add appcast.xml
+          git commit -m "Update appcast for v$VERSION"
+          git push
+
+      # ── Cleanup keychain ──────────────────────────────────────────────
+      - name: Cleanup keychain
+        if: always()
+        run: |
+          security delete-keychain "$RUNNER_TEMP/app-signing.keychain-db" 2>/dev/null || true

@@ -4,10 +4,11 @@ import BalconyShared
 @main
 struct BalconyMacApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    @StateObject private var updaterService = UpdaterService()
 
     var body: some Scene {
         MenuBarExtra {
-            MenuBarView()
+            MenuBarView(updaterService: updaterService)
                 .environmentObject(appDelegate.connectionManager)
                 .environmentObject(appDelegate.sessionListModel)
         } label: {
