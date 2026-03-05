@@ -391,13 +391,20 @@ final class SessionManager: ObservableObject {
             let oldSessions = sessions
 
             // Check for background session state transitions before replacing
-            for newSession in payload.sessions where newSession.id != activeSession?.id {
-                if let old = oldSessions.first(where: { $0.id == newSession.id }) {
-                    let attentionTransition = !old.needsAttention && newSession.needsAttention
-                    let inputTransition = !old.awaitingInput && newSession.awaitingInput
-                    if attentionTransition || inputTransition {
-                        SoundManager.shared.playNotification()
-                        break  // One sound per update is enough
+            let notificationsOn = UserDefaults.standard.bool(forKey: "notificationsEnabled")
+            if notificationsOn {
+                for newSession in payload.sessions where newSession.id != activeSession?.id {
+                    if let old = oldSessions.first(where: { $0.id == newSession.id }) {
+                        let attentionTransition = !old.needsAttention && newSession.needsAttention
+                        let inputTransition = !old.awaitingInput && newSession.awaitingInput
+                        if attentionTransition {
+                            SoundManager.shared.playAttentionSound()
+                            break
+                        }
+                        if inputTransition {
+                            SoundManager.shared.playDoneSound()
+                            break
+                        }
                     }
                 }
             }

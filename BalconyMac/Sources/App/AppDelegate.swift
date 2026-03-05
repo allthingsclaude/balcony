@@ -67,6 +67,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         startServices()
     }
 
+    // MARK: - Sound
+
+    enum SoundCategory { case attention, done }
+
+    private func playSound(_ category: SoundCategory) {
+        let soundName: String
+        switch category {
+        case .attention:
+            soundName = PreferencesManager.shared.attentionSound
+        case .done:
+            soundName = PreferencesManager.shared.doneSound
+        }
+        if !soundName.isEmpty {
+            NSSound(named: NSSound.Name(soundName))?.play()
+        }
+    }
+
     // MARK: - Service Startup
 
     /// Start all core services (PTY, hooks, connections, away detection).
@@ -87,7 +104,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             Task {
                 _ = await self.resolvePTYSessionId(claudeSessionId: promptInfo.sessionId, cwd: promptInfo.cwd, ptySessionId: promptInfo.ptySessionId)
             }
-            self.promptPanelController.showPrompt(promptInfo)
+            self.playSound(.attention)
+            if PreferencesManager.shared.showAttentionPanel {
+                self.promptPanelController.showPrompt(promptInfo)
+            }
         }
         hookEventHandler.onForwardToiOS = { [weak self] promptInfo in
             guard let self else { return }
@@ -108,7 +128,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if let ptyId = askInfo.ptySessionId {
                 self.hookEventHandler.registerPTYMapping(ptySessionId: ptyId, claudeSessionId: askInfo.sessionId)
             }
-            self.promptPanelController.showAskUserQuestion(askInfo)
+            self.playSound(.attention)
+            if PreferencesManager.shared.showAttentionPanel {
+                self.promptPanelController.showAskUserQuestion(askInfo)
+            }
         }
         // Forward AskUserQuestion to iOS
         hookEventHandler.onForwardAskUserQuestionToiOS = { [weak self] askInfo in
@@ -156,10 +179,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self.idlePromptPTYMapping[info.sessionId] = ptyId
                 self.hookEventHandler.registerPTYMapping(ptySessionId: ptyId, claudeSessionId: info.sessionId)
 
-                if let detected = info.detectedOptions {
-                    self.promptPanelController.showMultiOptionPrompt(info, options: detected.options)
-                } else {
-                    self.promptPanelController.showIdlePrompt(info)
+                self.playSound(.done)
+                if PreferencesManager.shared.showDonePanel {
+                    if let detected = info.detectedOptions {
+                        self.promptPanelController.showMultiOptionPrompt(info, options: detected.options)
+                    } else {
+                        self.promptPanelController.showIdlePrompt(info)
+                    }
                 }
             }
         }

@@ -20,9 +20,10 @@ final class PreferencesManager {
     static let sessionRefreshIntervalKey = "sessionRefreshInterval"
     static let bonjourEnabledKey = "bonjourEnabled"
     static let bleEnabledKey = "bleEnabled"
-    static let notifyOnConnectKey = "notifyOnConnect"
-    static let notifyOnDisconnectKey = "notifyOnDisconnect"
-    static let soundEffectKey = "soundEffect"
+    static let showAttentionPanelKey = "showAttentionPanel"
+    static let showDonePanelKey = "showDonePanel"
+    static let attentionSoundKey = "attentionSound"
+    static let doneSoundKey = "doneSound"
     static let awayDistanceKey = "awayDistance"
     static let awaySustainKey = "awaySustain"
 
@@ -35,9 +36,10 @@ final class PreferencesManager {
         sessionRefreshIntervalKey: 10,
         bonjourEnabledKey: true,
         bleEnabledKey: true,
-        notifyOnConnectKey: true,
-        notifyOnDisconnectKey: true,
-        soundEffectKey: "",
+        showAttentionPanelKey: true,
+        showDonePanelKey: true,
+        attentionSoundKey: "",
+        doneSoundKey: "",
         awayDistanceKey: 1,
         awaySustainKey: 3,
     ]
@@ -117,19 +119,26 @@ final class PreferencesManager {
 
     // MARK: - Notifications
 
-    var notifyOnConnect: Bool {
-        if UserDefaults.standard.object(forKey: Self.notifyOnConnectKey) == nil { return true }
-        return UserDefaults.standard.bool(forKey: Self.notifyOnConnectKey)
+    /// Whether to show the floating panel when AI needs user action.
+    var showAttentionPanel: Bool {
+        if UserDefaults.standard.object(forKey: Self.showAttentionPanelKey) == nil { return true }
+        return UserDefaults.standard.bool(forKey: Self.showAttentionPanelKey)
     }
 
-    var notifyOnDisconnect: Bool {
-        if UserDefaults.standard.object(forKey: Self.notifyOnDisconnectKey) == nil { return true }
-        return UserDefaults.standard.bool(forKey: Self.notifyOnDisconnectKey)
+    /// Whether to show the floating panel when AI finishes.
+    var showDonePanel: Bool {
+        if UserDefaults.standard.object(forKey: Self.showDonePanelKey) == nil { return true }
+        return UserDefaults.standard.bool(forKey: Self.showDonePanelKey)
     }
 
-    /// Name of the system sound to play on connection events. Empty string means no sound.
-    var soundEffect: String {
-        return UserDefaults.standard.string(forKey: Self.soundEffectKey) ?? ""
+    /// Name of the system sound to play when AI needs user action. Empty string means no sound.
+    var attentionSound: String {
+        return UserDefaults.standard.string(forKey: Self.attentionSoundKey) ?? ""
+    }
+
+    /// Name of the system sound to play when AI finishes. Empty string means no sound.
+    var doneSound: String {
+        return UserDefaults.standard.string(forKey: Self.doneSoundKey) ?? ""
     }
 
     /// Available system sound names.
@@ -146,11 +155,25 @@ final class PreferencesManager {
 
     private init() {
         registerDefaults()
+        migrateOldSoundPreference()
     }
 
     /// Register default values so @AppStorage picks them up.
     private func registerDefaults() {
         UserDefaults.standard.register(defaults: Self.defaults)
+    }
+
+    /// Migrate old single `soundEffect` key to the new dual-sound keys.
+    private func migrateOldSoundPreference() {
+        let ud = UserDefaults.standard
+        if let oldSound = ud.string(forKey: "soundEffect"),
+           ud.object(forKey: Self.attentionSoundKey) == nil,
+           ud.object(forKey: Self.doneSoundKey) == nil {
+            ud.set(oldSound, forKey: Self.attentionSoundKey)
+            ud.set(oldSound, forKey: Self.doneSoundKey)
+            ud.removeObject(forKey: "soundEffect")
+            logger.info("Migrated old soundEffect preference to attention/done sounds")
+        }
     }
 
     // MARK: - Reset
@@ -161,7 +184,8 @@ final class PreferencesManager {
             Self.wsPortKey, Self.idleThresholdKey, Self.awayThresholdKey,
             Self.displayNameKey, Self.sessionRefreshIntervalKey,
             Self.bonjourEnabledKey, Self.bleEnabledKey,
-            Self.notifyOnConnectKey, Self.notifyOnDisconnectKey, Self.soundEffectKey,
+            Self.showAttentionPanelKey, Self.showDonePanelKey,
+            Self.attentionSoundKey, Self.doneSoundKey,
             Self.awayDistanceKey, Self.awaySustainKey,
         ]
         for key in allKeys {

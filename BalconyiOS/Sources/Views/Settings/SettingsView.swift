@@ -6,7 +6,8 @@ struct SettingsView: View {
     @AppStorage("notify.sessionEvents") private var notifySessionEvents = true
     @AppStorage("notify.toolApprovals") private var notifyToolApprovals = true
     @AppStorage("notify.sessionComplete") private var notifySessionComplete = true
-    @AppStorage("notificationSound") private var notificationSound: String = NotificationSound.noir.rawValue
+    @AppStorage(SoundManager.attentionSoundKey) private var attentionSound: String = NotificationSound.noir.rawValue
+    @AppStorage(SoundManager.doneSoundKey) private var doneSound: String = NotificationSound.noir.rawValue
     @State private var showResetConfirmation = false
 
     var body: some View {
@@ -34,16 +35,36 @@ struct SettingsView: View {
                     Toggle("Session Events", isOn: $notifySessionEvents)
                     Toggle("Tool Approvals", isOn: $notifyToolApprovals)
                     Toggle("Session Complete", isOn: $notifySessionComplete)
-                    Picker("Notification Sound", selection: $notificationSound) {
+                }
+
+                Section("Notification Sounds") {
+                    Picker("Attention Sound", selection: $attentionSound) {
                         ForEach(NotificationSound.allCases) { sound in
                             Text(sound.displayName).tag(sound.rawValue)
                         }
                     }
-                    .onChange(of: notificationSound) { newValue in
+                    .onChange(of: attentionSound) { newValue in
                         if let sound = NotificationSound(rawValue: newValue) {
                             SoundManager.shared.play(sound)
                         }
                     }
+                    Text("Played when Claude needs your approval or answer.")
+                        .font(.caption)
+                        .foregroundStyle(BalconyTheme.textSecondary)
+
+                    Picker("Done Sound", selection: $doneSound) {
+                        ForEach(NotificationSound.allCases) { sound in
+                            Text(sound.displayName).tag(sound.rawValue)
+                        }
+                    }
+                    .onChange(of: doneSound) { newValue in
+                        if let sound = NotificationSound(rawValue: newValue) {
+                            SoundManager.shared.play(sound)
+                        }
+                    }
+                    Text("Played when Claude finishes and is ready for input.")
+                        .font(.caption)
+                        .foregroundStyle(BalconyTheme.textSecondary)
                 }
 
                 Section("Security") {

@@ -260,12 +260,6 @@ final class PromptPanelController {
             }
         }
 
-        // Play notification sound
-        let soundName = PreferencesManager.shared.soundEffect
-        if !soundName.isEmpty {
-            NSSound(named: NSSound.Name(soundName))?.play()
-        }
-
         let fittingSize = hostingView.fittingSize
         let width = max(fittingSize.width, 340)
         let height = fittingSize.height

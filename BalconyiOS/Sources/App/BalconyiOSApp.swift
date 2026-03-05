@@ -8,6 +8,10 @@ struct BalconyiOSApp: App {
     @AppStorage("appearance") private var appearance: String = "system"
     @AppStorage("appIcon") private var appIcon: String = "light"
 
+    init() {
+        SoundManager.migrateOldSoundPreference()
+    }
+
     var body: some Scene {
         WindowGroup {
             ContentView()

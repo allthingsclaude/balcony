@@ -128,15 +128,15 @@ struct PromptPanelView: View {
                     }
 
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(info.toolName)
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(PanelTheme.textPrimary)
-
                     if let projectName {
                         Text(projectName)
-                            .font(.system(size: 11))
-                            .foregroundStyle(PanelTheme.textSecondary)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(PanelTheme.textPrimary)
                     }
+
+                    Text("Claude is waiting")
+                        .font(.system(size: 11))
+                        .foregroundStyle(PanelTheme.textSecondary)
                 }
 
                 Spacer()
@@ -155,13 +155,15 @@ struct PromptPanelView: View {
 
             // Content preview
             if let content = contentPreview {
-                Text(content)
-                    .font(.system(size: 11, design: .monospaced))
-                    .foregroundStyle(PanelTheme.textSecondary)
-                    .lineLimit(3)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
+                ScrollView {
+                    Text(content)
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundStyle(PanelTheme.textSecondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .frame(maxHeight: 120)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
 
                 PanelTheme.divider
                     .frame(height: 0.5)
@@ -189,13 +191,13 @@ struct PromptPanelView: View {
 
     private var contentPreview: String? {
         if let command = info.command, !command.isEmpty {
-            return String(command.prefix(200))
+            return String(command.prefix(500))
         }
         if let filePath = info.filePath, !filePath.isEmpty {
             return abbreviatePath(filePath)
         }
         if let detail = info.detail, !detail.isEmpty {
-            return String(detail.prefix(200))
+            return String(detail.prefix(500))
         }
         return nil
     }
@@ -286,15 +288,15 @@ struct IdlePromptPanelView: View {
                     }
 
                 VStack(alignment: .leading, spacing: 1) {
-                    Text("Claude is waiting")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(PanelTheme.textPrimary)
-
                     if let projectName {
                         Text(projectName)
-                            .font(.system(size: 11))
-                            .foregroundStyle(PanelTheme.textSecondary)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(PanelTheme.textPrimary)
                     }
+
+                    Text("Claude is done")
+                        .font(.system(size: 11))
+                        .foregroundStyle(PanelTheme.textSecondary)
                 }
 
                 Spacer()
@@ -310,13 +312,15 @@ struct IdlePromptPanelView: View {
                 .padding(.horizontal, 14)
 
             // Claude's message
-            Text(displayMessage)
-                .font(.system(size: 12))
-                .foregroundStyle(PanelTheme.textSecondary)
-                .lineLimit(4)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
+            ScrollView {
+                Text(displayMessage)
+                    .font(.system(size: 12))
+                    .foregroundStyle(PanelTheme.textSecondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .frame(maxHeight: 120)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
 
             PanelTheme.divider
                 .frame(height: 0.5)
@@ -363,7 +367,7 @@ struct IdlePromptPanelView: View {
 
     private var displayMessage: String {
         let message = info.lastAssistantMessage
-        return message.count > 500 ? String(message.suffix(500)) : message
+        return message.count > 1000 ? String(message.suffix(1000)) : message
     }
 
     private func submitResponse() {
@@ -400,15 +404,15 @@ struct MultiOptionPanelView: View {
                     }
 
                 VStack(alignment: .leading, spacing: 1) {
-                    Text("Claude has a question")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(PanelTheme.textPrimary)
-
                     if let projectName {
                         Text(projectName)
-                            .font(.system(size: 11))
-                            .foregroundStyle(PanelTheme.textSecondary)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(PanelTheme.textPrimary)
                     }
+
+                    Text("Claude is done")
+                        .font(.system(size: 11))
+                        .foregroundStyle(PanelTheme.textSecondary)
                 }
 
                 Spacer()
@@ -425,13 +429,15 @@ struct MultiOptionPanelView: View {
 
             // Question text
             if let detected = info.detectedOptions {
-                Text(detected.question)
-                    .font(.system(size: 12))
-                    .foregroundStyle(PanelTheme.textSecondary)
-                    .lineLimit(3)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
+                ScrollView {
+                    Text(detected.question)
+                        .font(.system(size: 12))
+                        .foregroundStyle(PanelTheme.textSecondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .frame(maxHeight: 120)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
 
                 PanelTheme.divider
                     .frame(height: 0.5)
@@ -568,18 +574,18 @@ struct AskUserQuestionPanelView: View {
                     }
 
                 VStack(alignment: .leading, spacing: 1) {
-                    if info.questions.count > 1 {
-                        Text("Step \(currentIndex + 1) of \(info.questions.count)")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(PanelTheme.textPrimary)
-                    } else {
-                        Text(currentQuestion.header)
+                    if let projectName {
+                        Text(projectName)
                             .font(.system(size: 13, weight: .semibold))
                             .foregroundStyle(PanelTheme.textPrimary)
                     }
 
-                    if let projectName {
-                        Text(projectName)
+                    if info.questions.count > 1 {
+                        Text("Claude is waiting (\(currentIndex + 1)/\(info.questions.count))")
+                            .font(.system(size: 11))
+                            .foregroundStyle(PanelTheme.textSecondary)
+                    } else {
+                        Text("Claude is waiting")
                             .font(.system(size: 11))
                             .foregroundStyle(PanelTheme.textSecondary)
                     }
@@ -608,13 +614,16 @@ struct AskUserQuestionPanelView: View {
                 .padding(.horizontal, 14)
 
             // Question text
-            Text(currentQuestion.question)
-                .font(.system(size: 12))
-                .foregroundStyle(PanelTheme.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
+            ScrollView {
+                Text(currentQuestion.question)
+                    .font(.system(size: 12))
+                    .foregroundStyle(PanelTheme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .frame(maxHeight: 120)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
 
             PanelTheme.divider
                 .frame(height: 0.5)

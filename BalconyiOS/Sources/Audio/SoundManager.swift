@@ -89,6 +89,12 @@ enum NotificationSound: String, CaseIterable, Identifiable {
 final class SoundManager {
     static let shared = SoundManager()
 
+    /// UserDefaults key for the attention sound (AI needs user action).
+    static let attentionSoundKey = "attentionSound"
+
+    /// UserDefaults key for the done sound (AI finished, waiting for next prompt).
+    static let doneSoundKey = "doneSound"
+
     private init() {}
 
     /// Play a specific notification sound.
@@ -97,10 +103,31 @@ final class SoundManager {
         AudioServicesPlaySystemSound(id)
     }
 
-    /// Play the user's preferred notification sound from UserDefaults.
-    func playNotification() {
-        let raw = UserDefaults.standard.string(forKey: "notificationSound") ?? NotificationSound.noir.rawValue
+    /// Play the user's preferred attention sound (AI needs action).
+    func playAttentionSound() {
+        let raw = UserDefaults.standard.string(forKey: Self.attentionSoundKey)
+            ?? NotificationSound.noir.rawValue
         let sound = NotificationSound(rawValue: raw) ?? .noir
         play(sound)
+    }
+
+    /// Play the user's preferred done sound (AI finished).
+    func playDoneSound() {
+        let raw = UserDefaults.standard.string(forKey: Self.doneSoundKey)
+            ?? NotificationSound.noir.rawValue
+        let sound = NotificationSound(rawValue: raw) ?? .noir
+        play(sound)
+    }
+
+    /// Migrate old single `notificationSound` key to the new dual-sound keys.
+    static func migrateOldSoundPreference() {
+        let ud = UserDefaults.standard
+        if let oldSound = ud.string(forKey: "notificationSound"),
+           ud.object(forKey: attentionSoundKey) == nil,
+           ud.object(forKey: doneSoundKey) == nil {
+            ud.set(oldSound, forKey: attentionSoundKey)
+            ud.set(oldSound, forKey: doneSoundKey)
+            ud.removeObject(forKey: "notificationSound")
+        }
     }
 }

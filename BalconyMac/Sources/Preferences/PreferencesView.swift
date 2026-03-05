@@ -102,28 +102,46 @@ private struct ConnectionTab: View {
 // MARK: - Notifications Tab
 
 private struct NotificationsTab: View {
-    @AppStorage(PreferencesManager.notifyOnConnectKey) private var notifyOnConnect = true
-    @AppStorage(PreferencesManager.notifyOnDisconnectKey) private var notifyOnDisconnect = true
-    @AppStorage(PreferencesManager.soundEffectKey) private var soundEffect = ""
+    @AppStorage(PreferencesManager.showAttentionPanelKey) private var showAttentionPanel = true
+    @AppStorage(PreferencesManager.showDonePanelKey) private var showDonePanel = true
+    @AppStorage(PreferencesManager.attentionSoundKey) private var attentionSound = ""
+    @AppStorage(PreferencesManager.doneSoundKey) private var doneSound = ""
 
     var body: some View {
         Form {
-            Section("Device Events") {
-                Toggle("Notify on device connect", isOn: $notifyOnConnect)
-                Toggle("Notify on device disconnect", isOn: $notifyOnDisconnect)
-            }
-            Section("Sound Effect") {
-                Picker("Sound", selection: $soundEffect) {
+            Section("Attention") {
+                Toggle("Show panel", isOn: $showAttentionPanel)
+                Picker("Sound", selection: $attentionSound) {
                     Text("None").tag("")
                     Divider()
                     ForEach(PreferencesManager.availableSounds, id: \.self) { name in
                         Text(name).tag(name)
                     }
                 }
-                .onChange(of: soundEffect) { _, newValue in
+                .onChange(of: attentionSound) { _, newValue in
                     guard !newValue.isEmpty else { return }
                     NSSound(named: NSSound.Name(newValue))?.play()
                 }
+                Text("When Claude needs your approval or answer.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Section("Done") {
+                Toggle("Show panel", isOn: $showDonePanel)
+                Picker("Sound", selection: $doneSound) {
+                    Text("None").tag("")
+                    Divider()
+                    ForEach(PreferencesManager.availableSounds, id: \.self) { name in
+                        Text(name).tag(name)
+                    }
+                }
+                .onChange(of: doneSound) { _, newValue in
+                    guard !newValue.isEmpty else { return }
+                    NSSound(named: NSSound.Name(newValue))?.play()
+                }
+                Text("When Claude finishes and is ready for your next prompt.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)

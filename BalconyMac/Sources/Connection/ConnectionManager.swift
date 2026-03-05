@@ -112,20 +112,7 @@ final class ConnectionManager: ObservableObject {
     // MARK: - Notifications
 
     private func postDeviceNotification(title: String, body: String, isConnect: Bool) {
-        let prefs = PreferencesManager.shared
-        let shouldNotify = isConnect ? prefs.notifyOnConnect : prefs.notifyOnDisconnect
-        guard shouldNotify else { return }
-
-        let soundName = prefs.soundEffect
-        if !soundName.isEmpty {
-            NSSound(named: NSSound.Name(soundName))?.play()
-        }
-
-        let content = UNMutableNotificationContent()
-        content.title = title
-        content.body = body
-        let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
-        UNUserNotificationCenter.current().add(request)
+        logger.info("\(title): \(body)")
     }
 
     // MARK: - Device Management
