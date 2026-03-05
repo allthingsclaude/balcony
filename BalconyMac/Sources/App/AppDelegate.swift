@@ -15,6 +15,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let sessionFileReader = SessionFileReader()
     let modelListProvider = ModelListProvider()
     let awayDetector = AwayDetector()
+    let setupWindowController = SetupWindowController()
 
     /// Pre-resolved PTY session IDs for idle prompts (Claude session ID → PTY session ID).
     /// Stored when the idle prompt is shown so text responses route to the correct PTY
@@ -27,6 +28,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Observation token for UserDefaults changes.
     private var defaultsObserver: NSObjectProtocol?
 
+    /// Whether services have been started.
+    private var servicesStarted = false
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         logger.info("BalconyMac launched")
 
@@ -34,6 +38,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // instead of crashing the process (e.g., stale permission panel answered
         // after the hook script already exited).
         signal(SIGPIPE, SIG_IGN)
+
+        // Check if first-launch setup is needed
+        if !setupWindowController.setupManager.isSetupComplete {
+            logger.info("First-launch setup needed, showing wizard")
+            setupWindowController.showSetupWindow { [weak self] in
+                self?.startServices()
+            }
+            return
+        }
+
+        startServices()
+    }
+
+    // MARK: - Service Startup
+
+    /// Start all core services (PTY, hooks, connections, away detection).
+    func startServices() {
+        guard !servicesStarted else { return }
+        servicesStarted = true
+
+        logger.info("Starting services")
 
         // Wire up ConnectionManager to AppDelegate for session picker requests
         connectionManager.appDelegate = self

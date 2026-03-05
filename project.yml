@@ -64,6 +64,7 @@ targets:
           - $(inherited)
           - "@executable_path/../Frameworks"
     dependencies:
+      - target: BalconyCLI
       - package: BalconyShared
       - product: NIO
         package: swift-nio
@@ -76,6 +77,24 @@ targets:
       - product: NIOTransportServices
         package: swift-nio-transport-services
       - sdk: IOKit.framework
+    postBuildScripts:
+      - script: |
+          # Copy BalconyCLI binary into app Resources
+          CLI_SRC="${BUILT_PRODUCTS_DIR}/balcony"
+          CLI_DST="${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Resources/balcony-cli"
+          if [ -f "$CLI_SRC" ]; then
+            cp "$CLI_SRC" "$CLI_DST"
+            chmod +x "$CLI_DST"
+          fi
+
+          # Copy hook-handler script into app Resources
+          HOOK_SRC="${SRCROOT}/Scripts/hook-handler"
+          HOOK_DST="${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Resources/hook-handler"
+          if [ -f "$HOOK_SRC" ]; then
+            cp "$HOOK_SRC" "$HOOK_DST"
+            chmod +x "$HOOK_DST"
+          fi
+        name: "Embed BalconyCLI and hook-handler"
 
   BalconyiOS:
     type: application

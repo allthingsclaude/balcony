@@ -10,6 +10,7 @@
 		02F56943AC8EE99383270589 /* LiquidGlassCapsule.swift in Sources */ = {isa = PBXBuildFile; fileRef = A218A4C58E7F312AB70DC57F /* LiquidGlassCapsule.swift */; };
 		037713E20A0A5F516C6DE9E2 /* HookListener.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9B350EE9FED6537E89F375A /* HookListener.swift */; };
 		05F879B73DA8046A8D8E49A4 /* StatusBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C4666F5F2F672B0D7E53B59 /* StatusBadge.swift */; };
+		069B2AE20FDB84393F621B3B /* SetupManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EE05188D3D1B4C8581F5C39 /* SetupManager.swift */; };
 		0C8B98F96BE57AE5DFEDE5D1 /* PromptDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40C32C7301A46B9456C5FCCC /* PromptDetector.swift */; };
 		0FE1BFBC4DC2490FA25064E4 /* SlashCommandMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF14263968FE5E9B5664835E /* SlashCommandMenu.swift */; };
 		0FE6915E324A2EA05EEEC639 /* SessionRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A153BA8C47D076D9BD988A08 /* SessionRowView.swift */; };
@@ -17,6 +18,7 @@
 		150A404F73E9404284393E17 /* RewindPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE1D9639D9928840FAEEECD3 /* RewindPickerView.swift */; };
 		15406D80C0095BDC371DCAF3 /* SessionSidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04F411A79CF7264F289B6302 /* SessionSidebarView.swift */; };
 		15A28C87E7BAC5940DF63E23 /* WebSocketClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30D8A1BC1C4516A364BFA87F /* WebSocketClient.swift */; };
+		1A26A405DD459E9DFE1945B5 /* SetupWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7024D589F31FE9F6BCB739A2 /* SetupWindowController.swift */; };
 		1CB73E54A6BB4BDD16599D8E /* PromptPanelController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D55EDA07D8C2EC099B5D24B /* PromptPanelController.swift */; };
 		1E628833070E34E4A040D51C /* NIOWebSocket in Frameworks */ = {isa = PBXBuildFile; productRef = 6ED48EC9E94F4FC97A96DE5A /* NIOWebSocket */; };
 		1EE8C4879DF09145406EDB96 /* DeviceManagementView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4241CE63445459C9D9FD3C36 /* DeviceManagementView.swift */; };
@@ -37,7 +39,10 @@
 		52EA4D3614E7CD7C01FAFCEA /* BLECentral.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63C417099683EF822F4B30DF /* BLECentral.swift */; };
 		54B68596DB033B25770224FE /* BonjourBrowser.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7DE45B3FC97C8DC7FADEB16 /* BonjourBrowser.swift */; };
 		55510F0B7A6D0C0A189E42AE /* SessionPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A3E4297A1ED29FEAA7E6D5E /* SessionPickerView.swift */; };
+		563AE052AC62B60B0509C80B /* BalconyCLI in Resources */ = {isa = PBXBuildFile; fileRef = 575956E033E5EF90DEBBE923 /* BalconyCLI */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		59D76619CC0838DDD232AE57 /* ModelListProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8054709AEBB45731B614783 /* ModelListProvider.swift */; };
+		5C4AD65C570CC3059F5482B0 /* SetupFlowModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 239E33293B61A3D9C500BB82 /* SetupFlowModel.swift */; };
+		5DB49167F997C4E241C7626C /* SetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3C98EF34E06BF79E5DD7706 /* SetupView.swift */; };
 		61B35E1445E28DE6B57C9447 /* ConversationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50C657DCB9087A3FB0B1E315 /* ConversationView.swift */; };
 		663D66965E45C127C3FF27DD /* TerminalContainerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AF99EBC38F153B19FDEB53A /* TerminalContainerView.swift */; };
 		6ADD5A55445484CB8EDF48B3 /* CryptoManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D952D21F5F35A1506E4A4D08 /* CryptoManagerTests.swift */; };
@@ -95,6 +100,16 @@
 		FF5E320946ACE90AC2B967F0 /* BalconyTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF662BA7926B1B03E10B19B6 /* BalconyTheme.swift */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		F9A8FE99BE9F13B29EAAA5C9 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = F7ECBB149418AAFED95511E8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = F9977008AA49E8E96D6CCF49;
+			remoteInfo = BalconyCLI;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
 		0214B334EED13B38D88E1BD9 /* HookEventHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HookEventHandler.swift; sourceTree = "<group>"; };
 		037E15271FF9FC402D02B51B /* TerminalLine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalLine.swift; sourceTree = "<group>"; };
@@ -106,6 +121,7 @@
 		14954C747CB9B37EFDCE1BEA /* PreferencesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesView.swift; sourceTree = "<group>"; };
 		160D61822B93FBE67A1C20C2 /* SessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionManager.swift; sourceTree = "<group>"; };
 		1C4666F5F2F672B0D7E53B59 /* StatusBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusBadge.swift; sourceTree = "<group>"; };
+		239E33293B61A3D9C500BB82 /* SetupFlowModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupFlowModel.swift; sourceTree = "<group>"; };
 		2567EAF959E0FF8C09874F18 /* BLEPeripheral.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BLEPeripheral.swift; sourceTree = "<group>"; };
 		26C123194F77AD4BC1D2CA02 /* PromptPanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromptPanelView.swift; sourceTree = "<group>"; };
 		29C23B5584D65228ECB8AF8D /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
@@ -123,6 +139,7 @@
 		4241CE63445459C9D9FD3C36 /* DeviceManagementView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceManagementView.swift; sourceTree = "<group>"; };
 		49449E8E646DB0F7693BF3F0 /* WebSocketClientHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSocketClientHandler.swift; sourceTree = "<group>"; };
 		4E0AAE0D253D1FCC52BEC9C1 /* ProjectFileScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProjectFileScanner.swift; sourceTree = "<group>"; };
+		4EE05188D3D1B4C8581F5C39 /* SetupManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupManager.swift; sourceTree = "<group>"; };
 		50C657DCB9087A3FB0B1E315 /* ConversationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationView.swift; sourceTree = "<group>"; };
 		50CDFFCE4495E7D88AFCF8C4 /* SocketClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocketClient.swift; sourceTree = "<group>"; };
 		550F0D20164E87817511190D /* AskUserQuestionCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AskUserQuestionCardView.swift; sourceTree = "<group>"; };
@@ -134,6 +151,7 @@
 		6D55EDA07D8C2EC099B5D24B /* PromptPanelController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromptPanelController.swift; sourceTree = "<group>"; };
 		6DDE06A45D5DB609E1918B25 /* InteractivePrompt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InteractivePrompt.swift; sourceTree = "<group>"; };
 		6F43204098DB6C4D61A3C700 /* WebSocketServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSocketServer.swift; sourceTree = "<group>"; };
+		7024D589F31FE9F6BCB739A2 /* SetupWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupWindowController.swift; sourceTree = "<group>"; };
 		72541086349D5C7FE7CA0C64 /* QRCodeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRCodeView.swift; sourceTree = "<group>"; };
 		783D378FB676157E04C99FC9 /* ConnectionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionManager.swift; sourceTree = "<group>"; };
 		7BEB54F3C74377613045762F /* AwayDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AwayDetector.swift; sourceTree = "<group>"; };
@@ -171,6 +189,7 @@
 		DF662BA7926B1B03E10B19B6 /* BalconyTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BalconyTheme.swift; sourceTree = "<group>"; };
 		E0A018E81D07F8F804A5CC03 /* BalconyiOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = BalconyiOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E0AA3AD6C3787879CAAB89F1 /* DiscoveryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiscoveryView.swift; sourceTree = "<group>"; };
+		E3C98EF34E06BF79E5DD7706 /* SetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupView.swift; sourceTree = "<group>"; };
 		E5330CC3525DAD310296E4BE /* QRScannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRScannerView.swift; sourceTree = "<group>"; };
 		E5BA326573C4E510CFC7C2A8 /* StatusItemManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusItemManager.swift; sourceTree = "<group>"; };
 		EA00F9F09E1361C6366E02A8 /* EncryptedPipelineIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EncryptedPipelineIntegrationTests.swift; sourceTree = "<group>"; };
@@ -292,6 +311,7 @@
 				667341FB33E407DEA858B135 /* MenuBar */,
 				F1425735D4B4B6D179915C5F /* Preferences */,
 				EE0209A0E21BBDEB46AE3FFE /* Session */,
+				CF4D9CACA3214DBF1F525E5B /* Setup */,
 				CD9B0B8BB81459B388084038 /* UI */,
 			);
 			path = Sources;
@@ -532,6 +552,17 @@
 			path = UI;
 			sourceTree = "<group>";
 		};
+		CF4D9CACA3214DBF1F525E5B /* Setup */ = {
+			isa = PBXGroup;
+			children = (
+				239E33293B61A3D9C500BB82 /* SetupFlowModel.swift */,
+				4EE05188D3D1B4C8581F5C39 /* SetupManager.swift */,
+				E3C98EF34E06BF79E5DD7706 /* SetupView.swift */,
+				7024D589F31FE9F6BCB739A2 /* SetupWindowController.swift */,
+			);
+			path = Setup;
+			sourceTree = "<group>";
+		};
 		D0871BA5E573A24711432930 /* BalconyShared */ = {
 			isa = PBXGroup;
 			children = (
@@ -611,10 +642,12 @@
 				C227C0CCD52BB66C26AD93B2 /* Sources */,
 				CACC9C6D0F4561C8CC5EE429 /* Resources */,
 				F5C16D33AD9EC30B8BAB09A9 /* Frameworks */,
+				9873AFBC8C8CA517F45EF38E /* Embed BalconyCLI and hook-handler */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				0B9A6FEA03DB089CA7DEEE1E /* PBXTargetDependency */,
 			);
 			name = BalconyMac;
 			packageProductDependencies = (
@@ -742,10 +775,32 @@
 			buildActionMask = 2147483647;
 			files = (
 				76791B96E22D92E5CE70994C /* Assets.xcassets in Resources */,
+				563AE052AC62B60B0509C80B /* BalconyCLI in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		9873AFBC8C8CA517F45EF38E /* Embed BalconyCLI and hook-handler */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Embed BalconyCLI and hook-handler";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Copy BalconyCLI binary into app Resources\nCLI_SRC=\"${BUILT_PRODUCTS_DIR}/balcony\"\nCLI_DST=\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Resources/balcony-cli\"\nif [ -f \"$CLI_SRC\" ]; then\n  cp \"$CLI_SRC\" \"$CLI_DST\"\n  chmod +x \"$CLI_DST\"\nfi\n\n# Copy hook-handler script into app Resources\nHOOK_SRC=\"${SRCROOT}/Scripts/hook-handler\"\nHOOK_DST=\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Resources/hook-handler\"\nif [ -f \"$HOOK_SRC\" ]; then\n  cp \"$HOOK_SRC\" \"$HOOK_DST\"\n  chmod +x \"$HOOK_DST\"\nfi\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		0A0DF275308BE1609707CA8B /* Sources */ = {
@@ -824,6 +879,10 @@
 				DA500C499792EA420BE493FD /* QRCodeView.swift in Sources */,
 				7EC8C592D89FE05B25D5F184 /* SessionFileReader.swift in Sources */,
 				3D79F3D2AC1738237F5FF7CB /* SessionListModel.swift in Sources */,
+				5C4AD65C570CC3059F5482B0 /* SetupFlowModel.swift in Sources */,
+				069B2AE20FDB84393F621B3B /* SetupManager.swift in Sources */,
+				5DB49167F997C4E241C7626C /* SetupView.swift in Sources */,
+				1A26A405DD459E9DFE1945B5 /* SetupWindowController.swift in Sources */,
 				DE3744B22608B9130AA240C6 /* SlashCommandScanner.swift in Sources */,
 				DFFB8C76E4D453A641002387 /* StatusItemManager.swift in Sources */,
 				E50D03AEEA94650D2FA831C6 /* WebSocketClientHandler.swift in Sources */,
@@ -845,6 +904,14 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		0B9A6FEA03DB089CA7DEEE1E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = F9977008AA49E8E96D6CCF49 /* BalconyCLI */;
+			targetProxy = F9A8FE99BE9F13B29EAAA5C9 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		089320737E11ACD4A9BF1648 /* Debug */ = {

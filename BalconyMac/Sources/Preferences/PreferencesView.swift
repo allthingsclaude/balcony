@@ -170,6 +170,11 @@ private struct AdvancedTab: View {
 
     var body: some View {
         Form {
+            Section("Setup") {
+                Button("Re-run Setup Wizard...") {
+                    rerunSetup()
+                }
+            }
             Section("Danger Zone") {
                 Button("Reset All Settings", role: .destructive) {
                     showResetConfirmation = true
@@ -185,5 +190,13 @@ private struct AdvancedTab: View {
             }
         }
         .formStyle(.grouped)
+    }
+
+    private func rerunSetup() {
+        guard let appDelegate = NSApp.delegate as? AppDelegate else { return }
+        appDelegate.setupWindowController.setupManager.resetSetup()
+        appDelegate.setupWindowController.showSetupWindow {
+            // Services already running, nothing to do on complete
+        }
     }
 }
