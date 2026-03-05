@@ -28,6 +28,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Observation token for UserDefaults changes.
     private var defaultsObserver: NSObjectProtocol?
 
+    /// Observation token for re-run setup wizard requests.
+    private var setupObserver: NSObjectProtocol?
+
     /// Whether services have been started.
     private var servicesStarted = false
 
@@ -38,6 +41,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // instead of crashing the process (e.g., stale permission panel answered
         // after the hook script already exited).
         signal(SIGPIPE, SIG_IGN)
+
+        // Listen for "Re-run Setup Wizard" requests from PreferencesView
+        setupObserver = NotificationCenter.default.addObserver(
+            forName: .rerunSetupWizard,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            guard let self else { return }
+            self.setupWindowController.setupManager.resetSetup()
+            self.setupWindowController.showSetupWindow {
+                // Services already running, nothing to do on complete
+            }
+        }
 
         // Check if first-launch setup is needed
         if !setupWindowController.setupManager.isSetupComplete {
@@ -363,6 +379,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         awayDetector.stopDetecting()
         sessionRefreshTimer?.invalidate()
         if let observer = defaultsObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        if let observer = setupObserver {
             NotificationCenter.default.removeObserver(observer)
         }
 

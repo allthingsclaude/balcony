@@ -2,6 +2,10 @@ import AppKit
 import SwiftUI
 import ServiceManagement
 
+extension Notification.Name {
+    static let rerunSetupWizard = Notification.Name("com.balcony.rerunSetupWizard")
+}
+
 struct PreferencesView: View {
     var body: some View {
         TabView {
@@ -193,10 +197,6 @@ private struct AdvancedTab: View {
     }
 
     private func rerunSetup() {
-        guard let appDelegate = NSApp.delegate as? AppDelegate else { return }
-        appDelegate.setupWindowController.setupManager.resetSetup()
-        appDelegate.setupWindowController.showSetupWindow {
-            // Services already running, nothing to do on complete
-        }
+        NotificationCenter.default.post(name: .rerunSetupWizard, object: nil)
     }
 }

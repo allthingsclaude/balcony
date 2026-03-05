@@ -36,6 +36,16 @@ final class SetupFlowModel {
     /// Callback fired when the wizard finishes (user taps "Get Started").
     var onComplete: (() -> Void)?
 
+    /// Reset all state so the wizard can be re-run.
+    func reset() {
+        currentStep = .balconyDir
+        stepStatuses = [:]
+        wantsAlias = true
+        cliNeedsAdmin = false
+        manualCLICommand = nil
+        errorMessage = nil
+    }
+
     // MARK: - Computed
 
     /// Steps that the user sees (excludes .complete which is the summary screen).

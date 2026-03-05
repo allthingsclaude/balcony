@@ -47,9 +47,12 @@ final class SetupManager {
         return FileManager.default.isExecutableFile(atPath: path)
     }
 
-    /// Check if /usr/local/bin/balcony exists.
+    /// Check if /usr/local/bin/balcony exists and is a valid executable (not a dangling symlink).
     var isCLIInstalled: Bool {
-        FileManager.default.fileExists(atPath: usrLocalBin.appendingPathComponent("balcony").path)
+        let path = usrLocalBin.appendingPathComponent("balcony").path
+        // fileExists returns false for dangling symlinks, which is what we want.
+        // Also verify it's actually executable.
+        return FileManager.default.isExecutableFile(atPath: path)
     }
 
     /// Check if Claude Code settings.json contains Balcony hooks.
@@ -135,11 +138,13 @@ final class SetupManager {
             }
         }
 
-        // Try direct copy
+        // Try direct copy (rm -f handles dangling symlinks that FileManager can't)
         do {
-            if FileManager.default.fileExists(atPath: destPath) {
-                try FileManager.default.removeItem(atPath: destPath)
-            }
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/bin/rm")
+            process.arguments = ["-f", destPath]
+            try? process.run()
+            process.waitUntilExit()
             try FileManager.default.copyItem(atPath: bundledPath, toPath: destPath)
             try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: destPath)
             logger.info("Installed CLI to /usr/local/bin/balcony")
@@ -159,7 +164,7 @@ final class SetupManager {
         let destPath = usrLocalBin.appendingPathComponent("balcony").path
 
         let script = """
-        do shell script "mkdir -p /usr/local/bin && cp '\(bundledPath)' '\(destPath)' && chmod +x '\(destPath)'" with administrator privileges
+        do shell script "mkdir -p /usr/local/bin && rm -f '\(destPath)' && cp '\(bundledPath)' '\(destPath)' && chmod +x '\(destPath)'" with administrator privileges
         """
 
         var error: NSDictionary?

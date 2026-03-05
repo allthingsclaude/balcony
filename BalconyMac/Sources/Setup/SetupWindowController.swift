@@ -5,6 +5,7 @@ import SwiftUI
 @MainActor
 final class SetupWindowController {
     private var window: NSWindow?
+    private var windowDelegate: WindowCloseDelegate?
     private let model = SetupFlowModel()
     private let manager = SetupManager()
 
@@ -18,6 +19,11 @@ final class SetupWindowController {
             return
         }
 
+        // Clean up any stale window reference
+        window = nil
+        windowDelegate = nil
+
+        model.reset()
         model.onComplete = { [weak self] in
             self?.closeWindow()
             onComplete()
@@ -26,25 +32,36 @@ final class SetupWindowController {
         let view = SetupView(model: model, manager: manager)
         let hostingView = NSHostingView(rootView: view)
 
-        let window = NSWindow(
+        let newWindow = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 560, height: 420),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
         )
-        window.title = "Balcony Setup"
-        window.contentView = hostingView
-        window.isReleasedWhenClosed = false
-        window.center()
-        window.level = .floating
-        window.isMovableByWindowBackground = true
-        window.delegate = WindowCloseDelegate(onClose: { [weak self] in
+        newWindow.title = "Balcony Setup"
+        newWindow.contentView = hostingView
+        newWindow.isReleasedWhenClosed = false
+        newWindow.center()
+        newWindow.level = .floating
+        newWindow.isMovableByWindowBackground = true
+
+        // Store delegate strongly so it isn't deallocated
+        let delegate = WindowCloseDelegate(onClose: { [weak self] in
             self?.handleWindowClose(onComplete: onComplete)
         })
+        self.windowDelegate = delegate
+        newWindow.delegate = delegate
 
-        self.window = window
+        self.window = newWindow
 
-        window.makeKeyAndOrderFront(nil)
+        // Close Settings window so setup appears clearly
+        for w in NSApp.windows where w != newWindow && w.isVisible {
+            if w.title == "Settings" || w.title == "Preferences" {
+                w.close()
+            }
+        }
+
+        newWindow.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
 
@@ -52,6 +69,7 @@ final class SetupWindowController {
     func closeWindow() {
         window?.close()
         window = nil
+        windowDelegate = nil
     }
 
     /// Access the setup manager (for "Re-run Setup" in preferences).
@@ -66,6 +84,7 @@ final class SetupWindowController {
             manager.markComplete()
         }
         window = nil
+        windowDelegate = nil
         onComplete()
     }
 }

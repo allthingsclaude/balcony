@@ -36,11 +36,6 @@ struct SetupView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header
-            headerView
-
-            Divider()
-
             if model.isOnSummary {
                 summaryView
             } else {
@@ -453,17 +448,22 @@ struct SetupView: View {
             if manager.isCLIInstalled {
                 model.stepStatuses[.installCLI] = .completed
                 try? await Task.sleep(for: .milliseconds(200))
-                model.currentStep = .patchHooks
+            } else {
+                // Stop here — CLI step needs user interaction
+                return
             }
 
             // Auto-advance past hooks if already patched
+            model.currentStep = .patchHooks
             if manager.areHooksPatched {
                 model.stepStatuses[.patchHooks] = .completed
                 try? await Task.sleep(for: .milliseconds(200))
-                model.currentStep = .aliasSetup
+            } else {
+                return
             }
 
             // Auto-advance past alias if already installed
+            model.currentStep = .aliasSetup
             if manager.isAliasInstalled {
                 model.stepStatuses[.aliasSetup] = .completed
                 try? await Task.sleep(for: .milliseconds(200))
