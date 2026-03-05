@@ -63,10 +63,15 @@ final class SetupManager {
               let hooks = json["hooks"] as? [String: Any] else {
             return false
         }
-        // Check if at least the PreToolUse hook references hook-handler
+        // Check if at least the PreToolUse hook references hook-handler (new or old format)
         if let preToolUse = hooks["PreToolUse"] as? [[String: Any]] {
             return preToolUse.contains { entry in
-                (entry["command"] as? String)?.contains("hook-handler") == true
+                // New format
+                if let innerHooks = entry["hooks"] as? [[String: Any]] {
+                    return innerHooks.contains { ($0["command"] as? String)?.contains("hook-handler") == true }
+                }
+                // Old format
+                return (entry["command"] as? String)?.contains("hook-handler") == true
             }
         }
         return false
@@ -206,9 +211,15 @@ final class SetupManager {
 
         let hookCommand = "~/.balcony/hook-handler"
 
+        // New Claude Code hooks format: { "hooks": [{ "type": "command", "command": "..." }] }
+        // Omit "matcher" for catch-all hooks (matches everything).
         let balconyHookEntry: [String: Any] = [
-            "type": "command",
-            "command": hookCommand
+            "hooks": [
+                [
+                    "type": "command",
+                    "command": hookCommand
+                ]
+            ]
         ]
 
         // Hook event names to patch
@@ -217,13 +228,28 @@ final class SetupManager {
         for hookName in hookNames {
             var entries = hooks[hookName] as? [[String: Any]] ?? []
 
-            // Skip if already present
+            // Skip if already present (check both old and new format)
             let alreadyPresent = entries.contains { entry in
-                (entry["command"] as? String)?.contains("hook-handler") == true
+                // New format: check inside hooks array
+                if let innerHooks = entry["hooks"] as? [[String: Any]] {
+                    return innerHooks.contains { ($0["command"] as? String)?.contains("hook-handler") == true }
+                }
+                // Old format: check command directly
+                return (entry["command"] as? String)?.contains("hook-handler") == true
             }
             if !alreadyPresent {
                 entries.append(balconyHookEntry)
             }
+
+            // Migrate any old-format Balcony entries to new format
+            entries = entries.map { entry in
+                if entry["hooks"] == nil,
+                   (entry["command"] as? String)?.contains("hook-handler") == true {
+                    return balconyHookEntry
+                }
+                return entry
+            }
+
             hooks[hookName] = entries
         }
 
