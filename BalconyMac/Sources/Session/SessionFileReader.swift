@@ -168,30 +168,41 @@ actor SessionFileReader {
 
     // MARK: - Message Counting
 
-    /// Count user and assistant messages in the most recently active JSONL file for a project.
-    func countMessages(projectPath: String) -> Int {
+    /// Count user and assistant messages for a specific Claude session.
+    /// Falls back to the most recently active JSONL file if no session ID is provided.
+    func countMessages(projectPath: String, claudeSessionId: String? = nil) -> Int {
         let hash = hashProjectPath(projectPath)
         let dir = claudeProjectsPath().appendingPathComponent(hash)
 
-        guard let files = try? FileManager.default.contentsOfDirectory(
-            at: dir,
-            includingPropertiesForKeys: [.contentModificationDateKey],
-            options: [.skipsHiddenFiles]
-        ) else { return 0 }
+        let url: URL
+        if let sessionId = claudeSessionId {
+            // Count from the specific session's JSONL file
+            let fileURL = dir.appendingPathComponent("\(sessionId).jsonl")
+            guard FileManager.default.fileExists(atPath: fileURL.path) else { return 0 }
+            url = fileURL
+        } else {
+            // Fallback: find most recently modified non-agent JSONL file
+            guard let files = try? FileManager.default.contentsOfDirectory(
+                at: dir,
+                includingPropertiesForKeys: [.contentModificationDateKey],
+                options: [.skipsHiddenFiles]
+            ) else { return 0 }
 
-        // Find most recently modified non-agent JSONL file
-        var latestURL: URL?
-        var latestDate = Date.distantPast
-        for file in files where file.pathExtension == "jsonl" && !file.lastPathComponent.hasPrefix("agent-") {
-            if let date = try? file.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate,
-               date > latestDate {
-                latestDate = date
-                latestURL = file
+            var latestURL: URL?
+            var latestDate = Date.distantPast
+            for file in files where file.pathExtension == "jsonl" && !file.lastPathComponent.hasPrefix("agent-") {
+                if let date = try? file.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate,
+                   date > latestDate {
+                    latestDate = date
+                    latestURL = file
+                }
             }
+
+            guard let found = latestURL else { return 0 }
+            url = found
         }
 
-        guard let url = latestURL,
-              let data = try? Data(contentsOf: url) else { return 0 }
+        guard let data = try? Data(contentsOf: url) else { return 0 }
 
         // Fast byte scan: count lines containing "type":"user" or "type":"assistant"
         let userTag = Array("\"type\":\"user\"".utf8)

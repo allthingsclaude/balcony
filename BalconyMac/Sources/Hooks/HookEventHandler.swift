@@ -125,6 +125,11 @@ final class HookEventHandler: ObservableObject {
         Set(ptyToClaudeSessionIds.keys)
     }
 
+    /// Get Claude session IDs mapped to a PTY session ID.
+    func claudeSessionIds(for ptySessionId: String) -> Set<String> {
+        ptyToClaudeSessionIds[ptySessionId] ?? []
+    }
+
     // MARK: - Event Processing
 
     /// Handle a raw hook event from HookListener.

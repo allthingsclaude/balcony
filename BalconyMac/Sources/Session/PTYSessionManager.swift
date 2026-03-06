@@ -287,6 +287,23 @@ actor PTYSessionManager {
         sessionPIDs[sessionId]
     }
 
+    /// Remove a stale session (e.g., when the process is no longer running).
+    func removeSession(_ sessionId: String) {
+        sessions.removeValue(forKey: sessionId)
+        sessionPIDs.removeValue(forKey: sessionId)
+        sessionBuffers.removeValue(forKey: sessionId)
+
+        // Also close any client FD associated with this session
+        for (fd, state) in clientFDs where state.sessionId == sessionId {
+            state.readSource?.cancel()
+            close(fd)
+            clientFDs.removeValue(forKey: fd)
+            break
+        }
+
+        logger.info("Removed stale session: \(sessionId)")
+    }
+
     // MARK: - Sending to CLI
 
     /// Forward input from iOS/panel to the CLI's PTY via the Unix socket.
@@ -297,6 +314,32 @@ actor PTYSessionManager {
         }
         logger.info("sendInput: \(data.count) bytes to session \(sessionId) fd=\(fd)")
         sendFramed(fd: fd, type: 0x02, data: data)
+    }
+
+    /// Get the file descriptor for a session (for direct writes bypassing the actor).
+    func fdForSession(_ sessionId: String) -> Int32? {
+        clientFDForSession(sessionId)
+    }
+
+    /// Write framed data directly to a file descriptor, bypassing actor isolation.
+    /// Use this for latency-sensitive writes (e.g., live typing) when the actor
+    /// may be busy processing read events.
+    nonisolated static func sendInputDirect(fd: Int32, data: Data) {
+        var header = Data(count: 5)
+        header[0] = 0x02 // input type
+        let len = UInt32(data.count).bigEndian
+        withUnsafeBytes(of: len) { header.replaceSubrange(1..<5, with: $0) }
+
+        let fullMessage = header + data
+        fullMessage.withUnsafeBytes { bufPtr in
+            guard let base = bufPtr.baseAddress else { return }
+            var sent = 0
+            while sent < fullMessage.count {
+                let n = write(fd, base + sent, fullMessage.count - sent)
+                if n <= 0 { break }
+                sent += n
+            }
+        }
     }
 
     /// Forward a resize event from iOS to the CLI's PTY.

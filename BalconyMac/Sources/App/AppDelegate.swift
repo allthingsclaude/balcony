@@ -22,6 +22,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// even after the idle prompt info (with cwd) has been dismissed.
     private var idlePromptPTYMapping: [String: String] = [:]
 
+    /// Cached file descriptors for PTY sessions (PTY session ID → fd).
+    /// Used for direct (nonisolated) writes that bypass the PTYSessionManager actor,
+    /// avoiding contention with read operations during live typing.
+    private var cachedSessionFDs: [String: Int32] = [:]
+
     /// Timer that periodically refreshes session message counts.
     private var sessionRefreshTimer: Timer?
 
@@ -304,6 +309,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self.idlePromptPTYMapping[info.sessionId] = ptyId
                 self.hookEventHandler.registerPTYMapping(ptySessionId: ptyId, claudeSessionId: info.sessionId)
 
+                // Show panel BEFORE caching fd — the fdForSession await can stall
+                // on actor contention and must not block panel display.
                 self.playSound(.done)
                 if PreferencesManager.shared.showDonePanel {
                     if let detected = info.detectedOptions {
@@ -311,6 +318,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     } else {
                         self.promptPanelController.showIdlePrompt(info)
                     }
+                }
+
+                // Cache the socket fd for direct (non-actor) writes during live typing
+                if let fd = await self.ptySessionManager.fdForSession(ptyId) {
+                    self.cachedSessionFDs[ptyId] = fd
                 }
             }
         }
@@ -348,15 +360,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.focusSession(sessionId)
         }
 
-        // Wire live typing from idle prompt panel to PTY input
+        // Wire live typing from idle prompt panel to PTY input.
+        // Uses direct (nonisolated) socket write to bypass actor contention —
+        // the PTYSessionManager actor may be busy processing read events.
         promptPanelController.onTyping = { [weak self] sessionId, keystroke in
             guard let self else { return }
-            let mapping = self.idlePromptPTYMapping[sessionId]
-            let hookLookup = self.hookEventHandler.ptySessionId(for: sessionId)
             let ptySessionId = self.resolveIdlePromptPTYSessionId(sessionId)
-            self.logger.info("[TYPING] claude=\(sessionId) → pty=\(ptySessionId) (cached=\(mapping ?? "nil") hook=\(hookLookup ?? "nil")) keys='\(keystroke.prefix(20))'")
-            Task {
-                if let data = keystroke.data(using: .utf8) {
+            guard let data = keystroke.data(using: .utf8) else { return }
+
+            // Try direct write using cached fd (no actor await)
+            if let fd = self.cachedSessionFDs[ptySessionId] {
+                PTYSessionManager.sendInputDirect(fd: fd, data: data)
+            } else {
+                // Fallback: go through the actor (may be delayed by contention)
+                Task {
                     await self.ptySessionManager.sendInput(sessionId: ptySessionId, data: data)
                 }
             }
@@ -367,10 +384,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard let self else { return }
             let ptySessionId = self.resolveIdlePromptPTYSessionId(sessionId)
             self.logger.info("Submit (Enter): claude=\(sessionId) → pty=\(ptySessionId)")
-            Task {
-                await self.ptySessionManager.sendInput(sessionId: ptySessionId, data: Data([0x0D]))
-                self.hookEventHandler.dismissIdlePrompt(for: sessionId)
+
+            // Send Enter via direct write to avoid actor contention
+            if let fd = self.cachedSessionFDs[ptySessionId] {
+                PTYSessionManager.sendInputDirect(fd: fd, data: Data([0x0D]))
+            } else {
+                Task {
+                    await self.ptySessionManager.sendInput(sessionId: ptySessionId, data: Data([0x0D]))
+                }
             }
+            self.hookEventHandler.dismissIdlePrompt(for: sessionId)
         }
 
         // Wire panel response: send decision back through the hook connection
@@ -402,14 +425,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Wire multi-option response: send arrow key sequence to PTY
         promptPanelController.onMultiOptionResponse = { [weak self] sessionId, sequence in
             guard let self else { return }
-            Task {
-                let ptySessionId = self.resolveIdlePromptPTYSessionId(sessionId)
+            let ptySessionId = self.resolveIdlePromptPTYSessionId(sessionId)
 
-                if let data = sequence.data(using: .utf8) {
-                    await self.ptySessionManager.sendInput(sessionId: ptySessionId, data: data)
+            if let data = sequence.data(using: .utf8) {
+                if let fd = self.cachedSessionFDs[ptySessionId] {
+                    PTYSessionManager.sendInputDirect(fd: fd, data: data)
+                } else {
+                    Task { await self.ptySessionManager.sendInput(sessionId: ptySessionId, data: data) }
                 }
-                self.hookEventHandler.dismissIdlePrompt(for: sessionId)
             }
+            self.hookEventHandler.dismissIdlePrompt(for: sessionId)
         }
 
         // Wire multi-option "Other" response: navigate to Other option, activate it, type text
@@ -670,11 +695,44 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @MainActor
     private func refreshSessionList() async {
         var sessions = await ptySessionManager.getActiveSessions()
+
+        // Prune stale sessions whose process is no longer running
+        var staleIds: [String] = []
+        for session in sessions {
+            if let pid = await ptySessionManager.pid(for: session.id), pid > 0 {
+                if !Self.isProcessAlive(pid) {
+                    staleIds.append(session.id)
+                }
+            }
+        }
+        for staleId in staleIds {
+            logger.info("Pruning stale session (process dead): \(staleId)")
+            await ptySessionManager.removeSession(staleId)
+            hookEventHandler.sessionEnded(staleId)
+        }
+        if !staleIds.isEmpty {
+            sessions = await ptySessionManager.getActiveSessions()
+        }
+
         for i in sessions.indices {
-            let count = await sessionFileReader.countMessages(projectPath: sessions[i].projectPath)
+            // Look up the Claude session ID for this PTY session to count from the right file
+            let claudeIds = hookEventHandler.claudeSessionIds(for: sessions[i].id)
+            let count = await sessionFileReader.countMessages(
+                projectPath: sessions[i].projectPath,
+                claudeSessionId: claudeIds.first
+            )
             sessions[i].messageCount = count
+
+            // Enrich with attention/idle state
+            sessions[i].needsAttention = hookEventHandler.hasAttentionNeeded(forPTYSession: sessions[i].id)
+            sessions[i].awaitingInput = hookEventHandler.hasIdlePrompt(forPTYSession: sessions[i].id)
         }
         sessionListModel.sessions = sessions
+    }
+
+    /// Check if a process with the given PID is still running.
+    private static func isProcessAlive(_ pid: Int32) -> Bool {
+        kill(pid, 0) == 0
     }
 
     /// Start a timer that periodically refreshes session message counts.
