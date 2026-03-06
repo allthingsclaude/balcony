@@ -280,11 +280,36 @@ final class PromptPanelController {
     /// Activate the frontmost panel and make it key so it accepts keyboard input.
     func activateFrontmostPanel() {
         guard let entry = panels.first else { return }
+        logger.info("[HOTKEY] Activating panel for session=\(entry.sessionId) panels=\(self.panels.count) isKey=\(entry.panel.isKeyWindow)")
         // Remember the currently active app so we can restore focus after dismiss
         previousApp = NSWorkspace.shared.frontmostApplication
         isPanelActive = true
         NSApp.activate(ignoringOtherApps: true)
         entry.panel.makeKeyAndOrderFront(nil)
+        // Explicitly focus the first editable text field — SwiftUI's @FocusState
+        // from onAppear doesn't re-fire when the panel is re-activated.
+        focusFirstTextField(in: entry.panel)
+        logger.info("[HOTKEY] Panel activated: isKey=\(entry.panel.isKeyWindow) firstResponder=\(String(describing: entry.panel.firstResponder))")
+    }
+
+    /// Walk the view hierarchy to find and focus the first editable NSTextField.
+    private func focusFirstTextField(in window: NSWindow) {
+        guard let contentView = window.contentView else { return }
+        if let textField = findEditableTextField(in: contentView) {
+            window.makeFirstResponder(textField)
+        }
+    }
+
+    private func findEditableTextField(in view: NSView) -> NSTextField? {
+        for subview in view.subviews {
+            if let textField = subview as? NSTextField, textField.isEditable {
+                return textField
+            }
+            if let found = findEditableTextField(in: subview) {
+                return found
+            }
+        }
+        return nil
     }
 
     /// Restore focus to the app that was active before the panel was focused.

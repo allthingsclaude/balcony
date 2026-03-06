@@ -110,14 +110,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.lastCmdRelease = now
 
             if elapsed < 0.35 {
-                // Double-tap detected
+                // Double-tap detected — activate synchronously (no DispatchQueue.main.async)
+                // to avoid a race where stdin activity could dismiss the idle prompt
+                // before isPanelActive is set.
                 self.lastCmdRelease = 0
-                DispatchQueue.main.async {
-                    let hasPanels = self.promptPanelController.hasPanels
-                    self.logger.info("Double-Cmd detected: hasPanels=\(hasPanels)")
-                    if hasPanels {
-                        self.promptPanelController.activateFrontmostPanel()
-                    }
+                let hasPanels = self.promptPanelController.hasPanels
+                self.logger.info("Double-Cmd detected: hasPanels=\(hasPanels)")
+                if hasPanels {
+                    self.promptPanelController.activateFrontmostPanel()
                 }
             }
         }
@@ -290,6 +290,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         hookEventHandler.onIdlePromptReceived = { [weak self] info in
             guard let self else { return }
 
+            self.logger.info("[IDLE] Received idle prompt: session=\(info.sessionId) cwd=\(info.cwd ?? "nil") ptySessionId=\(info.ptySessionId ?? "nil") hookPeerPID=\(info.hookPeerPID.map(String.init) ?? "nil")")
+
             // Resolve PTY session ID via direct value or fallback chain
             Task {
                 let ptyId = await self.resolvePTYSessionId(
@@ -298,6 +300,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     ptySessionId: info.ptySessionId,
                     hookPeerPID: info.hookPeerPID
                 )
+                self.logger.info("[IDLE] Stored mapping: \(info.sessionId) → \(ptyId)")
                 self.idlePromptPTYMapping[info.sessionId] = ptyId
                 self.hookEventHandler.registerPTYMapping(ptySessionId: ptyId, claudeSessionId: info.sessionId)
 
@@ -348,8 +351,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Wire live typing from idle prompt panel to PTY input
         promptPanelController.onTyping = { [weak self] sessionId, keystroke in
             guard let self else { return }
+            let mapping = self.idlePromptPTYMapping[sessionId]
+            let hookLookup = self.hookEventHandler.ptySessionId(for: sessionId)
             let ptySessionId = self.resolveIdlePromptPTYSessionId(sessionId)
-            self.logger.info("Typing: claude=\(sessionId) → pty=\(ptySessionId) keys='\(keystroke.prefix(20))'")
+            self.logger.info("[TYPING] claude=\(sessionId) → pty=\(ptySessionId) (cached=\(mapping ?? "nil") hook=\(hookLookup ?? "nil")) keys='\(keystroke.prefix(20))'")
             Task {
                 if let data = keystroke.data(using: .utf8) {
                     await self.ptySessionManager.sendInput(sessionId: ptySessionId, data: data)
@@ -567,36 +572,46 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func resolvePTYSessionId(claudeSessionId: String, cwd: String?, ptySessionId: String? = nil, hookPeerPID: Int32? = nil) async -> String {
         // Check if already mapped (e.g., from a previous idle prompt)
         if let existing = hookEventHandler.ptySessionId(for: claudeSessionId) {
+            logger.info("[RESOLVE] claude=\(claudeSessionId) → existing mapping: \(existing)")
             return existing
         }
         // Best: direct PTY session ID from BalconyCLI wrapper
         if let ptyId = ptySessionId {
+            logger.info("[RESOLVE] claude=\(claudeSessionId) → direct ptySessionId: \(ptyId)")
             hookEventHandler.registerPTYMapping(ptySessionId: ptyId, claudeSessionId: claudeSessionId)
             return ptyId
         }
         // Walk the hook handler's process tree to find a registered PTY session PID.
         // hook-handler → python3 → bash → claude → (BalconyCLI if wrapped)
         // The PTY session stores the Claude process PID, so we walk up until we find a match.
-        if let peerPID = hookPeerPID,
-           let ptyId = await findPTYSessionByProcessTree(hookPID: peerPID) {
-            hookEventHandler.registerPTYMapping(ptySessionId: ptyId, claudeSessionId: claudeSessionId)
-            return ptyId
+        if let peerPID = hookPeerPID {
+            logger.info("[RESOLVE] claude=\(claudeSessionId) → trying PID walk from hookPeerPID=\(peerPID)")
+            if let ptyId = await findPTYSessionByProcessTree(hookPID: peerPID) {
+                logger.info("[RESOLVE] claude=\(claudeSessionId) → PID walk found: \(ptyId)")
+                hookEventHandler.registerPTYMapping(ptySessionId: ptyId, claudeSessionId: claudeSessionId)
+                return ptyId
+            }
+            logger.info("[RESOLVE] claude=\(claudeSessionId) → PID walk failed")
+        } else {
+            logger.info("[RESOLVE] claude=\(claudeSessionId) → hookPeerPID is nil")
         }
         // Fallback: match by working directory, excluding PTY sessions
         // already mapped to other Claude sessions
         let alreadyMapped = hookEventHandler.mappedPTYSessionIds
         if let cwd, let ptyId = await ptySessionManager.findSessionIdByCwd(cwd, excluding: alreadyMapped) {
+            logger.info("[RESOLVE] claude=\(claudeSessionId) → cwd match: \(ptyId) (cwd=\(cwd))")
             hookEventHandler.registerPTYMapping(ptySessionId: ptyId, claudeSessionId: claudeSessionId)
             return ptyId
         }
         // Fallback: if only one PTY session exists, use it
         let sessions = await ptySessionManager.getActiveSessions()
         if sessions.count == 1, let only = sessions.first {
+            logger.info("[RESOLVE] claude=\(claudeSessionId) → single session fallback: \(only.id)")
             hookEventHandler.registerPTYMapping(ptySessionId: only.id, claudeSessionId: claudeSessionId)
             return only.id
         }
         // Last resort: return the Claude session ID as-is
-        logger.debug("Could not resolve PTY session for Claude session \(claudeSessionId)")
+        logger.warning("[RESOLVE] claude=\(claudeSessionId) → FAILED (no PTY match, \(sessions.count) active sessions)")
         return claudeSessionId
     }
 
