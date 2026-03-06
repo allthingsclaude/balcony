@@ -97,6 +97,9 @@ final class PromptPanelController {
     /// Called when the user submits text from the idle prompt panel. Passes (sessionId, text).
     var onTextResponse: ((String, String) -> Void)?
 
+    /// Called when the user types a character in the idle prompt text field. Passes (sessionId, keystroke).
+    var onTyping: ((String, String) -> Void)?
+
     /// Called when the user selects a multi-option choice. Passes (sessionId, arrow key sequence).
     var onMultiOptionResponse: ((String, String) -> Void)?
 
@@ -165,6 +168,9 @@ final class PromptPanelController {
                 info: info,
                 onSubmit: { [weak self] text in
                     self?.handleTextSubmit(sessionId: sessionId, text: text)
+                },
+                onTyping: { [weak self] keystroke in
+                    self?.onTyping?(sessionId, keystroke)
                 },
                 onFocus: { [weak self] in
                     self?.onFocus?(sessionId)
@@ -253,14 +259,20 @@ final class PromptPanelController {
             updateZOrdering()
         }
 
-        // If no more panels, restore focus to the previously active app
-        if panels.isEmpty {
-            restorePreviousApp()
-        }
+        // Restore focus to the previously active app after handling a panel
+        restorePreviousApp()
     }
 
     /// Whether there are any visible panels.
     var hasPanels: Bool { !panels.isEmpty }
+
+    /// Whether the user is actively interacting with panels (via hotkey activation).
+    /// When true, stdin activity from the terminal should be ignored to prevent
+    /// panels from being dismissed by focus-lost events.
+    private(set) var isPanelActive = false
+
+    /// Timestamp of the last focus restore, used to suppress stdin noise from app switching.
+    private(set) var lastRestoreTime: TimeInterval = 0
 
     /// The app that was active before the panel was focused via hotkey.
     private var previousApp: NSRunningApplication?
@@ -270,12 +282,18 @@ final class PromptPanelController {
         guard let entry = panels.first else { return }
         // Remember the currently active app so we can restore focus after dismiss
         previousApp = NSWorkspace.shared.frontmostApplication
+        isPanelActive = true
         NSApp.activate(ignoringOtherApps: true)
         entry.panel.makeKeyAndOrderFront(nil)
     }
 
     /// Restore focus to the app that was active before the panel was focused.
     private func restorePreviousApp() {
+        // Only fully clear the active flag when all panels are gone
+        if panels.isEmpty {
+            isPanelActive = false
+        }
+        lastRestoreTime = ProcessInfo.processInfo.systemUptime
         guard let app = previousApp else { return }
         previousApp = nil
         app.activate()
@@ -438,6 +456,7 @@ final class PromptPanelController {
         panel.isMovableByWindowBackground = true
         panel.isOpaque = false
         panel.isReleasedWhenClosed = false
+        panel.hidesOnDeactivate = false
         panel.backgroundColor = .clear
         panel.hasShadow = false
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
@@ -502,6 +521,8 @@ final class PromptPanelController {
 
     private func handleTextSubmit(sessionId: String, text: String) {
         logger.info("Panel text submit: '\(text.prefix(50))' session=\(sessionId)")
+        // Fire callback BEFORE dismiss — dismiss can trigger async side-effects
+        // that remove the PTY mapping needed to deliver the text.
         onTextResponse?(sessionId, text)
         dismissPrompt(for: sessionId)
     }

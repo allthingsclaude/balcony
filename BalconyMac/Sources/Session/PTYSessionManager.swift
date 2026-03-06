@@ -289,12 +289,13 @@ actor PTYSessionManager {
 
     // MARK: - Sending to CLI
 
-    /// Forward input from iOS to the CLI's PTY via the Unix socket.
+    /// Forward input from iOS/panel to the CLI's PTY via the Unix socket.
     func sendInput(sessionId: String, data: Data) {
         guard let fd = clientFDForSession(sessionId) else {
-            logger.warning("No CLI connection for session \(sessionId)")
+            logger.warning("sendInput: no CLI connection for session \(sessionId) (\(data.count) bytes)")
             return
         }
+        logger.info("sendInput: \(data.count) bytes to session \(sessionId) fd=\(fd)")
         sendFramed(fd: fd, type: 0x02, data: data)
     }
 
@@ -322,11 +323,30 @@ actor PTYSessionManager {
     /// Find a PTY session ID by matching the working directory.
     /// Used to resolve Claude Code session IDs (from hooks) to PTY session IDs.
     /// Normalizes paths (trailing slashes, /private prefix) for robust matching.
-    func findSessionIdByCwd(_ cwd: String) -> String? {
+    /// Find a PTY session whose registered PID matches the given PID.
+    func findSessionIdByPID(_ pid: Int32) -> String? {
+        for (sessionId, sessionPID) in sessionPIDs {
+            if sessionPID == pid {
+                return sessionId
+            }
+        }
+        return nil
+    }
+
+    func findSessionIdByCwd(_ cwd: String, excluding: Set<String> = []) -> String? {
         let normalized = normalizePath(cwd)
         for (id, session) in sessions {
+            if excluding.contains(id) { continue }
             if normalizePath(session.cwd ?? "") == normalized || normalizePath(session.projectPath) == normalized {
                 return id
+            }
+        }
+        // If all matching sessions are excluded, fall back to any match
+        if !excluding.isEmpty {
+            for (id, session) in sessions {
+                if normalizePath(session.cwd ?? "") == normalized || normalizePath(session.projectPath) == normalized {
+                    return id
+                }
             }
         }
         return nil

@@ -192,9 +192,21 @@ actor HookListener {
         }
     }
 
+    /// Get the PID of a connected Unix socket peer.
+    private nonisolated func getPeerPID(fd: Int32) -> pid_t? {
+        var pid: pid_t = 0
+        var pidLen = socklen_t(MemoryLayout<pid_t>.size)
+        // LOCAL_PEERPID = 0x002 on Darwin
+        let result = getsockopt(fd, SOL_LOCAL, 0x002, &pid, &pidLen)
+        return result == 0 && pid > 0 ? pid : nil
+    }
+
     /// Read all data from a hook client connection until EOF (write shutdown), then parse.
     /// For PermissionRequest events, keep the connection open for sending a response.
     private nonisolated func readHookEvent(fd: Int32) {
+        // Capture the hook handler's PID before reading data
+        let peerPID = getPeerPID(fd: fd)
+
         var data = Data()
         var buf = [UInt8](repeating: 0, count: 8192)
 
@@ -216,7 +228,9 @@ actor HookListener {
 
         // Parse JSON
         do {
-            let event = try JSONDecoder().decode(HookEvent.self, from: data)
+            var event = try JSONDecoder().decode(HookEvent.self, from: data)
+            // Inject the hook handler's PID for process-tree based PTY resolution
+            event.hookPeerPID = peerPID
 
             if event.hookEventName == "PermissionRequest" {
                 // Keep connection open for response — store the fd

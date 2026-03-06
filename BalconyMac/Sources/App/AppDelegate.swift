@@ -34,8 +34,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Whether services have been started.
     private var servicesStarted = false
 
-    /// Global monitor for double-Cmd hotkey.
-    private var hotkeyMonitor: Any?
+    /// Global and local monitors for double-Cmd hotkey.
+    private var globalHotkeyMonitor: Any?
+    private var localHotkeyMonitor: Any?
 
     /// Timestamp of the last Cmd key release (for double-tap detection).
     private var lastCmdRelease: TimeInterval = 0
@@ -76,32 +77,46 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Global Hotkey (Double-Cmd)
 
     private func startHotkeyMonitor() {
-        hotkeyMonitor = NSEvent.addGlobalMonitorForEvents(matching: .flagsChanged) { [weak self] event in
-            guard let self else { return }
-            let cmdPressed = event.modifierFlags.contains(.command)
-            let onlyCmd = event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command
+        let handler: (NSEvent) -> Void = { [weak self] event in
+            self?.handleHotkeyEvent(event)
+        }
 
-            if cmdPressed && onlyCmd {
-                // Cmd pressed (alone) — nothing to do yet, wait for release
-                return
-            }
+        // Global monitor fires when another app is active
+        globalHotkeyMonitor = NSEvent.addGlobalMonitorForEvents(matching: .flagsChanged, handler: handler)
 
-            if !cmdPressed {
-                // A modifier was released. Check if Cmd was just released (no other modifiers held).
-                let remaining = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-                guard remaining.isEmpty else { return }
+        // Local monitor fires when Balcony itself is active
+        localHotkeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { [weak self] event in
+            self?.handleHotkeyEvent(event)
+            return event
+        }
+    }
 
-                let now = ProcessInfo.processInfo.systemUptime
-                let elapsed = now - self.lastCmdRelease
-                self.lastCmdRelease = now
+    private func handleHotkeyEvent(_ event: NSEvent) {
+        let cmdPressed = event.modifierFlags.contains(.command)
+        let onlyCmd = event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command
 
-                if elapsed < 0.35 {
-                    // Double-tap detected
-                    self.lastCmdRelease = 0
-                    DispatchQueue.main.async {
-                        if self.promptPanelController.hasPanels {
-                            self.promptPanelController.activateFrontmostPanel()
-                        }
+        if cmdPressed && onlyCmd {
+            // Cmd pressed alone — wait for release
+            return
+        }
+
+        if !cmdPressed {
+            // A modifier was released. Check if Cmd was just released (no other modifiers held).
+            let remaining = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+            guard remaining.isEmpty else { return }
+
+            let now = ProcessInfo.processInfo.systemUptime
+            let elapsed = now - self.lastCmdRelease
+            self.lastCmdRelease = now
+
+            if elapsed < 0.35 {
+                // Double-tap detected
+                self.lastCmdRelease = 0
+                DispatchQueue.main.async {
+                    let hasPanels = self.promptPanelController.hasPanels
+                    self.logger.info("Double-Cmd detected: hasPanels=\(hasPanels)")
+                    if hasPanels {
+                        self.promptPanelController.activateFrontmostPanel()
                     }
                 }
             }
@@ -109,9 +124,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func stopHotkeyMonitor() {
-        if let monitor = hotkeyMonitor {
+        if let monitor = globalHotkeyMonitor {
             NSEvent.removeMonitor(monitor)
-            hotkeyMonitor = nil
+            globalHotkeyMonitor = nil
+        }
+        if let monitor = localHotkeyMonitor {
+            NSEvent.removeMonitor(monitor)
+            localHotkeyMonitor = nil
         }
     }
 
@@ -203,7 +222,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard let self else { return }
             // Eagerly resolve and register the PTY↔Claude session mapping
             Task {
-                _ = await self.resolvePTYSessionId(claudeSessionId: promptInfo.sessionId, cwd: promptInfo.cwd, ptySessionId: promptInfo.ptySessionId)
+                _ = await self.resolvePTYSessionId(claudeSessionId: promptInfo.sessionId, cwd: promptInfo.cwd, ptySessionId: promptInfo.ptySessionId, hookPeerPID: promptInfo.hookPeerPID)
             }
             self.playSound(.attention)
             if PreferencesManager.shared.showAttentionPanel {
@@ -216,7 +235,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 let ptyId = await self.resolvePTYSessionId(
                     claudeSessionId: promptInfo.sessionId,
                     cwd: promptInfo.cwd,
-                    ptySessionId: promptInfo.ptySessionId
+                    ptySessionId: promptInfo.ptySessionId,
+                    hookPeerPID: promptInfo.hookPeerPID
                 )
                 await self.connectionManager.forwardHookEvent(promptInfo, resolvedPTYSessionId: ptyId)
                 await self.connectionManager.broadcastSessionList()
@@ -225,9 +245,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Wire AskUserQuestion: show rich panel with actual question and options
         hookEventHandler.onAskUserQuestionReceived = { [weak self] askInfo in
             guard let self else { return }
-            // Register PTY mapping if available
-            if let ptyId = askInfo.ptySessionId {
-                self.hookEventHandler.registerPTYMapping(ptySessionId: ptyId, claudeSessionId: askInfo.sessionId)
+            // Eagerly resolve and register the PTY↔Claude session mapping
+            Task {
+                _ = await self.resolvePTYSessionId(claudeSessionId: askInfo.sessionId, cwd: askInfo.cwd, ptySessionId: askInfo.ptySessionId, hookPeerPID: askInfo.hookPeerPID)
             }
             self.playSound(.attention)
             if PreferencesManager.shared.showAttentionPanel {
@@ -275,7 +295,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 let ptyId = await self.resolvePTYSessionId(
                     claudeSessionId: info.sessionId,
                     cwd: info.cwd,
-                    ptySessionId: info.ptySessionId
+                    ptySessionId: info.ptySessionId,
+                    hookPeerPID: info.hookPeerPID
                 )
                 self.idlePromptPTYMapping[info.sessionId] = ptyId
                 self.hookEventHandler.registerPTYMapping(ptySessionId: ptyId, claudeSessionId: info.sessionId)
@@ -296,7 +317,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 let ptyId = await self.resolvePTYSessionId(
                     claudeSessionId: info.sessionId,
                     cwd: info.cwd,
-                    ptySessionId: info.ptySessionId
+                    ptySessionId: info.ptySessionId,
+                    hookPeerPID: info.hookPeerPID
                 )
                 await self.connectionManager.forwardIdlePrompt(info, resolvedPTYSessionId: ptyId)
                 await self.connectionManager.broadcastSessionList()
@@ -323,23 +345,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.focusSession(sessionId)
         }
 
-        // Wire idle prompt panel text response to PTY input
-        promptPanelController.onTextResponse = { [weak self] sessionId, text in
+        // Wire live typing from idle prompt panel to PTY input
+        promptPanelController.onTyping = { [weak self] sessionId, keystroke in
             guard let self else { return }
+            let ptySessionId = self.resolveIdlePromptPTYSessionId(sessionId)
+            self.logger.info("Typing: claude=\(sessionId) → pty=\(ptySessionId) keys='\(keystroke.prefix(20))'")
             Task {
-                let ptySessionId = self.resolveIdlePromptPTYSessionId(sessionId)
-                self.logger.info("Text response: claude=\(sessionId) → pty=\(ptySessionId) text='\(text.prefix(50))'")
+                if let data = keystroke.data(using: .utf8) {
+                    await self.ptySessionManager.sendInput(sessionId: ptySessionId, data: data)
+                }
+            }
+        }
 
-                // Send the text first, then Enter separately after a brief delay.
-                // Writing them as one chunk causes Claude Code's TUI to treat it as
-                // a paste event and not process \r as a submit action.
-                if let textData = text.data(using: .utf8) {
-                    await self.ptySessionManager.sendInput(sessionId: ptySessionId, data: textData)
-                }
-                try? await Task.sleep(for: .milliseconds(50))
-                if let enterData = Data([0x0D]) as Data? {
-                    await self.ptySessionManager.sendInput(sessionId: ptySessionId, data: enterData)
-                }
+        // Wire idle prompt panel text submission — just send Enter (text already sent via live typing)
+        promptPanelController.onTextResponse = { [weak self] sessionId, _ in
+            guard let self else { return }
+            let ptySessionId = self.resolveIdlePromptPTYSessionId(sessionId)
+            self.logger.info("Submit (Enter): claude=\(sessionId) → pty=\(ptySessionId)")
+            Task {
+                await self.ptySessionManager.sendInput(sessionId: ptySessionId, data: Data([0x0D]))
                 self.hookEventHandler.dismissIdlePrompt(for: sessionId)
             }
         }
@@ -466,9 +490,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
 
             // Dismiss idle prompt when user types in the local terminal
+            // (but not when the user is interacting with a Balcony panel or
+            // within 1s of restoring focus — app switching generates spurious stdin)
             await ptySessionManager.setOnStdinActivity { [weak self] ptySessionId in
                 Task { @MainActor in
-                    self?.hookEventHandler.handleStdinActivity(ptySessionId: ptySessionId)
+                    guard let self else { return }
+                    if self.promptPanelController.isPanelActive { return }
+                    let elapsed = ProcessInfo.processInfo.systemUptime - self.promptPanelController.lastRestoreTime
+                    if elapsed < 1.0 { return }
+                    self.hookEventHandler.handleStdinActivity(ptySessionId: ptySessionId)
                 }
             }
 
@@ -534,14 +564,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Resolve a Claude Code session ID to a PTY session ID.
     /// Uses the direct PTY session ID from the hook event (injected by BalconyCLI wrapper),
     /// falls back to cwd matching and single-session heuristic.
-    private func resolvePTYSessionId(claudeSessionId: String, cwd: String?, ptySessionId: String? = nil) async -> String {
+    private func resolvePTYSessionId(claudeSessionId: String, cwd: String?, ptySessionId: String? = nil, hookPeerPID: Int32? = nil) async -> String {
+        // Check if already mapped (e.g., from a previous idle prompt)
+        if let existing = hookEventHandler.ptySessionId(for: claudeSessionId) {
+            return existing
+        }
         // Best: direct PTY session ID from BalconyCLI wrapper
         if let ptyId = ptySessionId {
             hookEventHandler.registerPTYMapping(ptySessionId: ptyId, claudeSessionId: claudeSessionId)
             return ptyId
         }
-        // Fallback: match by working directory
-        if let cwd, let ptyId = await ptySessionManager.findSessionIdByCwd(cwd) {
+        // Walk the hook handler's process tree to find a registered PTY session PID.
+        // hook-handler → python3 → bash → claude → (BalconyCLI if wrapped)
+        // The PTY session stores the Claude process PID, so we walk up until we find a match.
+        if let peerPID = hookPeerPID,
+           let ptyId = await findPTYSessionByProcessTree(hookPID: peerPID) {
+            hookEventHandler.registerPTYMapping(ptySessionId: ptyId, claudeSessionId: claudeSessionId)
+            return ptyId
+        }
+        // Fallback: match by working directory, excluding PTY sessions
+        // already mapped to other Claude sessions
+        let alreadyMapped = hookEventHandler.mappedPTYSessionIds
+        if let cwd, let ptyId = await ptySessionManager.findSessionIdByCwd(cwd, excluding: alreadyMapped) {
             hookEventHandler.registerPTYMapping(ptySessionId: ptyId, claudeSessionId: claudeSessionId)
             return ptyId
         }
@@ -556,17 +600,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return claudeSessionId
     }
 
+    /// Walk the process tree from a hook handler PID upward to find a registered PTY session.
+    private func findPTYSessionByProcessTree(hookPID: Int32) async -> String? {
+        var current = hookPID
+        for _ in 0..<20 {
+            // Check if this PID matches any registered PTY session
+            if let sessionId = await ptySessionManager.findSessionIdByPID(current) {
+                return sessionId
+            }
+            let parent = Self.parentPID(of: current)
+            if parent <= 1 || parent == current { break }
+            current = parent
+        }
+        return nil
+    }
+
     // MARK: - Idle Prompt PTY Resolution
 
     /// Resolve the PTY session ID for an idle prompt response, using the cached mapping first.
     private func resolveIdlePromptPTYSessionId(_ sessionId: String) -> String {
-        if let cached = idlePromptPTYMapping.removeValue(forKey: sessionId) {
-            logger.info("Resolved idle PTY session: \(sessionId) → \(cached)")
+        // Check the pre-resolved mapping first (non-destructive read)
+        if let cached = idlePromptPTYMapping[sessionId] {
             return cached
         }
         // Fallback: try reverse lookup from hookEventHandler
         if let ptyId = hookEventHandler.ptySessionId(for: sessionId) {
-            logger.info("Resolved idle PTY session via hook handler: \(sessionId) → \(ptyId)")
             return ptyId
         }
         logger.warning("No PTY mapping for idle session \(sessionId), using raw ID")

@@ -48,6 +48,9 @@ public struct HookEvent: Codable, Sendable {
     /// PTY session ID injected by BalconyCLI wrapper (nil if not running through wrapper).
     public let balconyPtySessionId: String?
 
+    /// PID of the hook handler process (injected by HookListener, not from JSON).
+    public var hookPeerPID: Int32? = nil
+
     public init(
         hookEventName: String,
         sessionId: String,
@@ -120,6 +123,9 @@ public struct PermissionPromptInfo: Sendable {
     /// When this prompt was received.
     public let timestamp: Date
 
+    /// PID of the hook handler process (for process-tree based PTY resolution).
+    public let hookPeerPID: Int32?
+
     /// Computed risk level based on tool and command content.
     public var riskLevel: ToolRiskLevel {
         switch toolName {
@@ -146,7 +152,7 @@ public struct PermissionPromptInfo: Sendable {
         }
     }
 
-    public init(toolName: String, command: String?, filePath: String?, detail: String? = nil, sessionId: String, cwd: String? = nil, ptySessionId: String? = nil, timestamp: Date = Date()) {
+    public init(toolName: String, command: String?, filePath: String?, detail: String? = nil, sessionId: String, cwd: String? = nil, ptySessionId: String? = nil, hookPeerPID: Int32? = nil, timestamp: Date = Date()) {
         self.toolName = toolName
         self.command = command
         self.filePath = filePath
@@ -154,6 +160,7 @@ public struct PermissionPromptInfo: Sendable {
         self.sessionId = sessionId
         self.cwd = cwd
         self.ptySessionId = ptySessionId
+        self.hookPeerPID = hookPeerPID
         self.timestamp = timestamp
     }
 
@@ -181,7 +188,8 @@ public struct PermissionPromptInfo: Sendable {
             detail: detail,
             sessionId: event.sessionId,
             cwd: event.cwd,
-            ptySessionId: event.balconyPtySessionId
+            ptySessionId: event.balconyPtySessionId,
+            hookPeerPID: event.hookPeerPID
         )
     }
 }
@@ -206,11 +214,15 @@ public struct IdlePromptInfo: Sendable {
     /// When this idle prompt was detected.
     public let timestamp: Date
 
-    public init(sessionId: String, lastAssistantMessage: String, cwd: String? = nil, ptySessionId: String? = nil, timestamp: Date = Date()) {
+    /// PID of the hook handler process (for process-tree based PTY resolution).
+    public let hookPeerPID: Int32?
+
+    public init(sessionId: String, lastAssistantMessage: String, cwd: String? = nil, ptySessionId: String? = nil, hookPeerPID: Int32? = nil, timestamp: Date = Date()) {
         self.sessionId = sessionId
         self.lastAssistantMessage = lastAssistantMessage
         self.cwd = cwd
         self.ptySessionId = ptySessionId
+        self.hookPeerPID = hookPeerPID
         self.timestamp = timestamp
     }
 
@@ -222,7 +234,8 @@ public struct IdlePromptInfo: Sendable {
         return IdlePromptInfo(
             sessionId: event.sessionId,
             lastAssistantMessage: message,
-            cwd: event.cwd
+            cwd: event.cwd,
+            hookPeerPID: event.hookPeerPID
         )
     }
 
@@ -337,16 +350,18 @@ public struct AskUserQuestionInfo: Sendable {
     public let questions: [Question]
     public let cwd: String?
     public let ptySessionId: String?
+    public let hookPeerPID: Int32?
     public let timestamp: Date
 
     /// Original toolInput from the hook event — passed through in the updatedInput response.
     public let toolInput: [String: AnyCodable]?
 
-    public init(sessionId: String, questions: [Question], cwd: String?, ptySessionId: String?, toolInput: [String: AnyCodable]? = nil, timestamp: Date = Date()) {
+    public init(sessionId: String, questions: [Question], cwd: String?, ptySessionId: String?, hookPeerPID: Int32? = nil, toolInput: [String: AnyCodable]? = nil, timestamp: Date = Date()) {
         self.sessionId = sessionId
         self.questions = questions
         self.cwd = cwd
         self.ptySessionId = ptySessionId
+        self.hookPeerPID = hookPeerPID
         self.toolInput = toolInput
         self.timestamp = timestamp
     }
@@ -382,6 +397,7 @@ public struct AskUserQuestionInfo: Sendable {
             questions: questions,
             cwd: event.cwd,
             ptySessionId: event.balconyPtySessionId,
+            hookPeerPID: event.hookPeerPID,
             toolInput: input,
             timestamp: Date()
         )

@@ -48,11 +48,11 @@ final class HookEventHandler: ObservableObject {
     @Published private(set) var pendingPrompts: [String: PermissionPromptInfo] = [:]
 
     /// Buffered Stop event data per session (correlates with Notification).
-    private var lastStopData: [String: (message: String, cwd: String?, ptySessionId: String?)] = [:]
+    private var lastStopData: [String: (message: String, cwd: String?, ptySessionId: String?, hookPeerPID: Int32?)] = [:]
 
     /// Buffered Notification(idle_prompt) events waiting for a Stop to correlate with.
     /// When Notification arrives before Stop, we store the cwd and ptySessionId here.
-    private var pendingIdleNotifications: [String: (cwd: String?, ptySessionId: String?)] = [:]
+    private var pendingIdleNotifications: [String: (cwd: String?, ptySessionId: String?, hookPeerPID: Int32?)] = [:]
 
     /// Active idle prompts per session (Claude waiting for user input).
     @Published private(set) var pendingIdlePrompts: [String: IdlePromptInfo] = [:]
@@ -118,6 +118,11 @@ final class HookEventHandler: ObservableObject {
             }
         }
         return nil
+    }
+
+    /// Get all PTY session IDs that are already mapped to any Claude session.
+    var mappedPTYSessionIds: Set<String> {
+        Set(ptyToClaudeSessionIds.keys)
     }
 
     // MARK: - Event Processing
@@ -198,7 +203,7 @@ final class HookEventHandler: ObservableObject {
         // Don't emit if a permission prompt is active (Claude is working, not idle)
         guard sessionQueues[sessionId]?.isIdle ?? true else {
             // Buffer in case a Notification arrives later
-            lastStopData[sessionId] = (message: message, cwd: event.cwd, ptySessionId: ptySessionId)
+            lastStopData[sessionId] = (message: message, cwd: event.cwd, ptySessionId: ptySessionId, hookPeerPID: event.hookPeerPID)
             return
         }
 
@@ -211,7 +216,8 @@ final class HookEventHandler: ObservableObject {
             sessionId: sessionId,
             message: message,
             cwd: event.cwd ?? notifData?.cwd,
-            ptySessionId: ptySessionId ?? notifData?.ptySessionId
+            ptySessionId: ptySessionId ?? notifData?.ptySessionId,
+            hookPeerPID: event.hookPeerPID ?? notifData?.hookPeerPID
         )
     }
 
@@ -231,10 +237,10 @@ final class HookEventHandler: ObservableObject {
 
         // Try to correlate with a buffered Stop message (buffered when permission prompt was active)
         if let stopData = lastStopData.removeValue(forKey: sessionId) {
-            emitIdlePrompt(sessionId: sessionId, message: stopData.message, cwd: stopData.cwd ?? event.cwd, ptySessionId: stopData.ptySessionId ?? event.balconyPtySessionId)
+            emitIdlePrompt(sessionId: sessionId, message: stopData.message, cwd: stopData.cwd ?? event.cwd, ptySessionId: stopData.ptySessionId ?? event.balconyPtySessionId, hookPeerPID: stopData.hookPeerPID ?? event.hookPeerPID)
         } else {
             // Stop hasn't arrived yet — buffer this Notification and wait
-            pendingIdleNotifications[sessionId] = (cwd: event.cwd, ptySessionId: event.balconyPtySessionId)
+            pendingIdleNotifications[sessionId] = (cwd: event.cwd, ptySessionId: event.balconyPtySessionId, hookPeerPID: event.hookPeerPID)
             logger.debug("Buffered idle Notification for session \(sessionId) — waiting for Stop")
 
             // Clean up if Stop never arrives
@@ -248,8 +254,8 @@ final class HookEventHandler: ObservableObject {
     // MARK: - Idle Prompt Emission
 
     /// Create and emit an idle prompt once both Stop and Notification have been correlated.
-    private func emitIdlePrompt(sessionId: String, message: String, cwd: String?, ptySessionId: String? = nil) {
-        let info = IdlePromptInfo(sessionId: sessionId, lastAssistantMessage: message, cwd: cwd, ptySessionId: ptySessionId)
+    private func emitIdlePrompt(sessionId: String, message: String, cwd: String?, ptySessionId: String? = nil, hookPeerPID: Int32? = nil) {
+        let info = IdlePromptInfo(sessionId: sessionId, lastAssistantMessage: message, cwd: cwd, ptySessionId: ptySessionId, hookPeerPID: hookPeerPID)
         pendingIdlePrompts[sessionId] = info
 
         logger.info("Idle prompt for session \(sessionId): \(message.prefix(80))...")

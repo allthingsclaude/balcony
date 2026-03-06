@@ -289,6 +289,7 @@ struct PromptPanelView: View {
 struct IdlePromptPanelView: View {
     let info: IdlePromptInfo
     let onSubmit: (String) -> Void
+    let onTyping: (String) -> Void
     let onFocus: () -> Void
     let onDismiss: () -> Void
 
@@ -356,6 +357,18 @@ struct IdlePromptPanelView: View {
                     .foregroundStyle(PanelTheme.textPrimary)
                     .focused($textFieldFocused)
                     .onSubmit { submitResponse() }
+                    .onChange(of: responseText) { old, new in
+                        // Send keystrokes live to the PTY as the user types
+                        if new.count > old.count {
+                            // Character(s) added — send the new characters
+                            let added = String(new.dropFirst(old.count))
+                            onTyping(added)
+                        } else if new.count < old.count {
+                            // Character(s) deleted — send backspace for each removed char
+                            let deletedCount = old.count - new.count
+                            onTyping(String(repeating: "\u{7f}", count: deletedCount))
+                        }
+                    }
                     .padding(.horizontal, 8)
                     .padding(.vertical, 6)
                     .background(PanelTheme.surface)
@@ -397,6 +410,8 @@ struct IdlePromptPanelView: View {
         onSubmit(responseText)
     }
 }
+
+
 
 // MARK: - Multi-Option Panel
 
