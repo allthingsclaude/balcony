@@ -21,12 +21,31 @@ final class VoiceTranscriber {
     private var audioEngine: AVAudioEngine?
     private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
     private var recognitionTask: SFSpeechRecognitionTask?
-    private let speechRecognizer = SFSpeechRecognizer()
 
-    /// Whether voice input is available (authorized and recognizer ready).
+    /// Whether voice input is available (authorized and a recognizer exists for the selected locale).
     var isAvailable: Bool {
-        speechRecognizer?.isAvailable == true && authorizationStatus == .authorized
+        currentRecognizer?.isAvailable == true && authorizationStatus == .authorized
     }
+
+    /// The recognizer for the currently selected locale.
+    private var currentRecognizer: SFSpeechRecognizer? {
+        let localeId = PreferencesManager.shared.voiceLanguage
+        if localeId.isEmpty {
+            return SFSpeechRecognizer()  // system default
+        }
+        return SFSpeechRecognizer(locale: Locale(identifier: localeId))
+    }
+
+    /// All supported locale identifiers, sorted by display name.
+    static let supportedLanguages: [(id: String, name: String)] = {
+        let locales = SFSpeechRecognizer.supportedLocales()
+        return locales.map { locale in
+            let id = locale.identifier
+            let name = Locale.current.localizedString(forIdentifier: id) ?? id
+            return (id: id, name: name)
+        }
+        .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }()
 
     // MARK: - Authorization
 
@@ -50,7 +69,7 @@ final class VoiceTranscriber {
     /// Start recording audio and transcribing speech.
     func startRecording() {
         guard !isRecording else { return }
-        guard let recognizer = speechRecognizer, recognizer.isAvailable else {
+        guard let recognizer = currentRecognizer, recognizer.isAvailable else {
             logger.error("Speech recognizer not available")
             return
         }
@@ -62,10 +81,9 @@ final class VoiceTranscriber {
         request.shouldReportPartialResults = true
         request.addsPunctuation = true
 
-        // Prefer on-device recognition for privacy and speed
-        if recognizer.supportsOnDeviceRecognition {
-            request.requiresOnDeviceRecognition = true
-        }
+        // Prefer on-device but don't require it — many languages
+        // only work via server-side recognition
+        request.requiresOnDeviceRecognition = false
 
         let inputNode = engine.inputNode
         let recordingFormat = inputNode.outputFormat(forBus: 0)

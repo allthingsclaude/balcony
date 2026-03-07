@@ -105,6 +105,7 @@ private struct NotificationsTab: View {
     @AppStorage(PreferencesManager.showAttentionPanelKey) private var showAttentionPanel = true
     @AppStorage(PreferencesManager.showDonePanelKey) private var showDonePanel = true
     @AppStorage(PreferencesManager.voiceInputEnabledKey) private var voiceInputEnabled = false
+    @AppStorage(PreferencesManager.voiceLanguageKey) private var voiceLanguage = ""
     @AppStorage(PreferencesManager.attentionSoundKey) private var attentionSound = ""
     @AppStorage(PreferencesManager.doneSoundKey) private var doneSound = ""
 
@@ -112,6 +113,15 @@ private struct NotificationsTab: View {
         Form {
             Section("Voice Input") {
                 Toggle("Enable voice input", isOn: $voiceInputEnabled)
+                if voiceInputEnabled {
+                    Picker("Language", selection: $voiceLanguage) {
+                        Text("System Default").tag("")
+                        Divider()
+                        ForEach(VoiceTranscriber.supportedLanguages, id: \.id) { lang in
+                            Text(lang.name).tag(lang.id)
+                        }
+                    }
+                }
                 Text("Double-tap ⌘ and hold to dictate a response. Release to send.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
