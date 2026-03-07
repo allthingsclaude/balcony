@@ -504,7 +504,7 @@ struct IdlePromptPanelView: View {
                     // Mic icon with pulse
                     Image(systemName: "mic.circle.fill")
                         .font(.system(size: 20))
-                        .foregroundStyle(.red)
+                        .foregroundStyle(PanelTheme.brand)
                         .symbolEffect(.pulse, options: .repeating)
                 } else {
                     Button(action: submitResponse) {
@@ -553,17 +553,7 @@ struct IdlePromptPanelView: View {
         .background(PanelTheme.surface)
         .clipShape(RoundedRectangle(cornerRadius: 6))
         .overlay {
-            RoundedRectangle(cornerRadius: 6)
-                .stroke(PanelTheme.brand, lineWidth: 1.5)
-                .shadow(color: PanelTheme.brand.opacity(voiceGlowOpacity), radius: 4)
-        }
-        .onAppear {
-            withAnimation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true)) {
-                voiceGlowOpacity = 0.6
-            }
-        }
-        .onDisappear {
-            voiceGlowOpacity = 0.0
+            VoiceRecordingGlow()
         }
     }
 
@@ -974,6 +964,39 @@ enum AskUserQuestionAnswer {
     case option(String)
     /// User typed custom text via "Other".
     case other(String)
+}
+
+// MARK: - Voice Recording Glow
+
+/// Animated orange shimmer border that sweeps around the input field during voice recording.
+private struct VoiceRecordingGlow: View {
+    @State private var rotation: Double = 0
+
+    var body: some View {
+        let accent = PanelTheme.brand
+
+        RoundedRectangle(cornerRadius: 6)
+            .strokeBorder(
+                AngularGradient(
+                    stops: [
+                        .init(color: accent.opacity(0.15), location: 0.0),
+                        .init(color: accent.opacity(0.15), location: 0.35),
+                        .init(color: accent, location: 0.5),
+                        .init(color: accent.opacity(0.15), location: 0.65),
+                        .init(color: accent.opacity(0.15), location: 1.0),
+                    ],
+                    center: .center,
+                    angle: .degrees(rotation)
+                ),
+                lineWidth: 1.5
+            )
+            .shadow(color: accent.opacity(0.4), radius: 4)
+            .onAppear {
+                withAnimation(.linear(duration: 2.0).repeatForever(autoreverses: false)) {
+                    rotation = 360
+                }
+            }
+    }
 }
 
 // MARK: - Panel Button
