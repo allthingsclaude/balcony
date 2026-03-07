@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 63;
+	objectVersion = 77;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -87,6 +87,7 @@
 		BAC73425A4C54FCCD6036774 /* MenuBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 669BE9921928194372E5B944 /* MenuBarView.swift */; };
 		BDFFEF7010DECCDDE79DAAC6 /* SessionListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8781800E637EC256C88F313C /* SessionListView.swift */; };
 		C1FF8F6B9C14B58D1ABC9B8B /* PTYSessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A876093B09C95BC6B439A4EC /* PTYSessionManager.swift */; };
+		CAE8A6A56BB5A3FA41D5C676 /* VoiceTranscriber.swift in Sources */ = {isa = PBXBuildFile; fileRef = 824DB8463F130C5F7DF63239 /* VoiceTranscriber.swift */; };
 		D696879E6AEF5C1FC655196A /* SoundManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0ECA084ED0E704E4088FC837 /* SoundManager.swift */; };
 		D73A8B9E38E6442C5AA69AC0 /* PTYManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F196F43A38F455DCA8EE5982 /* PTYManager.swift */; };
 		DA500C499792EA420BE493FD /* QRCodeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72541086349D5C7FE7CA0C64 /* QRCodeView.swift */; };
@@ -125,14 +126,14 @@
 		14954C747CB9B37EFDCE1BEA /* PreferencesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesView.swift; sourceTree = "<group>"; };
 		160D61822B93FBE67A1C20C2 /* SessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionManager.swift; sourceTree = "<group>"; };
 		1C4666F5F2F672B0D7E53B59 /* StatusBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusBadge.swift; sourceTree = "<group>"; };
-		2229221233369502B0CE1FFF /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		2229221233369502B0CE1FFF /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		239E33293B61A3D9C500BB82 /* SetupFlowModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupFlowModel.swift; sourceTree = "<group>"; };
 		2567EAF959E0FF8C09874F18 /* BLEPeripheral.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BLEPeripheral.swift; sourceTree = "<group>"; };
 		257A291FF11C38CFEA2032D8 /* UpdaterService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdaterService.swift; sourceTree = "<group>"; };
 		26C123194F77AD4BC1D2CA02 /* PromptPanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromptPanelView.swift; sourceTree = "<group>"; };
 		29C23B5584D65228ECB8AF8D /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		2B8CD6ADB9FA981C5E289B32 /* SessionFileReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionFileReader.swift; sourceTree = "<group>"; };
-		2DE6CDF60C97FB394173111A /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		2DE6CDF60C97FB394173111A /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		2E860783542070F02AED00B7 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		2EAEA92A0B879C8CC2EF8F97 /* MessageProtocolTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageProtocolTests.swift; sourceTree = "<group>"; };
 		2FB30D19FCA8885324E1C3F2 /* AppIcon-Dark@3x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon-Dark@3x.png"; sourceTree = "<group>"; };
@@ -151,7 +152,7 @@
 		50CDFFCE4495E7D88AFCF8C4 /* SocketClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocketClient.swift; sourceTree = "<group>"; };
 		550F0D20164E87817511190D /* AskUserQuestionCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AskUserQuestionCardView.swift; sourceTree = "<group>"; };
 		563031AC1EAF150E0A7AAF5B /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
-		575956E033E5EF90DEBBE923 /* BalconyCLI */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = text; name = BalconyCLI; path = balcony; sourceTree = BUILT_PRODUCTS_DIR; };
+		575956E033E5EF90DEBBE923 /* BalconyCLI */ = {isa = PBXFileReference; includeInIndex = 0; path = BalconyCLI; sourceTree = BUILT_PRODUCTS_DIR; };
 		63C417099683EF822F4B30DF /* BLECentral.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BLECentral.swift; sourceTree = "<group>"; };
 		6449B25645CA8534562C7068 /* BalconySharedTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BalconySharedTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		669BE9921928194372E5B944 /* MenuBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarView.swift; sourceTree = "<group>"; };
@@ -162,8 +163,9 @@
 		72541086349D5C7FE7CA0C64 /* QRCodeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRCodeView.swift; sourceTree = "<group>"; };
 		783D378FB676157E04C99FC9 /* ConnectionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionManager.swift; sourceTree = "<group>"; };
 		7BEB54F3C74377613045762F /* AwayDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AwayDetector.swift; sourceTree = "<group>"; };
-		807317B17FA9F329C51AFD55 /* BalconyShared */ = {isa = PBXFileReference; lastKnownFileType = folder; path = BalconyShared; sourceTree = SOURCE_ROOT; };
+		807317B17FA9F329C51AFD55 /* BalconyShared */ = {isa = PBXFileReference; lastKnownFileType = folder; name = BalconyShared; path = BalconyShared; sourceTree = SOURCE_ROOT; };
 		81F089DFF6FB911071280E29 /* FilePickerMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilePickerMenu.swift; sourceTree = "<group>"; };
+		824DB8463F130C5F7DF63239 /* VoiceTranscriber.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceTranscriber.swift; sourceTree = "<group>"; };
 		8781800E637EC256C88F313C /* SessionListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionListView.swift; sourceTree = "<group>"; };
 		883742321A0BF72D7D023889 /* CoreBluetooth.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreBluetooth.framework; path = System/Library/Frameworks/CoreBluetooth.framework; sourceTree = SDKROOT; };
 		886E3C57A893FC1E5B991BA6 /* BalconyMacApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BalconyMacApp.swift; sourceTree = "<group>"; };
@@ -173,7 +175,7 @@
 		9E5C4CCA055249D15C411831 /* PreferencesManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesManager.swift; sourceTree = "<group>"; };
 		A153BA8C47D076D9BD988A08 /* SessionRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionRowView.swift; sourceTree = "<group>"; };
 		A218A4C58E7F312AB70DC57F /* LiquidGlassCapsule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiquidGlassCapsule.swift; sourceTree = "<group>"; };
-		A2992E0888E0EBC79BA14280 /* BalconyMac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; name = BalconyMac.app; path = Balcony.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A2992E0888E0EBC79BA14280 /* BalconyMac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BalconyMac.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A6084BF828A4001E3731C509 /* IOBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IOBridge.swift; sourceTree = "<group>"; };
 		A876093B09C95BC6B439A4EC /* PTYSessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PTYSessionManager.swift; sourceTree = "<group>"; };
 		B0D9E9C67B880DC32F63487B /* BalconyiOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BalconyiOSApp.swift; sourceTree = "<group>"; };
@@ -194,7 +196,7 @@
 		DEFB8FEA08F6458F0103A0F7 /* BonjourAdvertiser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BonjourAdvertiser.swift; sourceTree = "<group>"; };
 		DF14263968FE5E9B5664835E /* SlashCommandMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SlashCommandMenu.swift; sourceTree = "<group>"; };
 		DF662BA7926B1B03E10B19B6 /* BalconyTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BalconyTheme.swift; sourceTree = "<group>"; };
-		E0A018E81D07F8F804A5CC03 /* Balcony.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Balcony.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		E0A018E81D07F8F804A5CC03 /* BalconyiOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = BalconyiOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E0AA3AD6C3787879CAAB89F1 /* DiscoveryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiscoveryView.swift; sourceTree = "<group>"; };
 		E3C98EF34E06BF79E5DD7706 /* SetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupView.swift; sourceTree = "<group>"; };
 		E5330CC3525DAD310296E4BE /* QRScannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRScannerView.swift; sourceTree = "<group>"; };
@@ -267,7 +269,7 @@
 			isa = PBXGroup;
 			children = (
 				575956E033E5EF90DEBBE923 /* BalconyCLI */,
-				E0A018E81D07F8F804A5CC03 /* Balcony.app */,
+				E0A018E81D07F8F804A5CC03 /* BalconyiOS.app */,
 				A2992E0888E0EBC79BA14280 /* BalconyMac.app */,
 				6449B25645CA8534562C7068 /* BalconySharedTests.xctest */,
 			);
@@ -321,6 +323,7 @@
 				EE0209A0E21BBDEB46AE3FFE /* Session */,
 				CF4D9CACA3214DBF1F525E5B /* Setup */,
 				CD9B0B8BB81459B388084038 /* UI */,
+				ADE2F98643DF7B585E00A78E /* Voice */,
 			);
 			path = Sources;
 			sourceTree = "<group>";
@@ -534,6 +537,14 @@
 			path = Settings;
 			sourceTree = "<group>";
 		};
+		ADE2F98643DF7B585E00A78E /* Voice */ = {
+			isa = PBXGroup;
+			children = (
+				824DB8463F130C5F7DF63239 /* VoiceTranscriber.swift */,
+			);
+			path = Voice;
+			sourceTree = "<group>";
+		};
 		C79AC08F94025322B1AE2631 /* Notifications */ = {
 			isa = PBXGroup;
 			children = (
@@ -692,7 +703,7 @@
 				E17B7059A73D41936CD7D713 /* SwiftTerm */,
 			);
 			productName = BalconyiOS;
-			productReference = E0A018E81D07F8F804A5CC03 /* Balcony.app */;
+			productReference = E0A018E81D07F8F804A5CC03 /* BalconyiOS.app */;
 			productType = "com.apple.product-type.application";
 		};
 		B37488F2CC17C37E395BE6C9 /* BalconySharedTests */ = {
@@ -758,6 +769,7 @@
 				0B2C0820A65E78C7CF28A757 /* XCRemoteSwiftPackageReference "swift-nio-transport-services" */,
 				E53AB105301D36E90158B6D5 /* XCLocalSwiftPackageReference "BalconyShared" */,
 			);
+			preferredProjectObjectVersion = 77;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -900,6 +912,7 @@
 				DE3744B22608B9130AA240C6 /* SlashCommandScanner.swift in Sources */,
 				DFFB8C76E4D453A641002387 /* StatusItemManager.swift in Sources */,
 				6D0A2E05B4BB51E209736639 /* UpdaterService.swift in Sources */,
+				CAE8A6A56BB5A3FA41D5C676 /* VoiceTranscriber.swift in Sources */,
 				E50D03AEEA94650D2FA831C6 /* WebSocketClientHandler.swift in Sources */,
 				B6798FB8D55B6691C4162C6D /* WebSocketServer.swift in Sources */,
 			);
@@ -950,7 +963,6 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = BalconyiOS/Resources/BalconyiOS.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				DEVELOPMENT_TEAM = 746889X99S;
 				INFOPLIST_FILE = BalconyiOS/Resources/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1157,7 +1169,6 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = BalconyiOS/Resources/BalconyiOS.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				DEVELOPMENT_TEAM = 746889X99S;
 				INFOPLIST_FILE = BalconyiOS/Resources/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (

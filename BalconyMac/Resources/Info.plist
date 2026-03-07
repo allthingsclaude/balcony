@@ -24,6 +24,10 @@
     <string>https://allthingsclaude.github.io/balcony/appcast.xml</string>
     <key>SUPublicEDKey</key>
     <string>0Y/fgay6lWHRxqpxECSMG38IXYiVlolaDTAK9jXwgxM=</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>Balcony uses the microphone for voice-to-text input when responding to Claude prompts.</string>
+    <key>NSSpeechRecognitionUsageDescription</key>
+    <string>Balcony uses speech recognition to transcribe your voice responses to Claude prompts.</string>
     <key>NSBluetoothAlwaysUsageDescription</key>
     <string>Balcony uses Bluetooth to detect when your iPhone is nearby for away detection.</string>
     <key>NSLocalNetworkUsageDescription</key>

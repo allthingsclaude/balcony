@@ -410,6 +410,7 @@ struct PromptPanelView: View {
 /// Notification-style view for idle prompts (Claude waiting for input).
 struct IdlePromptPanelView: View {
     let info: IdlePromptInfo
+    var voiceTranscriber: VoiceTranscriber?
     let onSubmit: (String) -> Void
     let onTyping: (String) -> Void
     let onFocus: () -> Void
@@ -472,36 +473,48 @@ struct IdlePromptPanelView: View {
 
             // Text input row
             HStack(spacing: 8) {
-                TextField("Type a response...", text: $responseText)
-                    .textFieldStyle(.plain)
-                    .font(.system(size: 12))
-                    .foregroundStyle(PanelTheme.textPrimary)
-                    .focused($textFieldFocused)
-                    .onSubmit { submitResponse() }
-                    .onChange(of: responseText) { old, new in
-                        // Send keystrokes live to the PTY as the user types
-                        if new.count > old.count {
-                            // Character(s) added — send the new characters
-                            let added = String(new.dropFirst(old.count))
-                            onTyping(added)
-                        } else if new.count < old.count {
-                            // Character(s) deleted — send backspace for each removed char
-                            let deletedCount = old.count - new.count
-                            onTyping(String(repeating: "\u{7f}", count: deletedCount))
+                if isVoiceActive {
+                    // Voice: show live transcript in a styled container
+                    voiceInputField
+                } else {
+                    // Normal: editable text field
+                    TextField("Type a response...", text: $responseText)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 12))
+                        .foregroundStyle(PanelTheme.textPrimary)
+                        .focused($textFieldFocused)
+                        .onSubmit { submitResponse() }
+                        .onChange(of: responseText) { old, new in
+                            // Send keystrokes live to the PTY as the user types
+                            if new.count > old.count {
+                                let added = String(new.dropFirst(old.count))
+                                onTyping(added)
+                            } else if new.count < old.count {
+                                let deletedCount = old.count - new.count
+                                onTyping(String(repeating: "\u{7f}", count: deletedCount))
+                            }
                         }
-                    }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 6)
-                    .background(PanelTheme.surface)
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
-
-                Button(action: submitResponse) {
-                    Image(systemName: "arrow.up.circle.fill")
-                        .font(.system(size: 20))
-                        .foregroundStyle(responseText.isEmpty ? PanelTheme.textTertiary : PanelTheme.brand)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 6)
+                        .background(PanelTheme.surface)
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
                 }
-                .buttonStyle(.plain)
-                .disabled(responseText.isEmpty)
+
+                if isVoiceActive {
+                    // Mic icon with pulse
+                    Image(systemName: "mic.circle.fill")
+                        .font(.system(size: 20))
+                        .foregroundStyle(.red)
+                        .symbolEffect(.pulse, options: .repeating)
+                } else {
+                    Button(action: submitResponse) {
+                        Image(systemName: "arrow.up.circle.fill")
+                            .font(.system(size: 20))
+                            .foregroundStyle(responseText.isEmpty ? PanelTheme.textTertiary : PanelTheme.brand)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(responseText.isEmpty)
+                }
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
@@ -514,6 +527,47 @@ struct IdlePromptPanelView: View {
         .shadow(color: .black.opacity(0.08), radius: 2, y: 1)
         .onAppear { textFieldFocused = true }
     }
+
+    private var isVoiceActive: Bool {
+        voiceTranscriber?.isRecording == true
+    }
+
+    private var voiceTranscript: String {
+        voiceTranscriber?.transcript ?? ""
+    }
+
+    @ViewBuilder
+    private var voiceInputField: some View {
+        let text = voiceTranscript.isEmpty ? "Listening..." : voiceTranscript
+        let isEmpty = voiceTranscript.isEmpty
+
+        ScrollView(.horizontal, showsIndicators: false) {
+            Text(text)
+                .font(.system(size: 12))
+                .foregroundStyle(isEmpty ? PanelTheme.textTertiary : PanelTheme.textPrimary)
+                .fixedSize(horizontal: true, vertical: false)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(PanelTheme.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 6))
+        .overlay {
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(PanelTheme.brand, lineWidth: 1.5)
+                .shadow(color: PanelTheme.brand.opacity(voiceGlowOpacity), radius: 4)
+        }
+        .onAppear {
+            withAnimation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true)) {
+                voiceGlowOpacity = 0.6
+            }
+        }
+        .onDisappear {
+            voiceGlowOpacity = 0.0
+        }
+    }
+
+    @State private var voiceGlowOpacity: CGFloat = 0.0
 
     private var projectName: String? {
         guard let cwd = info.cwd else { return nil }
@@ -971,3 +1025,4 @@ private struct PanelButton: View {
         }
     }
 }
+

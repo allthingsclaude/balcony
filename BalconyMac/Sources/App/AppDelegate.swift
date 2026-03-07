@@ -15,6 +15,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let sessionFileReader = SessionFileReader()
     let modelListProvider = ModelListProvider()
     let awayDetector = AwayDetector()
+    let voiceTranscriber = VoiceTranscriber()
     let setupWindowController = SetupWindowController()
 
     /// Pre-resolved PTY session IDs for idle prompts (Claude session ID → PTY session ID).
@@ -45,6 +46,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Timestamp of the last Cmd key release (for double-tap detection).
     private var lastCmdRelease: TimeInterval = 0
+
+    /// Timer that fires after a short hold to start voice recording (tap-then-hold detection).
+    private var voiceHoldTimer: Timer?
+
+    /// Whether voice recording is currently active via Cmd hold.
+    private var isVoiceRecording = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         logger.info("BalconyMac launched")
@@ -101,7 +108,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let onlyCmd = event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command
 
         if cmdPressed && onlyCmd {
-            // Cmd pressed alone — wait for release
+            // Cmd pressed alone — check if this is the second press (voice trigger candidate)
+            let now = ProcessInfo.processInfo.systemUptime
+            let elapsed = now - lastCmdRelease
+
+            if elapsed < 0.35 && elapsed > 0 && promptPanelController.hasPanels
+                && PreferencesManager.shared.voiceInputEnabled && voiceTranscriber.isAvailable {
+                // Second press within double-tap window with voice enabled.
+                // Start a hold timer — if held long enough, start voice recording.
+                // If released quickly, it's a normal double-tap (focus panel).
+                voiceHoldTimer?.invalidate()
+                voiceHoldTimer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: false) { [weak self] _ in
+                    self?.startVoiceInput()
+                }
+                // Clear to prevent double-tap detection on release
+                lastCmdRelease = 0
+            }
             return
         }
 
@@ -110,22 +132,82 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let remaining = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
             guard remaining.isEmpty else { return }
 
+            // Voice recording active — stop and send on Cmd release
+            if isVoiceRecording {
+                stopVoiceInput()
+                lastCmdRelease = 0
+                return
+            }
+
+            // Hold timer was running but didn't fire — quick tap-tap → focus panel
+            if voiceHoldTimer != nil {
+                voiceHoldTimer?.invalidate()
+                voiceHoldTimer = nil
+                lastCmdRelease = 0
+                if promptPanelController.hasPanels {
+                    promptPanelController.activateFrontmostPanel()
+                }
+                return
+            }
+
+            // Normal Cmd release — record timestamp and check for double-tap
+            // (used when voice is disabled, so double-tap still focuses panel)
             let now = ProcessInfo.processInfo.systemUptime
             let elapsed = now - self.lastCmdRelease
             self.lastCmdRelease = now
 
             if elapsed < 0.35 {
-                // Double-tap detected — activate synchronously (no DispatchQueue.main.async)
-                // to avoid a race where stdin activity could dismiss the idle prompt
-                // before isPanelActive is set.
                 self.lastCmdRelease = 0
                 let hasPanels = self.promptPanelController.hasPanels
-                self.logger.info("Double-Cmd detected: hasPanels=\(hasPanels)")
                 if hasPanels {
                     self.promptPanelController.activateFrontmostPanel()
                 }
             }
         }
+    }
+
+    // MARK: - Voice Input
+
+    private func startVoiceInput() {
+        voiceHoldTimer = nil
+        guard promptPanelController.hasPanels else { return }
+
+        isVoiceRecording = true
+        voiceTranscriber.startRecording()
+
+        // Activate the panel so the recording UI is visible
+        promptPanelController.activateFrontmostPanel()
+        logger.info("Voice input started")
+    }
+
+    private func stopVoiceInput() {
+        isVoiceRecording = false
+        let transcript = voiceTranscriber.stopRecording()
+        logger.info("Voice input stopped, transcript: '\(transcript.prefix(80))'")
+
+        guard !transcript.isEmpty else { return }
+        guard let sessionId = promptPanelController.frontmostSessionId else { return }
+
+        let ptySessionId = resolveIdlePromptPTYSessionId(sessionId)
+
+        // Send transcript text to PTY
+        if let data = transcript.data(using: .utf8) {
+            if let fd = cachedSessionFDs[ptySessionId] {
+                PTYSessionManager.sendInputDirect(fd: fd, data: data)
+            } else {
+                Task { await ptySessionManager.sendInput(sessionId: ptySessionId, data: data) }
+            }
+        }
+
+        // Send Enter
+        if let fd = cachedSessionFDs[ptySessionId] {
+            PTYSessionManager.sendInputDirect(fd: fd, data: Data([0x0D]))
+        } else {
+            Task { await ptySessionManager.sendInput(sessionId: ptySessionId, data: Data([0x0D])) }
+        }
+
+        // Dismiss the idle prompt
+        hookEventHandler.dismissIdlePrompt(for: sessionId)
     }
 
     private func stopHotkeyMonitor() {
@@ -221,6 +303,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Wire up ConnectionManager to AppDelegate for session picker requests
         connectionManager.appDelegate = self
         connectionManager.hookEventHandler = hookEventHandler
+
+        // Wire voice transcriber to prompt panel controller
+        promptPanelController.voiceTranscriber = voiceTranscriber
+        voiceTranscriber.checkAuthorization()
+        if PreferencesManager.shared.voiceInputEnabled {
+            voiceTranscriber.requestAuthorization()
+        }
 
         // Wire hook event handler callbacks
         hookEventHandler.onPromptReceived = { [weak self] promptInfo in
@@ -565,11 +654,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if currentInterval != newInterval {
                 self.startSessionRefreshTimer()
             }
+            // Request speech authorization when voice input is enabled
+            if PreferencesManager.shared.voiceInputEnabled && !self.voiceTranscriber.isAvailable {
+                self.voiceTranscriber.requestAuthorization()
+            }
         }
     }
 
     func applicationWillTerminate(_ notification: Notification) {
         logger.info("BalconyMac terminating")
+        if isVoiceRecording { voiceTranscriber.stopRecording() }
+        voiceHoldTimer?.invalidate()
         stopHotkeyMonitor()
         awayDetector.stopDetecting()
         sessionRefreshTimer?.invalidate()

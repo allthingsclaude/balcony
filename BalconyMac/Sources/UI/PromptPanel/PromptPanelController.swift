@@ -197,6 +197,9 @@ final class PromptPanelController {
     /// Active panels in stack order (index 0 = topmost).
     private var panels: [(sessionId: String, panel: NSPanel)] = []
 
+    /// Voice transcriber for dictation input. Set by AppDelegate.
+    var voiceTranscriber: VoiceTranscriber?
+
     /// Called when the user clicks an action button. Passes (sessionId, keystroke).
     var onResponse: ((String, String) -> Void)?
 
@@ -272,6 +275,7 @@ final class PromptPanelController {
         let hostingView = NSHostingView(
             rootView: IdlePromptPanelView(
                 info: info,
+                voiceTranscriber: voiceTranscriber,
                 onSubmit: { [weak self] text in
                     self?.handleTextSubmit(sessionId: sessionId, text: text)
                 },
@@ -371,6 +375,9 @@ final class PromptPanelController {
 
     /// Whether there are any visible panels.
     var hasPanels: Bool { !panels.isEmpty }
+
+    /// The session ID of the frontmost panel, if any.
+    var frontmostSessionId: String? { panels.first?.sessionId }
 
     /// Whether the user is actively interacting with panels (via hotkey activation).
     /// When true, stdin activity from the terminal should be ignored to prevent

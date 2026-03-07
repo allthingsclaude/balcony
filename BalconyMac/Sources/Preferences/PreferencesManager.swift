@@ -24,6 +24,7 @@ final class PreferencesManager {
     static let showDonePanelKey = "showDonePanel"
     static let attentionSoundKey = "attentionSound"
     static let doneSoundKey = "doneSound"
+    static let voiceInputEnabledKey = "voiceInputEnabled"
     static let awayDistanceKey = "awayDistance"
     static let awaySustainKey = "awaySustain"
 
@@ -38,6 +39,7 @@ final class PreferencesManager {
         bleEnabledKey: true,
         showAttentionPanelKey: true,
         showDonePanelKey: true,
+        voiceInputEnabledKey: false,
         attentionSoundKey: "",
         doneSoundKey: "",
         awayDistanceKey: 1,
@@ -131,6 +133,11 @@ final class PreferencesManager {
         return UserDefaults.standard.bool(forKey: Self.showDonePanelKey)
     }
 
+    /// Whether voice input via double-Cmd hold is enabled.
+    var voiceInputEnabled: Bool {
+        UserDefaults.standard.bool(forKey: Self.voiceInputEnabledKey)
+    }
+
     /// Name of the system sound to play when AI needs user action. Empty string means no sound.
     var attentionSound: String {
         return UserDefaults.standard.string(forKey: Self.attentionSoundKey) ?? ""
@@ -185,6 +192,7 @@ final class PreferencesManager {
             Self.displayNameKey, Self.sessionRefreshIntervalKey,
             Self.bonjourEnabledKey, Self.bleEnabledKey,
             Self.showAttentionPanelKey, Self.showDonePanelKey,
+            Self.voiceInputEnabledKey,
             Self.attentionSoundKey, Self.doneSoundKey,
             Self.awayDistanceKey, Self.awaySustainKey,
         ]

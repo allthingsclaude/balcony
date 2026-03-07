@@ -104,11 +104,18 @@ private struct ConnectionTab: View {
 private struct NotificationsTab: View {
     @AppStorage(PreferencesManager.showAttentionPanelKey) private var showAttentionPanel = true
     @AppStorage(PreferencesManager.showDonePanelKey) private var showDonePanel = true
+    @AppStorage(PreferencesManager.voiceInputEnabledKey) private var voiceInputEnabled = false
     @AppStorage(PreferencesManager.attentionSoundKey) private var attentionSound = ""
     @AppStorage(PreferencesManager.doneSoundKey) private var doneSound = ""
 
     var body: some View {
         Form {
+            Section("Voice Input") {
+                Toggle("Enable voice input", isOn: $voiceInputEnabled)
+                Text("Double-tap ⌘ and hold to dictate a response. Release to send.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
             Section("Attention") {
                 Toggle("Show panel", isOn: $showAttentionPanel)
                 Picker("Sound", selection: $attentionSound) {
