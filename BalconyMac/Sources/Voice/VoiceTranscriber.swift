@@ -33,9 +33,15 @@ final class VoiceTranscriber {
     private var secondaryTranscript = ""
     private var secondaryConfidence: Float = 0
 
+    // Cached recognizers — recreated only when locale changes
+    private var cachedPrimaryRecognizer: SFSpeechRecognizer?
+    private var cachedPrimaryLocale = ""
+    private var cachedSecondaryRecognizer: SFSpeechRecognizer?
+    private var cachedSecondaryLocale = ""
+
     /// Whether voice input is available (authorized and a recognizer exists for the selected locale).
     var isAvailable: Bool {
-        makeRecognizer(for: PreferencesManager.shared.voiceLanguage)?.isAvailable == true
+        recognizer(for: PreferencesManager.shared.voiceLanguage)?.isAvailable == true
             && authorizationStatus == .authorized
     }
 
@@ -77,20 +83,22 @@ final class VoiceTranscriber {
         let primaryLocale = PreferencesManager.shared.voiceLanguage
         let secondaryLocale = PreferencesManager.shared.voiceSecondaryLanguage
 
-        guard let primaryRecognizer = makeRecognizer(for: primaryLocale),
+        guard let primaryRecognizer = recognizer(for: primaryLocale),
               primaryRecognizer.isAvailable else {
             logger.error("Primary speech recognizer not available")
             return
         }
 
         let hasSecondary = !secondaryLocale.isEmpty && secondaryLocale != primaryLocale
-        let secondaryRecognizer = hasSecondary ? makeRecognizer(for: secondaryLocale) : nil
+        let secondaryRecognizer = hasSecondary ? recognizer(for: secondaryLocale) : nil
 
         transcript = ""
         primaryTranscript = ""
         primaryConfidence = 0
         secondaryTranscript = ""
         secondaryConfidence = 0
+        currentWinner = .primary
+        committed = false
 
         let engine = AVAudioEngine()
 
@@ -184,11 +192,27 @@ final class VoiceTranscriber {
 
     // MARK: - Private
 
-    private func makeRecognizer(for localeId: String) -> SFSpeechRecognizer? {
-        if localeId.isEmpty {
-            return SFSpeechRecognizer()
+    /// Return a cached recognizer for the locale, recreating only when the locale changes.
+    private func recognizer(for localeId: String) -> SFSpeechRecognizer? {
+        // Check primary cache
+        if cachedPrimaryLocale == localeId, let r = cachedPrimaryRecognizer { return r }
+        // Check secondary cache
+        if cachedSecondaryLocale == localeId, let r = cachedSecondaryRecognizer { return r }
+
+        // Create and cache
+        let r = localeId.isEmpty
+            ? SFSpeechRecognizer()
+            : SFSpeechRecognizer(locale: Locale(identifier: localeId))
+
+        // Store in the first available slot, or overwrite primary
+        if cachedPrimaryRecognizer == nil || cachedPrimaryLocale == localeId {
+            cachedPrimaryRecognizer = r
+            cachedPrimaryLocale = localeId
+        } else {
+            cachedSecondaryRecognizer = r
+            cachedSecondaryLocale = localeId
         }
-        return SFSpeechRecognizer(locale: Locale(identifier: localeId))
+        return r
     }
 
     private func makeRequest() -> SFSpeechAudioBufferRecognitionRequest {
@@ -199,7 +223,18 @@ final class VoiceTranscriber {
         return request
     }
 
-    /// Pick the transcript with higher average confidence.
+    /// Which recognizer is currently winning.
+    private enum Winner { case primary, secondary }
+    private var currentWinner: Winner = .primary
+
+    /// Whether language detection is complete and we've committed to one recognizer.
+    private var committed = false
+
+    /// Minimum characters before we commit to a language.
+    private static let commitThreshold = 12
+
+    /// Pick the best transcript. During the detection phase, compare confidence.
+    /// Once the winner accumulates enough text, commit and kill the loser.
     private func pickBestTranscript() {
         if secondaryRequest == nil {
             // Single language mode
@@ -207,17 +242,43 @@ final class VoiceTranscriber {
             return
         }
 
-        // Both languages active — pick higher confidence, fall back to longer text
-        if primaryConfidence > 0 || secondaryConfidence > 0 {
-            if secondaryConfidence > primaryConfidence && !secondaryTranscript.isEmpty {
-                transcript = secondaryTranscript
-            } else {
-                transcript = primaryTranscript
+        // Already committed — only use the winner
+        if committed {
+            switch currentWinner {
+            case .primary: transcript = primaryTranscript
+            case .secondary: transcript = secondaryTranscript
             }
-        } else if !primaryTranscript.isEmpty {
-            transcript = primaryTranscript
-        } else {
+            return
+        }
+
+        // Detection phase: pick whichever has higher confidence
+        if secondaryConfidence > primaryConfidence && !secondaryTranscript.isEmpty {
+            currentWinner = .secondary
             transcript = secondaryTranscript
+        } else if !primaryTranscript.isEmpty {
+            currentWinner = .primary
+            transcript = primaryTranscript
+        }
+
+        // Commit once the winner has enough text
+        let winnerText = currentWinner == .primary ? primaryTranscript : secondaryTranscript
+        if winnerText.count >= Self.commitThreshold {
+            committed = true
+            // Kill the losing recognizer to stop it from producing garbage
+            switch currentWinner {
+            case .primary:
+                secondaryRequest?.endAudio()
+                secondaryTask?.cancel()
+                secondaryRequest = nil
+                secondaryTask = nil
+                logger.info("Committed to primary language")
+            case .secondary:
+                primaryRequest?.endAudio()
+                primaryTask?.cancel()
+                primaryRequest = nil
+                primaryTask = nil
+                logger.info("Committed to secondary language")
+            }
         }
     }
 
