@@ -59,6 +59,16 @@ private enum PanelTheme {
                 : NSColor(white: 0.0, alpha: 0.25)
         }
     ))
+
+    /// Code block background
+    static let codeBackground = Color(nsColor: NSColor(
+        name: nil,
+        dynamicProvider: { appearance in
+            appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+                ? NSColor(white: 0.0, alpha: 0.25)
+                : NSColor(white: 0.0, alpha: 0.05)
+        }
+    ))
 }
 
 // MARK: - Vibrancy Background
@@ -87,7 +97,7 @@ private struct PanelBackground: View {
     }
 }
 
-/// Renders a string with basic markdown (bold, italic, code) using AttributedString.
+/// Renders markdown text with support for fenced code blocks, inline formatting, and proper fonts.
 private struct MarkdownText: View {
     let text: String
     let color: Color
@@ -98,13 +108,104 @@ private struct MarkdownText: View {
     }
 
     var body: some View {
-        if let attributed = try? AttributedString(markdown: text, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)) {
-            Text(attributed)
-                .foregroundStyle(color)
-        } else {
-            Text(text)
-                .foregroundStyle(color)
+        VStack(alignment: .leading, spacing: 6) {
+            ForEach(Array(Self.parseSegments(text).enumerated()), id: \.offset) { _, segment in
+                switch segment {
+                case .text(let content):
+                    if let attributed = try? AttributedString(
+                        markdown: content,
+                        options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)
+                    ) {
+                        Text(attributed)
+                            .foregroundStyle(color)
+                    } else {
+                        Text(content)
+                            .foregroundStyle(color)
+                    }
+                case .codeBlock(let lang, let code):
+                    VStack(alignment: .leading, spacing: 0) {
+                        if !lang.isEmpty {
+                            Text(lang)
+                                .font(.system(size: 9, weight: .medium, design: .monospaced))
+                                .foregroundStyle(PanelTheme.textTertiary)
+                                .padding(.horizontal, 8)
+                                .padding(.top, 6)
+                                .padding(.bottom, 2)
+                        }
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            Text(code)
+                                .font(.system(size: 11, design: .monospaced))
+                                .foregroundStyle(PanelTheme.textPrimary)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, lang.isEmpty ? 6 : 4)
+                                .fixedSize(horizontal: true, vertical: false)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(PanelTheme.codeBackground)
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                }
+            }
         }
+    }
+
+    private enum Segment {
+        case text(String)
+        case codeBlock(lang: String, code: String)
+    }
+
+    /// Split text into alternating prose and fenced code block segments.
+    private static func parseSegments(_ text: String) -> [Segment] {
+        var segments: [Segment] = []
+        var current = ""
+        let lines = text.components(separatedBy: "\n")
+        var i = 0
+
+        while i < lines.count {
+            let line = lines[i]
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+
+            if trimmed.hasPrefix("```") {
+                // Flush accumulated text
+                let flushed = current.trimmingCharacters(in: .newlines)
+                if !flushed.isEmpty {
+                    segments.append(.text(flushed))
+                }
+                current = ""
+
+                // Extract language hint
+                let lang = String(trimmed.dropFirst(3)).trimmingCharacters(in: .whitespaces)
+
+                // Collect code lines until closing ```
+                var codeLines: [String] = []
+                i += 1
+                while i < lines.count {
+                    let codeLine = lines[i]
+                    if codeLine.trimmingCharacters(in: .whitespaces).hasPrefix("```") {
+                        i += 1
+                        break
+                    }
+                    codeLines.append(codeLine)
+                    i += 1
+                }
+
+                let code = codeLines.joined(separator: "\n")
+                if !code.isEmpty {
+                    segments.append(.codeBlock(lang: lang, code: code))
+                }
+            } else {
+                if !current.isEmpty { current += "\n" }
+                current += line
+                i += 1
+            }
+        }
+
+        let flushed = current.trimmingCharacters(in: .newlines)
+        if !flushed.isEmpty {
+            segments.append(.text(flushed))
+        }
+
+        return segments
     }
 }
 
