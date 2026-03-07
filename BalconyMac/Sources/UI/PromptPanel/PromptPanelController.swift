@@ -37,13 +37,21 @@ private class DimmingView: NSView {
     required init?(coder: NSCoder) { fatalError() }
 }
 
-/// NSView wrapper providing mouse hover tracking and a dimming overlay.
+/// NSView wrapper providing mouse hover tracking, drag/swipe-to-dismiss, and a dimming overlay.
 private class HoverTrackingView: NSView {
     var onMouseEntered: (() -> Void)?
     var onMouseExited: (() -> Void)?
+    var onSwipeDismiss: (() -> Void)?
     let dimmingView = DimmingView()
 
     override var isOpaque: Bool { false }
+
+    /// Horizontal offset accumulated during a drag or scroll gesture.
+    private var dragOffsetX: CGFloat = 0
+    /// Whether a mouse drag is in progress.
+    private var isDragging = false
+    /// The dismiss threshold (points). Beyond this the panel is dismissed on release.
+    private static let dismissThreshold: CGFloat = 80
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -77,6 +85,104 @@ private class HoverTrackingView: NSView {
     override func mouseExited(with event: NSEvent) {
         onMouseExited?()
     }
+
+    // MARK: - Drag to dismiss (mouse)
+
+    override func mouseDown(with event: NSEvent) {
+        isDragging = true
+        dragOffsetX = 0
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        guard isDragging else { return }
+        dragOffsetX += event.deltaX
+        // Only allow dragging to the right
+        let offset = max(dragOffsetX, 0)
+        applyDragOffset(offset)
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        guard isDragging else { return }
+        isDragging = false
+        let offset = max(dragOffsetX, 0)
+        dragOffsetX = 0
+
+        if offset > Self.dismissThreshold {
+            onSwipeDismiss?()
+        } else {
+            snapBack()
+        }
+    }
+
+    // MARK: - Scroll/swipe to dismiss (trackpad / Magic Mouse)
+
+    /// Timer that fires when scroll events stop arriving, resolving the gesture.
+    private var scrollIdleTimer: Timer?
+
+    override func scrollWheel(with event: NSEvent) {
+        // Only handle horizontal scrolls
+        guard abs(event.scrollingDeltaX) > abs(event.scrollingDeltaY) else {
+            super.scrollWheel(with: event)
+            return
+        }
+
+        dragOffsetX += event.scrollingDeltaX
+        let offset = max(dragOffsetX, 0)
+        applyDragOffset(offset)
+
+        // Reset idle timer on every scroll event
+        scrollIdleTimer?.invalidate()
+        scrollIdleTimer = Timer.scheduledTimer(withTimeInterval: 0.15, repeats: false) { [weak self] _ in
+            self?.resolveScrollGesture()
+        }
+
+        // Also resolve immediately on explicit terminal phases
+        let isTerminal = event.phase == .ended || event.phase == .cancelled
+            || event.momentumPhase == .ended || event.momentumPhase == .cancelled
+        if isTerminal {
+            scrollIdleTimer?.invalidate()
+            scrollIdleTimer = nil
+            resolveScrollGesture()
+        }
+    }
+
+    private func resolveScrollGesture() {
+        let finalOffset = max(dragOffsetX, 0)
+        dragOffsetX = 0
+        if finalOffset > Self.dismissThreshold {
+            onSwipeDismiss?()
+        } else {
+            snapBack()
+        }
+    }
+
+    // MARK: - Drag helpers
+
+    private func applyDragOffset(_ offset: CGFloat) {
+        guard let panel = window else { return }
+        // Shift panel to the right and fade proportionally
+        let progress = min(offset / (Self.dismissThreshold * 1.5), 1.0)
+        var frame = panel.frame
+        // Store original x on first move
+        frame.origin.x = originalPanelX + offset
+        panel.setFrame(frame, display: false)
+        panel.alphaValue = 1.0 - progress * 0.6
+    }
+
+    private func snapBack() {
+        guard let panel = window else { return }
+        var frame = panel.frame
+        frame.origin.x = originalPanelX
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.2
+            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            panel.animator().setFrame(frame, display: true)
+            panel.animator().alphaValue = 1.0
+        }
+    }
+
+    /// The panel's original X position before any drag offset.
+    var originalPanelX: CGFloat = 0
 }
 
 // MARK: - PromptPanelController
@@ -369,6 +475,9 @@ final class PromptPanelController {
         trackingView.onMouseExited = { [weak self] in
             self?.handlePanelMouseExited()
         }
+        trackingView.onSwipeDismiss = { [weak self] in
+            self?.dismissPrompt(for: sessionId)
+        }
         panel.contentView = trackingView
 
         guard let screen = NSScreen.main else { return }
@@ -377,6 +486,7 @@ final class PromptPanelController {
 
         let topY = screenFrame.maxY - Self.topMargin - height
         panel.setFrame(NSRect(x: x, y: topY, width: width, height: height), display: false)
+        trackingView.originalPanelX = x
 
         // Insert new panel at the front (top of stack)
         panels.insert((sessionId: sessionId, panel: panel), at: 0)
@@ -436,6 +546,7 @@ final class PromptPanelController {
 
     private func applyLayout(to panel: NSPanel, frame: NSRect, scale: CGFloat, dimming: CGFloat, alpha: CGFloat, animated: Bool) {
         let trackingView = panel.contentView as? HoverTrackingView
+        trackingView?.originalPanelX = frame.origin.x
         let transform = CATransform3DMakeScale(scale, scale, 1.0)
 
         if animated {
@@ -478,7 +589,7 @@ final class PromptPanelController {
         )
 
         panel.level = .floating
-        panel.isMovableByWindowBackground = true
+        panel.isMovableByWindowBackground = false
         panel.isOpaque = false
         panel.isReleasedWhenClosed = false
         panel.hidesOnDeactivate = false
@@ -492,7 +603,7 @@ final class PromptPanelController {
     private func fadeOut(_ panel: NSPanel) {
         let panelRef = panel
         var targetFrame = panelRef.frame
-        targetFrame.origin.y -= 8
+        targetFrame.origin.x += 40
         NSAnimationContext.runAnimationGroup({ context in
             context.duration = 0.25
             context.timingFunction = CAMediaTimingFunction(name: .easeIn)
