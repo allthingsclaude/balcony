@@ -520,12 +520,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
 
             // Dismiss idle prompt when user types in the local terminal
-            // (but not when the user is interacting with a Balcony panel or
-            // within 1s of restoring focus — app switching generates spurious stdin)
+            // (but not within 1s of restoring focus — app switching generates spurious stdin)
             await ptySessionManager.setOnStdinActivity { [weak self] ptySessionId in
                 Task { @MainActor in
                     guard let self else { return }
-                    if self.promptPanelController.isPanelActive { return }
                     let elapsed = ProcessInfo.processInfo.systemUptime - self.promptPanelController.lastRestoreTime
                     if elapsed < 1.0 { return }
                     self.hookEventHandler.handleStdinActivity(ptySessionId: ptySessionId)
