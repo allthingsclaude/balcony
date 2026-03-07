@@ -106,6 +106,7 @@ private struct NotificationsTab: View {
     @AppStorage(PreferencesManager.showDonePanelKey) private var showDonePanel = true
     @AppStorage(PreferencesManager.voiceInputEnabledKey) private var voiceInputEnabled = false
     @AppStorage(PreferencesManager.voiceLanguageKey) private var voiceLanguage = ""
+    @AppStorage(PreferencesManager.voiceSecondaryLanguageKey) private var voiceSecondaryLanguage = ""
     @AppStorage(PreferencesManager.attentionSoundKey) private var attentionSound = ""
     @AppStorage(PreferencesManager.doneSoundKey) private var doneSound = ""
 
@@ -114,8 +115,15 @@ private struct NotificationsTab: View {
             Section("Voice Input") {
                 Toggle("Enable voice input", isOn: $voiceInputEnabled)
                 if voiceInputEnabled {
-                    Picker("Language", selection: $voiceLanguage) {
+                    Picker("Primary language", selection: $voiceLanguage) {
                         Text("System Default").tag("")
+                        Divider()
+                        ForEach(VoiceTranscriber.supportedLanguages, id: \.id) { lang in
+                            Text(lang.name).tag(lang.id)
+                        }
+                    }
+                    Picker("Secondary language", selection: $voiceSecondaryLanguage) {
+                        Text("None").tag("")
                         Divider()
                         ForEach(VoiceTranscriber.supportedLanguages, id: \.id) { lang in
                             Text(lang.name).tag(lang.id)
