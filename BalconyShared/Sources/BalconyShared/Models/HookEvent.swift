@@ -240,7 +240,7 @@ public struct IdlePromptInfo: Sendable {
     }
 
     /// Detect if the assistant message contains an AskUserQuestion-style option list.
-    /// Returns nil if it's a plain text prompt.
+    /// Returns nil if it's a plain text prompt or a regular numbered list.
     public var detectedOptions: (question: String, options: [ParsedOption])? {
         let lines = lastAssistantMessage.components(separatedBy: .newlines)
 
@@ -280,6 +280,17 @@ public struct IdlePromptInfo: Sendable {
         // Validate sequential numbering starting from 1
         for (i, option) in optionLines.enumerated() {
             guard option.index == i + 1 else { return nil }
+        }
+
+        // Reject regular numbered lists: options should be short, plain labels
+        // (not full sentences with markdown, em dashes, or long descriptions)
+        for item in optionLines {
+            // Real options are concise (typically under 80 chars)
+            if item.label.count > 80 { return nil }
+            // Markdown formatting indicates a description, not a selectable option
+            if item.label.contains("**") || item.label.contains("``") { return nil }
+            // Em dashes or long separators indicate descriptive list items
+            if item.label.contains(" — ") || item.label.contains(" -- ") { return nil }
         }
 
         // Extract the question text (everything before the options block)

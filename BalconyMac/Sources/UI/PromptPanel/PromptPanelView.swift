@@ -87,6 +87,27 @@ private struct PanelBackground: View {
     }
 }
 
+/// Renders a string with basic markdown (bold, italic, code) using AttributedString.
+private struct MarkdownText: View {
+    let text: String
+    let color: Color
+
+    init(_ text: String, color: Color = PanelTheme.textSecondary) {
+        self.text = text
+        self.color = color
+    }
+
+    var body: some View {
+        if let attributed = try? AttributedString(markdown: text, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)) {
+            Text(attributed)
+                .foregroundStyle(color)
+        } else {
+            Text(text)
+                .foregroundStyle(color)
+        }
+    }
+}
+
 // MARK: - Header Buttons
 
 /// Small button to focus the terminal/IDE where the CLI runs.
@@ -336,9 +357,8 @@ struct IdlePromptPanelView: View {
 
             // Claude's message
             ScrollView {
-                Text(displayMessage)
+                MarkdownText(displayMessage)
                     .font(.system(size: 12))
-                    .foregroundStyle(PanelTheme.textSecondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             .frame(maxHeight: 120)
@@ -469,9 +489,8 @@ struct MultiOptionPanelView: View {
             // Question text
             if let detected = info.detectedOptions {
                 ScrollView {
-                    Text(detected.question)
+                    MarkdownText(detected.question)
                         .font(.system(size: 12))
-                        .foregroundStyle(PanelTheme.textSecondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .frame(maxHeight: 120)
@@ -656,9 +675,8 @@ struct AskUserQuestionPanelView: View {
 
             // Question text
             ScrollView {
-                Text(currentQuestion.question)
+                MarkdownText(currentQuestion.question)
                     .font(.system(size: 12))
-                    .foregroundStyle(PanelTheme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
