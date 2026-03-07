@@ -93,6 +93,7 @@ final class VoiceTranscriber {
         let secondaryRecognizer = hasSecondary ? recognizer(for: secondaryLocale) : nil
 
         transcript = ""
+        frozenPrefix = ""
         primaryTranscript = ""
         primaryConfidence = 0
         secondaryTranscript = ""
@@ -165,6 +166,19 @@ final class VoiceTranscriber {
         }
     }
 
+    /// Remove the last word from the current transcript.
+    /// Freezes the edited text and restarts recognition so deleted words don't return.
+    func deleteLastWord() {
+        guard !transcript.isEmpty else { return }
+        var words = transcript.split(separator: " ", omittingEmptySubsequences: true)
+        guard !words.isEmpty else { transcript = ""; return }
+        words.removeLast()
+        let edited = words.joined(separator: " ")
+        frozenPrefix = edited
+        transcript = edited
+        restartRecognitionTasks()
+    }
+
     /// Stop recording and return the final transcript.
     @discardableResult
     func stopRecording() -> String {
@@ -233,53 +247,121 @@ final class VoiceTranscriber {
     /// Minimum characters before we commit to a language.
     private static let commitThreshold = 12
 
+    /// Frozen prefix from word deletions. New recognizer output is appended after this.
+    private var frozenPrefix = ""
+
     /// Pick the best transcript. During the detection phase, compare confidence.
     /// Once the winner accumulates enough text, commit and kill the loser.
     private func pickBestTranscript() {
+        var raw: String
         if secondaryRequest == nil {
             // Single language mode
-            transcript = primaryTranscript
-            return
-        }
-
-        // Already committed — only use the winner
-        if committed {
+            raw = primaryTranscript
+        } else if committed {
+            // Already committed — only use the winner
             switch currentWinner {
-            case .primary: transcript = primaryTranscript
-            case .secondary: transcript = secondaryTranscript
+            case .primary: raw = primaryTranscript
+            case .secondary: raw = secondaryTranscript
             }
-            return
-        }
+        } else {
+            // Detection phase: pick whichever has higher confidence
+            if secondaryConfidence > primaryConfidence && !secondaryTranscript.isEmpty {
+                currentWinner = .secondary
+                raw = secondaryTranscript
+            } else if !primaryTranscript.isEmpty {
+                currentWinner = .primary
+                raw = primaryTranscript
+            } else {
+                raw = ""
+            }
 
-        // Detection phase: pick whichever has higher confidence
-        if secondaryConfidence > primaryConfidence && !secondaryTranscript.isEmpty {
-            currentWinner = .secondary
-            transcript = secondaryTranscript
-        } else if !primaryTranscript.isEmpty {
-            currentWinner = .primary
-            transcript = primaryTranscript
-        }
-
-        // Commit once the winner has enough text
-        let winnerText = currentWinner == .primary ? primaryTranscript : secondaryTranscript
-        if winnerText.count >= Self.commitThreshold {
-            committed = true
-            // Kill the losing recognizer to stop it from producing garbage
-            switch currentWinner {
-            case .primary:
-                secondaryRequest?.endAudio()
-                secondaryTask?.cancel()
-                secondaryRequest = nil
-                secondaryTask = nil
-                logger.info("Committed to primary language")
-            case .secondary:
-                primaryRequest?.endAudio()
-                primaryTask?.cancel()
-                primaryRequest = nil
-                primaryTask = nil
-                logger.info("Committed to secondary language")
+            // Commit once the winner has enough text
+            let winnerText = currentWinner == .primary ? primaryTranscript : secondaryTranscript
+            if winnerText.count >= Self.commitThreshold {
+                committed = true
+                // Kill the losing recognizer to stop it from producing garbage
+                switch currentWinner {
+                case .primary:
+                    secondaryRequest?.endAudio()
+                    secondaryTask?.cancel()
+                    secondaryRequest = nil
+                    secondaryTask = nil
+                    logger.info("Committed to primary language")
+                case .secondary:
+                    primaryRequest?.endAudio()
+                    primaryTask?.cancel()
+                    primaryRequest = nil
+                    primaryTask = nil
+                    logger.info("Committed to secondary language")
+                }
             }
         }
+
+        // Prepend frozen prefix (from word deletions) to new recognizer output
+        if frozenPrefix.isEmpty {
+            transcript = raw
+        } else if raw.isEmpty {
+            transcript = frozenPrefix
+        } else {
+            transcript = frozenPrefix + " " + raw
+        }
+    }
+
+    /// Restart recognition tasks while keeping the audio engine running.
+    /// Called after word deletion to start fresh so deleted words don't reappear.
+    private func restartRecognitionTasks() {
+        // Cancel current tasks
+        primaryRequest?.endAudio()
+        primaryTask?.cancel()
+        secondaryRequest?.endAudio()
+        secondaryTask?.cancel()
+        primaryTranscript = ""
+        primaryConfidence = 0
+        secondaryTranscript = ""
+        secondaryConfidence = 0
+
+        // Determine which recognizer(s) to restart
+        let primaryLocale = PreferencesManager.shared.voiceLanguage
+        let secondaryLocale = PreferencesManager.shared.voiceSecondaryLanguage
+
+        // Start new primary task
+        if let rec = recognizer(for: committed && currentWinner == .secondary ? secondaryLocale : primaryLocale) {
+            let req = makeRequest()
+            primaryRequest = req
+            primaryTask = rec.recognitionTask(with: req) { [weak self] result, error in
+                Task { @MainActor in
+                    guard let self, self.isRecording else { return }
+                    if let result {
+                        self.primaryTranscript = result.bestTranscription.formattedString
+                        self.primaryConfidence = self.averageConfidence(result.bestTranscription)
+                        self.pickBestTranscript()
+                    }
+                }
+            }
+        }
+
+        // If not yet committed to a language, restart secondary too
+        if !committed && !secondaryLocale.isEmpty && secondaryLocale != primaryLocale {
+            if let rec = recognizer(for: secondaryLocale) {
+                let req = makeRequest()
+                secondaryRequest = req
+                secondaryTask = rec.recognitionTask(with: req) { [weak self] result, error in
+                    Task { @MainActor in
+                        guard let self, self.isRecording else { return }
+                        if let result {
+                            self.secondaryTranscript = result.bestTranscription.formattedString
+                            self.secondaryConfidence = self.averageConfidence(result.bestTranscription)
+                            self.pickBestTranscript()
+                        }
+                    }
+                }
+            }
+        } else {
+            secondaryRequest = nil
+            secondaryTask = nil
+        }
+
+        logger.info("Restarted recognition tasks after word deletion")
     }
 
     /// Average confidence across all segments of a transcription.

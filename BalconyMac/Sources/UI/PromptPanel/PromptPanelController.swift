@@ -12,9 +12,16 @@ private class KeyablePanel: NSPanel {
     /// Called when the user presses ESC to dismiss the panel.
     var onCancel: (() -> Void)?
 
+    /// Returns true if backspace should be consumed (voice recording is active).
+    var onBackspace: (() -> Bool)?
+
     override func sendEvent(_ event: NSEvent) {
         if event.type == .keyDown, event.keyCode == 53 {
             onCancel?()
+            return
+        }
+        // Backspace (keyCode 51) during voice recording
+        if event.type == .keyDown, event.keyCode == 51, onBackspace?() == true {
             return
         }
         super.sendEvent(event)
@@ -455,6 +462,11 @@ final class PromptPanelController {
         if let keyablePanel = panel as? KeyablePanel {
             keyablePanel.onCancel = { [weak self] in
                 self?.dismissPrompt(for: sessionId)
+            }
+            keyablePanel.onBackspace = { [weak self] in
+                guard let transcriber = self?.voiceTranscriber, transcriber.isRecording else { return false }
+                transcriber.deleteLastWord()
+                return true
             }
         }
 
