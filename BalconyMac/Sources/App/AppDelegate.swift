@@ -173,6 +173,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard promptPanelController.hasPanels else { return }
 
         isVoiceRecording = true
+        SoundEffect.shared.playDing()
         voiceTranscriber.startRecording()
 
         // Activate the panel so the recording UI is visible
@@ -182,6 +183,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func stopVoiceInput() {
         isVoiceRecording = false
+        SoundEffect.shared.playDong()
         let transcript = voiceTranscriber.stopRecording()
         logger.info("Voice input stopped, transcript: '\(transcript.prefix(80))'")
 

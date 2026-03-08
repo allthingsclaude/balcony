@@ -73,6 +73,7 @@
 		9D859BDA07E92C27020D71C8 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33367B0D382AADED54836B8B /* main.swift */; };
 		9ED3CD0EAB5DEF23CC454A88 /* InteractivePrompt.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6DDE06A45D5DB609E1918B25 /* InteractivePrompt.swift */; };
 		9F156723BD078A153B7FEED7 /* ANSIColorMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = D68E9482CD96A6EAD061F6F8 /* ANSIColorMapper.swift */; };
+		A1DA2ABC5918AFF42913B4C7 /* SoundEffect.swift in Sources */ = {isa = PBXBuildFile; fileRef = 67403DD051A9CC317E0BD4E7 /* SoundEffect.swift */; };
 		A2C5F308DF137DEC43893871 /* EncryptedPipelineIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA00F9F09E1361C6366E02A8 /* EncryptedPipelineIntegrationTests.swift */; };
 		A3F3119F2BC407CF8E28230A /* IOBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6084BF828A4001E3731C509 /* IOBridge.swift */; };
 		AB12D97B837548A8A8D6D4B5 /* BonjourAdvertiser.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEFB8FEA08F6458F0103A0F7 /* BonjourAdvertiser.swift */; };
@@ -156,6 +157,7 @@
 		63C417099683EF822F4B30DF /* BLECentral.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BLECentral.swift; sourceTree = "<group>"; };
 		6449B25645CA8534562C7068 /* BalconySharedTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BalconySharedTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		669BE9921928194372E5B944 /* MenuBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarView.swift; sourceTree = "<group>"; };
+		67403DD051A9CC317E0BD4E7 /* SoundEffect.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundEffect.swift; sourceTree = "<group>"; };
 		6D55EDA07D8C2EC099B5D24B /* PromptPanelController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromptPanelController.swift; sourceTree = "<group>"; };
 		6DDE06A45D5DB609E1918B25 /* InteractivePrompt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InteractivePrompt.swift; sourceTree = "<group>"; };
 		6F43204098DB6C4D61A3C700 /* WebSocketServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSocketServer.swift; sourceTree = "<group>"; };
@@ -540,6 +542,7 @@
 		ADE2F98643DF7B585E00A78E /* Voice */ = {
 			isa = PBXGroup;
 			children = (
+				67403DD051A9CC317E0BD4E7 /* SoundEffect.swift */,
 				824DB8463F130C5F7DF63239 /* VoiceTranscriber.swift */,
 			);
 			path = Voice;
@@ -910,6 +913,7 @@
 				5DB49167F997C4E241C7626C /* SetupView.swift in Sources */,
 				1A26A405DD459E9DFE1945B5 /* SetupWindowController.swift in Sources */,
 				DE3744B22608B9130AA240C6 /* SlashCommandScanner.swift in Sources */,
+				A1DA2ABC5918AFF42913B4C7 /* SoundEffect.swift in Sources */,
 				DFFB8C76E4D453A641002387 /* StatusItemManager.swift in Sources */,
 				6D0A2E05B4BB51E209736639 /* UpdaterService.swift in Sources */,
 				CAE8A6A56BB5A3FA41D5C676 /* VoiceTranscriber.swift in Sources */,
