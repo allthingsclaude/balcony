@@ -112,7 +112,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let now = ProcessInfo.processInfo.systemUptime
             let elapsed = now - lastCmdRelease
 
-            if elapsed < 0.35 && elapsed > 0 && promptPanelController.hasPanels
+            if elapsed < 0.35 && elapsed > 0
                 && PreferencesManager.shared.voiceInputEnabled && voiceTranscriber.isAvailable {
                 // Second press within double-tap window with voice enabled.
                 // Start a hold timer — if held long enough, start voice recording.
@@ -168,17 +168,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: - Voice Input
 
+    /// Whether voice recording is using the standalone panel (no notification panel).
+    private var isVoiceStandalone = false
+
     private func startVoiceInput() {
         voiceHoldTimer = nil
-        guard promptPanelController.hasPanels else { return }
 
         isVoiceRecording = true
         SoundEffect.shared.playDing()
         voiceTranscriber.startRecording()
 
-        // Activate the panel so the recording UI is visible
-        promptPanelController.activateFrontmostPanel()
-        logger.info("Voice input started")
+        if promptPanelController.hasPanels {
+            isVoiceStandalone = false
+            promptPanelController.activateFrontmostPanel()
+        } else {
+            isVoiceStandalone = true
+            promptPanelController.showVoiceOnlyPanel()
+        }
+        logger.info("Voice input started (standalone=\(self.isVoiceStandalone))")
     }
 
     private func stopVoiceInput() {
@@ -187,12 +194,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let transcript = voiceTranscriber.stopRecording()
         logger.info("Voice input stopped, transcript: '\(transcript.prefix(80))'")
 
-        guard !transcript.isEmpty else { return }
-        guard let sessionId = promptPanelController.frontmostSessionId else { return }
+        guard !transcript.isEmpty else {
+            if isVoiceStandalone {
+                promptPanelController.dismissVoiceOnlyPanel()
+                isVoiceStandalone = false
+            }
+            return
+        }
 
-        let ptySessionId = resolveIdlePromptPTYSessionId(sessionId)
+        if isVoiceStandalone {
+            // Standalone mode — type into the frontmost terminal via CGEvent
+            isVoiceStandalone = false
+            typeIntoFrontmostApp(transcript)
+        } else if let sessionId = promptPanelController.frontmostSessionId {
+            // Panel is active — send to its session via PTY
+            let ptySessionId = resolveIdlePromptPTYSessionId(sessionId)
+            sendTranscriptToPTY(transcript, ptySessionId: ptySessionId)
+            hookEventHandler.dismissIdlePrompt(for: sessionId)
+        }
+    }
 
-        // Send transcript text to PTY
+    /// Send transcript text + Enter to a PTY session.
+    private func sendTranscriptToPTY(_ transcript: String, ptySessionId: String) {
         if let data = transcript.data(using: .utf8) {
             if let fd = cachedSessionFDs[ptySessionId] {
                 PTYSessionManager.sendInputDirect(fd: fd, data: data)
@@ -201,15 +224,70 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
-        // Send Enter
         if let fd = cachedSessionFDs[ptySessionId] {
             PTYSessionManager.sendInputDirect(fd: fd, data: Data([0x0D]))
         } else {
             Task { await ptySessionManager.sendInput(sessionId: ptySessionId, data: Data([0x0D])) }
         }
+    }
 
-        // Dismiss the idle prompt
-        hookEventHandler.dismissIdlePrompt(for: sessionId)
+    /// Send text to the frontmost terminal by pasting from clipboard via CGEvent Cmd+V.
+    /// Requires Accessibility permissions for Balcony.
+    private func typeIntoFrontmostApp(_ text: String) {
+        let accessible = AXIsProcessTrusted()
+        logger.info("[VOICE] typeIntoFrontmostApp: text='\(text.prefix(40))' accessible=\(accessible)")
+
+        if !accessible {
+            // Prompt the user to grant Accessibility, which opens System Settings
+            let options = [kAXTrustedCheckOptionPrompt.takeRetainedValue(): true] as CFDictionary
+            AXIsProcessTrustedWithOptions(options)
+            logger.warning("[VOICE] Accessibility not granted — prompting user")
+            promptPanelController.dismissVoiceOnlyPanel()
+            return
+        }
+
+        // Remember which app to target
+        let targetApp = promptPanelController.voiceTargetApp
+        logger.info("[VOICE] Target app: \(targetApp?.localizedName ?? "nil") pid=\(targetApp?.processIdentifier ?? -1)")
+
+        // Dismiss voice panel (restores focus to previous app)
+        promptPanelController.dismissVoiceOnlyPanel()
+
+        // Delay to let the terminal regain focus, then type via CGEvent
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+            // Explicitly activate the target terminal app
+            targetApp?.activate()
+
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
+                let source = CGEventSource(stateID: .hidSystemState)
+
+                // Type text character by character via CGEvent (no clipboard)
+                var utf16 = Array(text.utf16)
+                let chunkSize = 20
+                var offset = 0
+                while offset < utf16.count {
+                    let end = min(offset + chunkSize, utf16.count)
+                    var chunk = Array(utf16[offset..<end])
+
+                    let keyDown = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: true)
+                    keyDown?.keyboardSetUnicodeString(stringLength: chunk.count, unicodeString: &chunk)
+                    keyDown?.post(tap: .cghidEventTap)
+
+                    let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: false)
+                    keyUp?.post(tap: .cghidEventTap)
+
+                    offset = end
+                }
+
+                // Press Enter (Return key)
+                let enterDown = CGEvent(keyboardEventSource: source, virtualKey: 0x24, keyDown: true)
+                enterDown?.post(tap: .cghidEventTap)
+                let enterUp = CGEvent(keyboardEventSource: source, virtualKey: 0x24, keyDown: false)
+                enterUp?.post(tap: .cghidEventTap)
+
+                self?.logger.info("[VOICE] Typed \(text.count) chars + Enter via CGEvent")
+            }
+        }
     }
 
     private func stopHotkeyMonitor() {
