@@ -58,5 +58,7 @@
         <string>bluetooth-central</string>
         <string>remote-notification</string>
     </array>
+    <key>NSSupportsLiveActivities</key>
+    <true/>
 </dict>
 </plist>

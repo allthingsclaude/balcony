@@ -11,6 +11,7 @@
 		037713E20A0A5F516C6DE9E2 /* HookListener.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9B350EE9FED6537E89F375A /* HookListener.swift */; };
 		05F879B73DA8046A8D8E49A4 /* StatusBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C4666F5F2F672B0D7E53B59 /* StatusBadge.swift */; };
 		069B2AE20FDB84393F621B3B /* SetupManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EE05188D3D1B4C8581F5C39 /* SetupManager.swift */; };
+		07E25FF081B3110E6B1AF340 /* BalconyLiveActivityBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05BBC9D1F6A5521A9F927591 /* BalconyLiveActivityBundle.swift */; };
 		0C8B98F96BE57AE5DFEDE5D1 /* PromptDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40C32C7301A46B9456C5FCCC /* PromptDetector.swift */; };
 		0D933AD1B3E54F23B69CAF0C /* Ember.caf in Resources */ = {isa = PBXBuildFile; fileRef = B991357679C1AF15590C765D /* Ember.caf */; };
 		0FE1BFBC4DC2490FA25064E4 /* SlashCommandMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF14263968FE5E9B5664835E /* SlashCommandMenu.swift */; };
@@ -35,6 +36,7 @@
 		3821795F819DC31ABB2019FE /* Beacon.caf in Resources */ = {isa = PBXBuildFile; fileRef = B6E7D43729E2AB6B5C76FBB5 /* Beacon.caf */; };
 		39672130F6211BFA094822B5 /* HookEventTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B724AECF0BADC73232DA7457 /* HookEventTests.swift */; };
 		39BA738A247CAB3676A4C7C8 /* BalconyiOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0D9E9C67B880DC32F63487B /* BalconyiOSApp.swift */; };
+		3AEE179C95AB0CEEAF2FE699 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B18A7B311BED1CF4EE1C4AAF /* Assets.xcassets */; };
 		3C3D008A990E7C943ED629EA /* AppIcon-Light@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = CCD6AA2F762D1F104A03EE29 /* AppIcon-Light@2x.png */; };
 		3D79F3D2AC1738237F5FF7CB /* SessionListModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD4F94005F234CC1764797BF /* SessionListModel.swift */; };
 		421C8CC638EF49CDCB2C843F /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FF246A4A3131A5AB9E40961A /* IOKit.framework */; };
@@ -83,12 +85,14 @@
 		8A23CFEEC72916867B22D67E /* PromptOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0737DE007E493E133BF36ACB /* PromptOverlayView.swift */; };
 		8ACEB2F730210C579A95CFEA /* SessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 160D61822B93FBE67A1C20C2 /* SessionManager.swift */; };
 		8B40350FB3FF1601623853F8 /* ProjectFileScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E0AAE0D253D1FCC52BEC9C1 /* ProjectFileScanner.swift */; };
+		8FF99F9F8A152D1E2C449744 /* BalconyLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9724F37EB284A8D4E5B78F5 /* BalconyLiveActivity.swift */; };
 		9117D5D329E9C5CB6A6E011A /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E860783542070F02AED00B7 /* SettingsView.swift */; };
 		9360DAA8496AA7A4E8D2E5C3 /* Prism.caf in Resources */ = {isa = PBXBuildFile; fileRef = D94E0A2FDFF5B9F928A0AE0D /* Prism.caf */; };
 		96F2B3247DD15F44DDB1246D /* ConnectionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 783D378FB676157E04C99FC9 /* ConnectionManager.swift */; };
 		98D09ECF7A45BB7ED30B1C5F /* HeadlessTerminalParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37B5F7A0DDF8C4003E6BD6B9 /* HeadlessTerminalParser.swift */; };
 		98FE05CDAD1EBC2C66FA5BB1 /* Pulse.caf in Resources */ = {isa = PBXBuildFile; fileRef = 2B6D0B553E8CCC6767233E71 /* Pulse.caf */; };
 		992E8F57143B3830BA04B39D /* MessageProtocolTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EAEA92A0B879C8CC2EF8F97 /* MessageProtocolTests.swift */; };
+		9C2B2987951AB79B232B6FD0 /* BalconySessionActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51F6918ABD3236CB58494981 /* BalconySessionActivity.swift */; };
 		9D859BDA07E92C27020D71C8 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33367B0D382AADED54836B8B /* main.swift */; };
 		9ED3CD0EAB5DEF23CC454A88 /* InteractivePrompt.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6DDE06A45D5DB609E1918B25 /* InteractivePrompt.swift */; };
 		9F156723BD078A153B7FEED7 /* ANSIColorMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = D68E9482CD96A6EAD061F6F8 /* ANSIColorMapper.swift */; };
@@ -113,9 +117,12 @@
 		CA0538254D8587B12591B78A /* Droplet.caf in Resources */ = {isa = PBXBuildFile; fileRef = 5DDCAFB5BCAFBAA48CE7D90D /* Droplet.caf */; };
 		CAE8A6A56BB5A3FA41D5C676 /* VoiceTranscriber.swift in Sources */ = {isa = PBXBuildFile; fileRef = 824DB8463F130C5F7DF63239 /* VoiceTranscriber.swift */; };
 		CB46EF06462A300AB36563DF /* Breeze.caf in Resources */ = {isa = PBXBuildFile; fileRef = 3CA20561CDA53C7BF2DD3306 /* Breeze.caf */; };
+		CF44BAF6DE877ED4A3506990 /* LiveActivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77AF97A6D8A2AC3E25BA499D /* LiveActivityManager.swift */; };
+		CFED5EE8B4ADDB806007E6CA /* BalconySessionActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51F6918ABD3236CB58494981 /* BalconySessionActivity.swift */; };
 		D1E57D2092EE25B9D4FF976C /* Whisper.caf in Resources */ = {isa = PBXBuildFile; fileRef = 8730CA81CCA156B81A88E10B /* Whisper.caf */; };
 		D696879E6AEF5C1FC655196A /* SoundManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0ECA084ED0E704E4088FC837 /* SoundManager.swift */; };
 		D6D338839DEF30F1F0864BD1 /* Dew.caf in Resources */ = {isa = PBXBuildFile; fileRef = 67504F8C2E5F8E316E1D73CB /* Dew.caf */; };
+		D6EB6755AB1E032431D3A031 /* BalconyLiveActivity.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = D9697B6D1A397E726378ECF6 /* BalconyLiveActivity.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		D73A8B9E38E6442C5AA69AC0 /* PTYManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F196F43A38F455DCA8EE5982 /* PTYManager.swift */; };
 		DA500C499792EA420BE493FD /* QRCodeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72541086349D5C7FE7CA0C64 /* QRCodeView.swift */; };
 		DE3744B22608B9130AA240C6 /* SlashCommandScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97F75FB665FB0C62D324F5EC /* SlashCommandScanner.swift */; };
@@ -137,6 +144,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		3C69DDD607961E575C32F916 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = F7ECBB149418AAFED95511E8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 774FB53B75224EF183A2396C;
+			remoteInfo = BalconyLiveActivity;
+		};
 		F9A8FE99BE9F13B29EAAA5C9 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = F7ECBB149418AAFED95511E8 /* Project object */;
@@ -146,10 +160,25 @@
 		};
 /* End PBXContainerItemProxy section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		A12B08AC3012B030631629B9 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				D6EB6755AB1E032431D3A031 /* BalconyLiveActivity.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
 		0214B334EED13B38D88E1BD9 /* HookEventHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HookEventHandler.swift; sourceTree = "<group>"; };
 		037E15271FF9FC402D02B51B /* TerminalLine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalLine.swift; sourceTree = "<group>"; };
 		04F411A79CF7264F289B6302 /* SessionSidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionSidebarView.swift; sourceTree = "<group>"; };
+		05BBC9D1F6A5521A9F927591 /* BalconyLiveActivityBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BalconyLiveActivityBundle.swift; sourceTree = "<group>"; };
 		0737DE007E493E133BF36ACB /* PromptOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromptOverlayView.swift; sourceTree = "<group>"; };
 		074DC1FC72657311D9A64B87 /* EscButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EscButton.swift; sourceTree = "<group>"; };
 		0C02C757F4FB8D345A6EFEF9 /* ModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelTests.swift; sourceTree = "<group>"; };
@@ -187,6 +216,7 @@
 		503D0AA0B8F031EB3C0F2E2C /* Glint.caf */ = {isa = PBXFileReference; lastKnownFileType = file; path = Glint.caf; sourceTree = "<group>"; };
 		50C657DCB9087A3FB0B1E315 /* ConversationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationView.swift; sourceTree = "<group>"; };
 		50CDFFCE4495E7D88AFCF8C4 /* SocketClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocketClient.swift; sourceTree = "<group>"; };
+		51F6918ABD3236CB58494981 /* BalconySessionActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BalconySessionActivity.swift; sourceTree = "<group>"; };
 		550F0D20164E87817511190D /* AskUserQuestionCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AskUserQuestionCardView.swift; sourceTree = "<group>"; };
 		55E1EE2CE44F019556ABD040 /* Echo.caf */ = {isa = PBXFileReference; lastKnownFileType = file; path = Echo.caf; sourceTree = "<group>"; };
 		563031AC1EAF150E0A7AAF5B /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
@@ -207,6 +237,7 @@
 		7024D589F31FE9F6BCB739A2 /* SetupWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupWindowController.swift; sourceTree = "<group>"; };
 		71543EED177672092D17577A /* Echo.caf */ = {isa = PBXFileReference; lastKnownFileType = file; path = Echo.caf; sourceTree = "<group>"; };
 		72541086349D5C7FE7CA0C64 /* QRCodeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRCodeView.swift; sourceTree = "<group>"; };
+		77AF97A6D8A2AC3E25BA499D /* LiveActivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityManager.swift; sourceTree = "<group>"; };
 		783D378FB676157E04C99FC9 /* ConnectionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionManager.swift; sourceTree = "<group>"; };
 		7BEB54F3C74377613045762F /* AwayDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AwayDetector.swift; sourceTree = "<group>"; };
 		7F95D010424477432179AB65 /* Pulse.caf */ = {isa = PBXFileReference; lastKnownFileType = file; path = Pulse.caf; sourceTree = "<group>"; };
@@ -231,7 +262,9 @@
 		A2992E0888E0EBC79BA14280 /* BalconyMac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; name = BalconyMac.app; path = Balcony.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A6084BF828A4001E3731C509 /* IOBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IOBridge.swift; sourceTree = "<group>"; };
 		A876093B09C95BC6B439A4EC /* PTYSessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PTYSessionManager.swift; sourceTree = "<group>"; };
+		A9724F37EB284A8D4E5B78F5 /* BalconyLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BalconyLiveActivity.swift; sourceTree = "<group>"; };
 		B0D9E9C67B880DC32F63487B /* BalconyiOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BalconyiOSApp.swift; sourceTree = "<group>"; };
+		B18A7B311BED1CF4EE1C4AAF /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		B6E7D43729E2AB6B5C76FBB5 /* Beacon.caf */ = {isa = PBXFileReference; lastKnownFileType = file; path = Beacon.caf; sourceTree = "<group>"; };
 		B724AECF0BADC73232DA7457 /* HookEventTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HookEventTests.swift; sourceTree = "<group>"; };
 		B8054709AEBB45731B614783 /* ModelListProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelListProvider.swift; sourceTree = "<group>"; };
@@ -249,6 +282,7 @@
 		D94E0A2FDFF5B9F928A0AE0D /* Prism.caf */ = {isa = PBXFileReference; lastKnownFileType = file; path = Prism.caf; sourceTree = "<group>"; };
 		D952D21F5F35A1506E4A4D08 /* CryptoManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CryptoManagerTests.swift; sourceTree = "<group>"; };
 		D95B51D498D493A07AD8D145 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		D9697B6D1A397E726378ECF6 /* BalconyLiveActivity.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = BalconyLiveActivity.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		DAE1288EF0CA05A15B0E30FF /* ConnectionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionManager.swift; sourceTree = "<group>"; };
 		DBCB78142A84C2BC6966A788 /* AppIcon-Dark@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon-Dark@2x.png"; sourceTree = "<group>"; };
 		DE1D9639D9928840FAEEECD3 /* RewindPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RewindPickerView.swift; sourceTree = "<group>"; };
@@ -332,6 +366,7 @@
 			children = (
 				575956E033E5EF90DEBBE923 /* BalconyCLI */,
 				E0A018E81D07F8F804A5CC03 /* Balcony.app */,
+				D9697B6D1A397E726378ECF6 /* BalconyLiveActivity.appex */,
 				A2992E0888E0EBC79BA14280 /* BalconyMac.app */,
 				6449B25645CA8534562C7068 /* BalconySharedTests.xctest */,
 			);
@@ -358,6 +393,16 @@
 				8730CA81CCA156B81A88E10B /* Whisper.caf */,
 			);
 			path = Sounds;
+			sourceTree = "<group>";
+		};
+		1B409D8DBFA037D5806149A5 /* BalconyLiveActivity */ = {
+			isa = PBXGroup;
+			children = (
+				B18A7B311BED1CF4EE1C4AAF /* Assets.xcassets */,
+				A9724F37EB284A8D4E5B78F5 /* BalconyLiveActivity.swift */,
+				05BBC9D1F6A5521A9F927591 /* BalconyLiveActivityBundle.swift */,
+			);
+			path = BalconyLiveActivity;
 			sourceTree = "<group>";
 		};
 		25C849943CCC8DCD3361BFB0 /* Session */ = {
@@ -393,6 +438,7 @@
 		29CC83942554DE7CE9CC9D89 /* Sources */ = {
 			isa = PBXGroup;
 			children = (
+				6C1EF5BB867846A87B4E62DF /* Activity */,
 				360A9665CF8E9D3D2ED2749F /* App */,
 				A82DDBFAD444E286EAEF5DEB /* Audio */,
 				E8C3BF787DFDC63397201A4A /* Connection */,
@@ -463,14 +509,24 @@
 		506E5A171C9E6F17609103DC = {
 			isa = PBXGroup;
 			children = (
+				5149A846AADE403A9F0835B6 /* BalconyActivity */,
 				742537B0492B576AE5C449C8 /* BalconyCLI */,
 				84B7E10DE14DA989993CA5E4 /* BalconyiOS */,
+				1B409D8DBFA037D5806149A5 /* BalconyLiveActivity */,
 				0877E42291BF5A9127842C0A /* BalconyMac */,
 				D0871BA5E573A24711432930 /* BalconyShared */,
 				6AF0DE0F3E351285ACD48041 /* Packages */,
 				0188B2AD9F0591CCC18AC372 /* Frameworks */,
 				17F25A7EA717B5213A20D6C1 /* Products */,
 			);
+			sourceTree = "<group>";
+		};
+		5149A846AADE403A9F0835B6 /* BalconyActivity */ = {
+			isa = PBXGroup;
+			children = (
+				51F6918ABD3236CB58494981 /* BalconySessionActivity.swift */,
+			);
+			path = BalconyActivity;
 			sourceTree = "<group>";
 		};
 		5259AE92D43F29CEC8C26212 /* Resources */ = {
@@ -520,6 +576,14 @@
 				807317B17FA9F329C51AFD55 /* BalconyShared */,
 			);
 			name = Packages;
+			sourceTree = "<group>";
+		};
+		6C1EF5BB867846A87B4E62DF /* Activity */ = {
+			isa = PBXGroup;
+			children = (
+				77AF97A6D8A2AC3E25BA499D /* LiveActivityManager.swift */,
+			);
+			path = Activity;
 			sourceTree = "<group>";
 		};
 		742537B0492B576AE5C449C8 /* BalconyCLI */ = {
@@ -801,10 +865,12 @@
 				0A0DF275308BE1609707CA8B /* Sources */,
 				4868B17AB810CAFA95B95831 /* Resources */,
 				44913453C2F95C866C140A20 /* Frameworks */,
+				A12B08AC3012B030631629B9 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				F3E6B4DA63B9C6E03CC53913 /* PBXTargetDependency */,
 			);
 			name = BalconyiOS;
 			packageProductDependencies = (
@@ -814,6 +880,24 @@
 			productName = BalconyiOS;
 			productReference = E0A018E81D07F8F804A5CC03 /* Balcony.app */;
 			productType = "com.apple.product-type.application";
+		};
+		774FB53B75224EF183A2396C /* BalconyLiveActivity */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 17DA3D0AEB9B142077502F6F /* Build configuration list for PBXNativeTarget "BalconyLiveActivity" */;
+			buildPhases = (
+				92696E6B63DF188A06F844D1 /* Sources */,
+				4B409A760F375BE31036B157 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = BalconyLiveActivity;
+			packageProductDependencies = (
+			);
+			productName = BalconyLiveActivity;
+			productReference = D9697B6D1A397E726378ECF6 /* BalconyLiveActivity.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 		B37488F2CC17C37E395BE6C9 /* BalconySharedTests */ = {
 			isa = PBXNativeTarget;
@@ -882,6 +966,7 @@
 			projectRoot = "";
 			targets = (
 				F9977008AA49E8E96D6CCF49 /* BalconyCLI */,
+				774FB53B75224EF183A2396C /* BalconyLiveActivity */,
 				03D0CAD8415E829E5988EBF7 /* BalconyMac */,
 				B37488F2CC17C37E395BE6C9 /* BalconySharedTests */,
 				28EDF2F1EEB7F9CAAE8BE0F5 /* BalconyiOS */,
@@ -915,6 +1000,14 @@
 				698E305A279DB24359AD747B /* Signal.caf in Resources */,
 				6F8A50581509E3EC452B2AA9 /* Spark.caf in Resources */,
 				E58E769F7EECD93EA19FC382 /* Whisper.caf in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4B409A760F375BE31036B157 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3AEE179C95AB0CEEAF2FE699 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -974,6 +1067,7 @@
 				9F156723BD078A153B7FEED7 /* ANSIColorMapper.swift in Sources */,
 				4FCA31A4B2E33D039185C6D8 /* AskUserQuestionCardView.swift in Sources */,
 				52EA4D3614E7CD7C01FAFCEA /* BLECentral.swift in Sources */,
+				9C2B2987951AB79B232B6FD0 /* BalconySessionActivity.swift in Sources */,
 				FF5E320946ACE90AC2B967F0 /* BalconyTheme.swift in Sources */,
 				39BA738A247CAB3676A4C7C8 /* BalconyiOSApp.swift in Sources */,
 				54B68596DB033B25770224FE /* BonjourBrowser.swift in Sources */,
@@ -986,6 +1080,7 @@
 				98D09ECF7A45BB7ED30B1C5F /* HeadlessTerminalParser.swift in Sources */,
 				9ED3CD0EAB5DEF23CC454A88 /* InteractivePrompt.swift in Sources */,
 				02F56943AC8EE99383270589 /* LiquidGlassCapsule.swift in Sources */,
+				CF44BAF6DE877ED4A3506990 /* LiveActivityManager.swift in Sources */,
 				223A4C34360AD4E93AE28D98 /* ModelPickerView.swift in Sources */,
 				7D0244EC2C9842D09733E0E8 /* NotificationManager.swift in Sources */,
 				0C8B98F96BE57AE5DFEDE5D1 /* PromptDetector.swift in Sources */,
@@ -1016,6 +1111,16 @@
 				D73A8B9E38E6442C5AA69AC0 /* PTYManager.swift in Sources */,
 				7F0ABD25389E6F652DC4A47A /* SocketClient.swift in Sources */,
 				9D859BDA07E92C27020D71C8 /* main.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		92696E6B63DF188A06F844D1 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8FF99F9F8A152D1E2C449744 /* BalconyLiveActivity.swift in Sources */,
+				07E25FF081B3110E6B1AF340 /* BalconyLiveActivityBundle.swift in Sources */,
+				CFED5EE8B4ADDB806007E6CA /* BalconySessionActivity.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1077,6 +1182,11 @@
 			isa = PBXTargetDependency;
 			target = F9977008AA49E8E96D6CCF49 /* BalconyCLI */;
 			targetProxy = F9A8FE99BE9F13B29EAAA5C9 /* PBXContainerItemProxy */;
+		};
+		F3E6B4DA63B9C6E03CC53913 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 774FB53B75224EF183A2396C /* BalconyLiveActivity */;
+			targetProxy = 3C69DDD607961E575C32F916 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -1269,6 +1379,24 @@
 			};
 			name = Release;
 		};
+		4BD44A43F6BAAB7CEA12BD29 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				DEVELOPMENT_TEAM = 746889X99S;
+				INFOPLIST_FILE = BalconyLiveActivity/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.balcony.ios.liveactivity;
+				PRODUCT_NAME = BalconyLiveActivity;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
 		A02668BB19B25CC2F0F5E9DB /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1338,6 +1466,24 @@
 			};
 			name = Release;
 		};
+		D90303C53E595C181736E782 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				DEVELOPMENT_TEAM = 746889X99S;
+				INFOPLIST_FILE = BalconyLiveActivity/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.balcony.ios.liveactivity;
+				PRODUCT_NAME = BalconyLiveActivity;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -1346,6 +1492,15 @@
 			buildConfigurations = (
 				A02668BB19B25CC2F0F5E9DB /* Debug */,
 				3B82C0AE9C90C5FE101F1379 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		17DA3D0AEB9B142077502F6F /* Build configuration list for PBXNativeTarget "BalconyLiveActivity" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D90303C53E595C181736E782 /* Debug */,
+				4BD44A43F6BAAB7CEA12BD29 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;

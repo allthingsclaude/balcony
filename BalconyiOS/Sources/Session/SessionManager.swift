@@ -350,6 +350,46 @@ final class SessionManager: ObservableObject {
         return Array(result.reversed().prefix(20))
     }
 
+    // MARK: - Live Activity
+
+    /// Sync the Live Activity with aggregate session counts.
+    private func syncLiveActivity() {
+        #if canImport(ActivityKit)
+        if #available(iOS 16.2, *) {
+            let manager = LiveActivityManager.shared
+
+            guard !sessions.isEmpty else {
+                manager.endActivity()
+                return
+            }
+
+            var working = 0
+            var done = 0
+            var attention = 0
+
+            for session in sessions {
+                let needsAttention = session.needsAttention || sessionsNeedingAttention.contains(session.id)
+                let awaitingInput = session.awaitingInput || sessionsAwaitingInput.contains(session.id)
+
+                if needsAttention {
+                    attention += 1
+                } else if awaitingInput {
+                    done += 1
+                } else {
+                    working += 1
+                }
+            }
+
+            manager.syncActivity(
+                workingCount: working,
+                doneCount: done,
+                attentionCount: attention,
+                totalCount: sessions.count
+            )
+        }
+        #endif
+    }
+
     // MARK: - Message Handling
 
     private func handleMessage(_ message: BalconyMessage) {
@@ -461,6 +501,8 @@ final class SessionManager: ObservableObject {
             let currentIds = Set(payload.sessions.map(\.id))
             sessionsNeedingAttention.formIntersection(currentIds)
             sessionsAwaitingInput.formIntersection(currentIds)
+
+            syncLiveActivity()
         } catch {
             logger.error("Failed to decode session list: \(error.localizedDescription)")
         }
@@ -476,6 +518,7 @@ final class SessionManager: ObservableObject {
             }
             if activeSession?.id == payload.session.id {
                 activeSession = payload.session
+                syncLiveActivity()
             }
             logger.debug("Session updated: \(payload.session.id)")
         } catch {
@@ -555,6 +598,7 @@ final class SessionManager: ObservableObject {
                 sessionsAwaitingInput.remove(sid)
             }
             pendingHookData = payload
+            syncLiveActivity()
             logger.info("Received hook event: \(payload.toolName) session=\(payload.sessionId)")
         } catch {
             logger.error("Failed to decode hook event: \(error.localizedDescription)")
@@ -569,6 +613,7 @@ final class SessionManager: ObservableObject {
                 sessionsNeedingAttention.remove(sid)
             }
             pendingHookData = nil
+            syncLiveActivity()
             logger.info("Hook prompt dismissed for session: \(payload.sessionId)")
         } catch {
             logger.error("Failed to decode hook dismiss: \(error.localizedDescription)")
@@ -585,6 +630,7 @@ final class SessionManager: ObservableObject {
                 sessionsNeedingAttention.remove(sid)
             }
             pendingIdlePrompt = payload
+            syncLiveActivity()
             logger.info("Received idle prompt: session=\(payload.sessionId)")
         } catch {
             logger.error("Failed to decode idle prompt: \(error.localizedDescription)")
@@ -599,6 +645,7 @@ final class SessionManager: ObservableObject {
                 sessionsAwaitingInput.remove(sid)
             }
             pendingIdlePrompt = nil
+            syncLiveActivity()
             logger.info("Idle prompt dismissed for session: \(payload.sessionId)")
         } catch {
             logger.error("Failed to decode idle prompt dismiss: \(error.localizedDescription)")
@@ -615,6 +662,7 @@ final class SessionManager: ObservableObject {
                 sessionsAwaitingInput.remove(sid)
             }
             pendingAskUserQuestion = payload
+            syncLiveActivity()
             logger.info("Received AskUserQuestion: \(payload.questions.count) question(s) pty=\(payload.ptySessionId ?? "nil")")
         } catch {
             logger.error("Failed to decode AskUserQuestion: \(error.localizedDescription)")
@@ -629,6 +677,7 @@ final class SessionManager: ObservableObject {
                 sessionsNeedingAttention.remove(sid)
             }
             pendingAskUserQuestion = nil
+            syncLiveActivity()
             logger.info("AskUserQuestion dismissed for session: \(payload.ptySessionId ?? "nil")")
         } catch {
             logger.error("Failed to decode AskUserQuestion dismiss: \(error.localizedDescription)")

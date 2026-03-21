@@ -22,6 +22,12 @@ struct BalconyiOSApp: App {
                     sessionManager.configure(connectionManager: connectionManager)
                     applyAppearance(appearance)
                     applyIcon(appIcon)
+                    // Clean up any stale Live Activities from previous launches
+                    #if canImport(ActivityKit)
+                    if #available(iOS 16.2, *) {
+                        LiveActivityManager.shared.cleanupStaleActivities()
+                    }
+                    #endif
                 }
                 .task {
                     _ = await NotificationManager.shared.requestPermissions()
@@ -92,6 +98,13 @@ struct ContentView: View {
         .animation(.spring(response: 0.5, dampingFraction: 0.85), value: showConnected)
         .onChange(of: connectionManager.isConnected) { connected in
             showConnected = connected
+            if !connected {
+                #if canImport(ActivityKit)
+                if #available(iOS 16.2, *) {
+                    LiveActivityManager.shared.endActivity()
+                }
+                #endif
+            }
         }
     }
 }

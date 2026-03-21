@@ -106,6 +106,7 @@ targets:
     deploymentTarget: "16.0"
     sources:
       - path: BalconyiOS/Sources
+      - path: BalconyActivity
       - path: BalconyiOS/Resources
         buildPhase: resources
         excludes:
@@ -125,8 +126,30 @@ targets:
     dependencies:
       - package: BalconyShared
       - package: SwiftTerm
+      - target: BalconyLiveActivity
       - sdk: AVFoundation.framework
       - sdk: CoreBluetooth.framework
+
+  BalconyLiveActivity:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "16.1"
+    sources:
+      - path: BalconyLiveActivity
+        excludes:
+          - "Info.plist"
+      - path: BalconyActivity
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.balcony.ios.liveactivity
+        INFOPLIST_FILE: BalconyLiveActivity/Info.plist
+        PRODUCT_NAME: BalconyLiveActivity
+        IPHONEOS_DEPLOYMENT_TARGET: "16.1"
+        TARGETED_DEVICE_FAMILY: 1
+        LD_RUNPATH_SEARCH_PATHS:
+          - $(inherited)
+          - "@executable_path/Frameworks"
+          - "@executable_path/../../Frameworks"
 
   BalconySharedTests:
     type: bundle.unit-test
