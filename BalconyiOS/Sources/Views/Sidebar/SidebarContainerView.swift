@@ -5,6 +5,7 @@ import BalconyShared
 struct SidebarContainerView: View {
     @EnvironmentObject var sessionManager: SessionManager
     @EnvironmentObject var connectionManager: ConnectionManager
+    @ObservedObject private var notificationManager = NotificationManager.shared
     @Environment(\.colorScheme) private var colorScheme
     @State private var isSidebarOpen = false
     @State private var selectedSession: Session?
@@ -139,6 +140,12 @@ struct SidebarContainerView: View {
                 selectedSession = nil
                 isSidebarOpen = true
             }
+        }
+        .onChange(of: notificationManager.tappedSessionId) { sessionId in
+            guard let sessionId,
+                  let session = sessionManager.sessions.first(where: { $0.id == sessionId }) else { return }
+            notificationManager.tappedSessionId = nil
+            selectSession(session)
         }
     }
 

@@ -9,6 +9,9 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
 
     private let logger = Logger(subsystem: "com.balcony.ios", category: "NotificationManager")
 
+    /// Session ID from the most recently tapped notification. Observed by the UI to navigate.
+    @Published var tappedSessionId: String?
+
     override init() {
         super.init()
         UNUserNotificationCenter.current().delegate = self
@@ -29,11 +32,12 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
 
     /// Schedule a local notification for a session event.
     /// Only delivers when the app is not in the active foreground.
-    func notifySessionEvent(sessionName: String, message: String, sound: UNNotificationSound = .default) {
+    func notifySessionEvent(sessionId: String, sessionName: String, message: String, sound: UNNotificationSound = .default) {
         let content = UNMutableNotificationContent()
         content.title = sessionName
         content.body = message
         content.sound = sound
+        content.userInfo = ["sessionId": sessionId]
 
         let request = UNNotificationRequest(
             identifier: UUID().uuidString,
@@ -58,5 +62,21 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
         completionHandler([])
+    }
+
+    /// Handle notification tap — extract session ID and publish it for navigation.
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
+        let userInfo = response.notification.request.content.userInfo
+        if let sessionId = userInfo["sessionId"] as? String {
+            logger.info("Notification tapped for session: \(sessionId)")
+            DispatchQueue.main.async {
+                self.tappedSessionId = sessionId
+            }
+        }
+        completionHandler()
     }
 }
