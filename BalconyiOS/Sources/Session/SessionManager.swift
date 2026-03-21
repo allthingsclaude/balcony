@@ -390,19 +390,37 @@ final class SessionManager: ObservableObject {
             let payload = try message.decodePayload(SessionListPayload.self)
             let oldSessions = sessions
 
-            // Check for background session state transitions before replacing
+            // Check for session state transitions before replacing
             let notificationsOn = UserDefaults.standard.bool(forKey: "notificationsEnabled")
             if notificationsOn {
-                for newSession in payload.sessions where newSession.id != activeSession?.id {
+                let appIsInactive = UIApplication.shared.applicationState != .active
+
+                for newSession in payload.sessions {
                     if let old = oldSessions.first(where: { $0.id == newSession.id }) {
                         let attentionTransition = !old.needsAttention && newSession.needsAttention
                         let inputTransition = !old.awaitingInput && newSession.awaitingInput
+                        let isBackground = newSession.id != activeSession?.id
+
                         if attentionTransition {
-                            SoundManager.shared.playAttentionSound()
+                            if appIsInactive {
+                                NotificationManager.shared.notifySessionEvent(
+                                    sessionName: newSession.projectName,
+                                    message: "Needs your attention — permission prompt or question"
+                                )
+                            } else if isBackground {
+                                SoundManager.shared.playAttentionSound()
+                            }
                             break
                         }
                         if inputTransition {
-                            SoundManager.shared.playDoneSound()
+                            if appIsInactive {
+                                NotificationManager.shared.notifySessionEvent(
+                                    sessionName: newSession.projectName,
+                                    message: "Claude finished — waiting for your next prompt"
+                                )
+                            } else if isBackground {
+                                SoundManager.shared.playDoneSound()
+                            }
                             break
                         }
                     }

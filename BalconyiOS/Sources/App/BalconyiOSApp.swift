@@ -23,6 +23,9 @@ struct BalconyiOSApp: App {
                     applyAppearance(appearance)
                     applyIcon(appIcon)
                 }
+                .task {
+                    _ = await NotificationManager.shared.requestPermissions()
+                }
                 .onChange(of: appearance) { newValue in
                     applyAppearance(newValue)
                 }

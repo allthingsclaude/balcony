@@ -1,13 +1,17 @@
 import Foundation
 import UserNotifications
+import UIKit
 import os
 
-/// Manages local and push notifications for session events.
-final class NotificationManager: NSObject, ObservableObject {
+/// Manages local notifications for session events.
+final class NotificationManager: NSObject, ObservableObject, UNUserNotificationCenterDelegate {
+    static let shared = NotificationManager()
+
     private let logger = Logger(subsystem: "com.balcony.ios", category: "NotificationManager")
 
     override init() {
         super.init()
+        UNUserNotificationCenter.current().delegate = self
     }
 
     /// Request notification permissions.
@@ -24,9 +28,10 @@ final class NotificationManager: NSObject, ObservableObject {
     }
 
     /// Schedule a local notification for a session event.
+    /// Only delivers when the app is not in the active foreground.
     func notifySessionEvent(sessionName: String, message: String) {
         let content = UNMutableNotificationContent()
-        content.title = "Balcony - \(sessionName)"
+        content.title = sessionName
         content.body = message
         content.sound = .default
 
@@ -41,5 +46,17 @@ final class NotificationManager: NSObject, ObservableObject {
                 self?.logger.error("Failed to schedule notification: \(error.localizedDescription)")
             }
         }
+    }
+
+    // MARK: - UNUserNotificationCenterDelegate
+
+    /// Suppress banners when the app is in the foreground (notifications are only
+    /// scheduled when the app is inactive, but this guard catches race conditions).
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+    ) {
+        completionHandler([])
     }
 }
