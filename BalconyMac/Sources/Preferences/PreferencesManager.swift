@@ -163,11 +163,11 @@ final class PreferencesManager {
         return UserDefaults.standard.string(forKey: Self.doneSoundKey) ?? ""
     }
 
-    /// Available bundled sound names (matching iOS alert tones).
+    /// Available bundled sound names (matching iOS).
     static let availableSounds: [String] = [
-        "Anticipate", "Bloom", "Calypso", "Descent", "Fanfare",
-        "Ladder", "Minuet", "News_Flash", "Noir", "Sherwood_Forest",
-        "Spell", "Suspense", "Telegraph", "Tiptoes", "Typewriters", "Update"
+        "Aurora", "Beacon", "Breeze", "Dew", "Drift",
+        "Droplet", "Echo", "Ember", "Glint", "Prism",
+        "Pulse", "Ripple", "Signal", "Spark", "Whisper"
     ]
 
     /// Retained player for current playback.

@@ -7,44 +7,42 @@ import UserNotifications
 /// Available notification sounds for session alerts.
 /// Backed by bundled .caf files shared across iOS and macOS.
 enum NotificationSound: String, CaseIterable, Identifiable {
-    case anticipate
-    case bloom
-    case calypso
-    case descent
-    case fanfare
-    case ladder
-    case minuet
-    case newsFlash
-    case noir
-    case sherwood
-    case spell
-    case suspense
-    case telegraph
-    case tiptoes
-    case typewriters
-    case update
+    case aurora
+    case beacon
+    case breeze
+    case dew
+    case drift
+    case droplet
+    case echo
+    case ember
+    case glint
+    case prism
+    case pulse
+    case ripple
+    case signal
+    case spark
+    case whisper
     case none
 
     var id: String { rawValue }
 
     var displayName: String {
         switch self {
-        case .anticipate: return "Anticipate"
-        case .bloom: return "Bloom"
-        case .calypso: return "Calypso"
-        case .descent: return "Descent"
-        case .fanfare: return "Fanfare"
-        case .ladder: return "Ladder"
-        case .minuet: return "Minuet"
-        case .newsFlash: return "News Flash"
-        case .noir: return "Noir"
-        case .sherwood: return "Sherwood Forest"
-        case .spell: return "Spell"
-        case .suspense: return "Suspense"
-        case .telegraph: return "Telegraph"
-        case .tiptoes: return "Tiptoes"
-        case .typewriters: return "Typewriters"
-        case .update: return "Update"
+        case .aurora: return "Aurora"
+        case .beacon: return "Beacon"
+        case .breeze: return "Breeze"
+        case .dew: return "Dew"
+        case .drift: return "Drift"
+        case .droplet: return "Droplet"
+        case .echo: return "Echo"
+        case .ember: return "Ember"
+        case .glint: return "Glint"
+        case .prism: return "Prism"
+        case .pulse: return "Pulse"
+        case .ripple: return "Ripple"
+        case .signal: return "Signal"
+        case .spark: return "Spark"
+        case .whisper: return "Whisper"
         case .none: return "None"
         }
     }
@@ -52,22 +50,21 @@ enum NotificationSound: String, CaseIterable, Identifiable {
     /// Bundled .caf filename.
     var cafFileName: String? {
         switch self {
-        case .anticipate: return "Anticipate.caf"
-        case .bloom: return "Bloom.caf"
-        case .calypso: return "Calypso.caf"
-        case .descent: return "Descent.caf"
-        case .fanfare: return "Fanfare.caf"
-        case .ladder: return "Ladder.caf"
-        case .minuet: return "Minuet.caf"
-        case .newsFlash: return "News_Flash.caf"
-        case .noir: return "Noir.caf"
-        case .sherwood: return "Sherwood_Forest.caf"
-        case .spell: return "Spell.caf"
-        case .suspense: return "Suspense.caf"
-        case .telegraph: return "Telegraph.caf"
-        case .tiptoes: return "Tiptoes.caf"
-        case .typewriters: return "Typewriters.caf"
-        case .update: return "Update.caf"
+        case .aurora: return "Aurora.caf"
+        case .beacon: return "Beacon.caf"
+        case .breeze: return "Breeze.caf"
+        case .dew: return "Dew.caf"
+        case .drift: return "Drift.caf"
+        case .droplet: return "Droplet.caf"
+        case .echo: return "Echo.caf"
+        case .ember: return "Ember.caf"
+        case .glint: return "Glint.caf"
+        case .prism: return "Prism.caf"
+        case .pulse: return "Pulse.caf"
+        case .ripple: return "Ripple.caf"
+        case .signal: return "Signal.caf"
+        case .spark: return "Spark.caf"
+        case .whisper: return "Whisper.caf"
         case .none: return nil
         }
     }
@@ -116,15 +113,15 @@ final class SoundManager {
     /// The user's preferred attention sound (AI needs action).
     var attentionSound: NotificationSound {
         let raw = UserDefaults.standard.string(forKey: Self.attentionSoundKey)
-            ?? NotificationSound.noir.rawValue
-        return NotificationSound(rawValue: raw) ?? .noir
+            ?? NotificationSound.signal.rawValue
+        return NotificationSound(rawValue: raw) ?? .signal
     }
 
     /// The user's preferred done sound (AI finished).
     var doneSound: NotificationSound {
         let raw = UserDefaults.standard.string(forKey: Self.doneSoundKey)
-            ?? NotificationSound.noir.rawValue
-        return NotificationSound(rawValue: raw) ?? .noir
+            ?? NotificationSound.breeze.rawValue
+        return NotificationSound(rawValue: raw) ?? .breeze
     }
 
     /// Play the user's preferred attention sound (AI needs action).

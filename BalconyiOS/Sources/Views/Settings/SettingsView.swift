@@ -6,8 +6,8 @@ struct SettingsView: View {
     @AppStorage("notify.sessionEvents") private var notifySessionEvents = true
     @AppStorage("notify.toolApprovals") private var notifyToolApprovals = true
     @AppStorage("notify.sessionComplete") private var notifySessionComplete = true
-    @AppStorage(SoundManager.attentionSoundKey) private var attentionSound: String = NotificationSound.noir.rawValue
-    @AppStorage(SoundManager.doneSoundKey) private var doneSound: String = NotificationSound.noir.rawValue
+    @AppStorage(SoundManager.attentionSoundKey) private var attentionSound: String = NotificationSound.signal.rawValue
+    @AppStorage(SoundManager.doneSoundKey) private var doneSound: String = NotificationSound.breeze.rawValue
     @State private var showResetConfirmation = false
 
     var body: some View {
