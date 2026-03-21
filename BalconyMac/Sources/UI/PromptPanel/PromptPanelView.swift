@@ -966,57 +966,6 @@ enum AskUserQuestionAnswer {
     case other(String)
 }
 
-// MARK: - Voice-Only Panel
-
-/// Minimal floating panel for voice recording without an active notification panel.
-struct VoiceOnlyPanelView: View {
-    var voiceTranscriber: VoiceTranscriber
-
-    var body: some View {
-        HStack(spacing: 8) {
-            voiceInputField
-
-            Image(systemName: "mic.circle.fill")
-                .font(.system(size: 20))
-                .foregroundStyle(PanelTheme.brand)
-                .symbolEffect(.pulse, options: .repeating)
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .frame(width: 340)
-        .background(PanelBackground())
-        .clipShape(RoundedRectangle(cornerRadius: 14))
-        .tint(PanelTheme.brand)
-        .shadow(color: .black.opacity(0.2), radius: 16, y: 6)
-        .shadow(color: .black.opacity(0.08), radius: 2, y: 1)
-    }
-
-    private var voiceTranscript: String {
-        voiceTranscriber.transcript
-    }
-
-    @ViewBuilder
-    private var voiceInputField: some View {
-        let text = voiceTranscript.isEmpty ? "Listening..." : voiceTranscript
-        let isEmpty = voiceTranscript.isEmpty
-
-        ScrollView(.horizontal, showsIndicators: false) {
-            Text(text)
-                .font(.system(size: 12))
-                .foregroundStyle(isEmpty ? PanelTheme.textTertiary : PanelTheme.textPrimary)
-                .fixedSize(horizontal: true, vertical: false)
-        }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 6)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(PanelTheme.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 6))
-        .overlay {
-            VoiceRecordingGlow()
-        }
-    }
-}
-
 // MARK: - Voice Recording Glow
 
 /// Animated orange shimmer border that sweeps around the input field during voice recording.
