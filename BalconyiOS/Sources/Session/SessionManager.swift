@@ -405,7 +405,8 @@ final class SessionManager: ObservableObject {
                             if appIsInactive {
                                 NotificationManager.shared.notifySessionEvent(
                                     sessionName: newSession.projectName,
-                                    message: "Needs your attention — permission prompt or question"
+                                    message: "Needs your attention — permission prompt or question",
+                                    sound: SoundManager.shared.attentionSound.notificationSound
                                 )
                             } else if isBackground {
                                 SoundManager.shared.playAttentionSound()
@@ -416,7 +417,8 @@ final class SessionManager: ObservableObject {
                             if appIsInactive {
                                 NotificationManager.shared.notifySessionEvent(
                                     sessionName: newSession.projectName,
-                                    message: "Claude finished — waiting for your next prompt"
+                                    message: "Claude finished — waiting for your next prompt",
+                                    sound: SoundManager.shared.doneSound.notificationSound
                                 )
                             } else if isBackground {
                                 SoundManager.shared.playDoneSound()

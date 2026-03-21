@@ -1,14 +1,12 @@
-import AudioToolbox
+import AVFoundation
 import Foundation
+import UserNotifications
 
 // MARK: - NotificationSound
 
-/// Available notification sounds for background session alerts.
+/// Available notification sounds for session alerts.
+/// Backed by bundled .caf files shared across iOS and macOS.
 enum NotificationSound: String, CaseIterable, Identifiable {
-    case chime
-    case bell
-    case drop
-    case pulse
     case anticipate
     case bloom
     case calypso
@@ -31,10 +29,6 @@ enum NotificationSound: String, CaseIterable, Identifiable {
 
     var displayName: String {
         switch self {
-        case .chime: return "Chime"
-        case .bell: return "Bell"
-        case .drop: return "Drop"
-        case .pulse: return "Pulse"
         case .anticipate: return "Anticipate"
         case .bloom: return "Bloom"
         case .calypso: return "Calypso"
@@ -55,36 +49,42 @@ enum NotificationSound: String, CaseIterable, Identifiable {
         }
     }
 
-    var systemSoundID: SystemSoundID? {
+    /// Bundled .caf filename.
+    var cafFileName: String? {
         switch self {
-        case .chime: return 1025
-        case .bell: return 1013
-        case .drop: return 1104
-        case .pulse: return 1052
-        case .anticipate: return 1150
-        case .bloom: return 1151
-        case .calypso: return 1152
-        case .descent: return 1154
-        case .fanfare: return 1155
-        case .ladder: return 1156
-        case .minuet: return 1157
-        case .newsFlash: return 1158
-        case .noir: return 1159
-        case .sherwood: return 1160
-        case .spell: return 1161
-        case .suspense: return 1162
-        case .telegraph: return 1163
-        case .tiptoes: return 1164
-        case .typewriters: return 1165
-        case .update: return 1166
+        case .anticipate: return "Anticipate.caf"
+        case .bloom: return "Bloom.caf"
+        case .calypso: return "Calypso.caf"
+        case .descent: return "Descent.caf"
+        case .fanfare: return "Fanfare.caf"
+        case .ladder: return "Ladder.caf"
+        case .minuet: return "Minuet.caf"
+        case .newsFlash: return "News_Flash.caf"
+        case .noir: return "Noir.caf"
+        case .sherwood: return "Sherwood_Forest.caf"
+        case .spell: return "Spell.caf"
+        case .suspense: return "Suspense.caf"
+        case .telegraph: return "Telegraph.caf"
+        case .tiptoes: return "Tiptoes.caf"
+        case .typewriters: return "Typewriters.caf"
+        case .update: return "Update.caf"
         case .none: return nil
         }
+    }
+
+    /// UNNotificationSound matching this sound, or .default if none.
+    var notificationSound: UNNotificationSound {
+        if let fileName = cafFileName {
+            return UNNotificationSound(named: UNNotificationSoundName(rawValue: fileName))
+        }
+        return .default
     }
 }
 
 // MARK: - SoundManager
 
-/// Plays notification sounds for background session events.
+/// Plays notification sounds for background session events using AVAudioPlayer
+/// for consistent playback across platforms.
 @MainActor
 final class SoundManager {
     static let shared = SoundManager()
@@ -95,28 +95,46 @@ final class SoundManager {
     /// UserDefaults key for the done sound (AI finished, waiting for next prompt).
     static let doneSoundKey = "doneSound"
 
+    /// Retained player for current playback.
+    private var player: AVAudioPlayer?
+
     private init() {}
 
-    /// Play a specific notification sound.
+    /// Play a specific notification sound from the bundled .caf file.
     func play(_ sound: NotificationSound) {
-        guard let id = sound.systemSoundID else { return }
-        AudioServicesPlaySystemSound(id)
+        guard let fileName = sound.cafFileName,
+              let url = Bundle.main.url(forResource: fileName.replacingOccurrences(of: ".caf", with: ""),
+                                        withExtension: "caf") else { return }
+        do {
+            player = try AVAudioPlayer(contentsOf: url)
+            player?.play()
+        } catch {
+            // Silently fail — sound is non-critical
+        }
+    }
+
+    /// The user's preferred attention sound (AI needs action).
+    var attentionSound: NotificationSound {
+        let raw = UserDefaults.standard.string(forKey: Self.attentionSoundKey)
+            ?? NotificationSound.noir.rawValue
+        return NotificationSound(rawValue: raw) ?? .noir
+    }
+
+    /// The user's preferred done sound (AI finished).
+    var doneSound: NotificationSound {
+        let raw = UserDefaults.standard.string(forKey: Self.doneSoundKey)
+            ?? NotificationSound.noir.rawValue
+        return NotificationSound(rawValue: raw) ?? .noir
     }
 
     /// Play the user's preferred attention sound (AI needs action).
     func playAttentionSound() {
-        let raw = UserDefaults.standard.string(forKey: Self.attentionSoundKey)
-            ?? NotificationSound.noir.rawValue
-        let sound = NotificationSound(rawValue: raw) ?? .noir
-        play(sound)
+        play(attentionSound)
     }
 
     /// Play the user's preferred done sound (AI finished).
     func playDoneSound() {
-        let raw = UserDefaults.standard.string(forKey: Self.doneSoundKey)
-            ?? NotificationSound.noir.rawValue
-        let sound = NotificationSound(rawValue: raw) ?? .noir
-        play(sound)
+        play(doneSound)
     }
 
     /// Migrate old single `notificationSound` key to the new dual-sound keys.

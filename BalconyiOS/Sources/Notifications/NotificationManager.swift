@@ -29,11 +29,11 @@ final class NotificationManager: NSObject, ObservableObject, UNUserNotificationC
 
     /// Schedule a local notification for a session event.
     /// Only delivers when the app is not in the active foreground.
-    func notifySessionEvent(sessionName: String, message: String) {
+    func notifySessionEvent(sessionName: String, message: String, sound: UNNotificationSound = .default) {
         let content = UNMutableNotificationContent()
         content.title = sessionName
         content.body = message
-        content.sound = .default
+        content.sound = sound
 
         let request = UNNotificationRequest(
             identifier: UUID().uuidString,

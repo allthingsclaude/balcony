@@ -1,3 +1,4 @@
+import AVFoundation
 import Foundation
 import os
 
@@ -162,15 +163,27 @@ final class PreferencesManager {
         return UserDefaults.standard.string(forKey: Self.doneSoundKey) ?? ""
     }
 
-    /// Available system sound names.
-    static let availableSounds: [String] = {
-        let soundsDir = "/System/Library/Sounds"
-        guard let files = try? FileManager.default.contentsOfDirectory(atPath: soundsDir) else { return [] }
-        return files
-            .filter { $0.hasSuffix(".aiff") }
-            .map { $0.replacingOccurrences(of: ".aiff", with: "") }
-            .sorted()
-    }()
+    /// Available bundled sound names (matching iOS alert tones).
+    static let availableSounds: [String] = [
+        "Anticipate", "Bloom", "Calypso", "Descent", "Fanfare",
+        "Ladder", "Minuet", "News_Flash", "Noir", "Sherwood_Forest",
+        "Spell", "Suspense", "Telegraph", "Tiptoes", "Typewriters", "Update"
+    ]
+
+    /// Retained player for current playback.
+    private static var player: AVAudioPlayer?
+
+    /// Play a bundled .caf sound by name.
+    static func playBundledSound(_ name: String) {
+        guard !name.isEmpty,
+              let url = Bundle.main.url(forResource: name, withExtension: "caf") else { return }
+        do {
+            player = try AVAudioPlayer(contentsOf: url)
+            player?.play()
+        } catch {
+            // Silently fail — sound is non-critical
+        }
+    }
 
     // MARK: - Init
 

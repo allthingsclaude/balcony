@@ -144,8 +144,7 @@ private struct NotificationsTab: View {
                     }
                 }
                 .onChange(of: attentionSound) { _, newValue in
-                    guard !newValue.isEmpty else { return }
-                    NSSound(named: NSSound.Name(newValue))?.play()
+                    PreferencesManager.playBundledSound(newValue)
                 }
                 Text("When Claude needs your approval or answer.")
                     .font(.caption)
@@ -161,8 +160,7 @@ private struct NotificationsTab: View {
                     }
                 }
                 .onChange(of: doneSound) { _, newValue in
-                    guard !newValue.isEmpty else { return }
-                    NSSound(named: NSSound.Name(newValue))?.play()
+                    PreferencesManager.playBundledSound(newValue)
                 }
                 Text("When Claude finishes and is ready for your next prompt.")
                     .font(.caption)

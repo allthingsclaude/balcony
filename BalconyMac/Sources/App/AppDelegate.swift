@@ -235,9 +235,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case .done:
             soundName = PreferencesManager.shared.doneSound
         }
-        if !soundName.isEmpty {
-            NSSound(named: NSSound.Name(soundName))?.play()
-        }
+        PreferencesManager.playBundledSound(soundName)
     }
 
     // MARK: - Focus
