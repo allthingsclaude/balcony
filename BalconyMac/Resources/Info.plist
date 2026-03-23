@@ -2,39 +2,39 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CFBundleName</key>
-    <string>BalconyMac</string>
-    <key>CFBundleDisplayName</key>
-    <string>Balcony</string>
-    <key>CFBundleIdentifier</key>
-    <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
-    <key>CFBundleVersion</key>
-    <string>1</string>
-    <key>CFBundleShortVersionString</key>
-    <string>0.1.0</string>
-    <key>CFBundlePackageType</key>
-    <string>APPL</string>
-    <key>LSMinimumSystemVersion</key>
-    <string>14.0</string>
-    <key>LSUIElement</key>
-    <true/>
-    <key>SUEnableAutomaticChecks</key>
-    <true/>
-    <key>SUFeedURL</key>
-    <string>https://allthingsclaude.github.io/balcony/appcast.xml</string>
-    <key>SUPublicEDKey</key>
-    <string>0Y/fgay6lWHRxqpxECSMG38IXYiVlolaDTAK9jXwgxM=</string>
-    <key>NSMicrophoneUsageDescription</key>
-    <string>Balcony uses the microphone for voice-to-text input when responding to Claude prompts.</string>
-    <key>NSSpeechRecognitionUsageDescription</key>
-    <string>Balcony uses speech recognition to transcribe your voice responses to Claude prompts.</string>
-    <key>NSBluetoothAlwaysUsageDescription</key>
-    <string>Balcony uses Bluetooth to detect when your iPhone is nearby for away detection.</string>
-    <key>NSLocalNetworkUsageDescription</key>
-    <string>Balcony uses the local network to connect to your iPhone.</string>
-    <key>NSBonjourServices</key>
-    <array>
-        <string>_balcony._tcp.</string>
-    </array>
+	<key>CFBundleDisplayName</key>
+	<string>Balcony</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleName</key>
+	<string>BalconyMac</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.1.1</string>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>14.0</string>
+	<key>LSUIElement</key>
+	<true/>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Balcony uses Bluetooth to detect when your iPhone is nearby for away detection.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_balcony._tcp.</string>
+	</array>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Balcony uses the local network to connect to your iPhone.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Balcony uses the microphone for voice-to-text input when responding to Claude prompts.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Balcony uses speech recognition to transcribe your voice responses to Claude prompts.</string>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUFeedURL</key>
+	<string>https://allthingsclaude.github.io/balcony/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>0Y/fgay6lWHRxqpxECSMG38IXYiVlolaDTAK9jXwgxM=</string>
 </dict>
 </plist>
