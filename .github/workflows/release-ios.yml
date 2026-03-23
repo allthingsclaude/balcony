@@ -54,17 +54,14 @@ jobs:
             -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           security list-keychains -d user -s "$KEYCHAIN_PATH"
 
-      # ── Install provisioning profile ──────────────────────────────────
-      - name: Install provisioning profile
+      # ── Install App Store Connect API Key ──────────────────────────────
+      - name: Install API key
         env:
-          IOS_PROVISIONING_PROFILE: ${{ secrets.IOS_PROVISIONING_PROFILE }}
+          ASC_API_KEY: ${{ secrets.ASC_API_KEY }}
+          ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
         run: |
-          PP_PATH="$RUNNER_TEMP/profile.mobileprovision"
-          echo "$IOS_PROVISIONING_PROFILE" | base64 --decode > "$PP_PATH"
-
-          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          UUID=$(/usr/libexec/PlistBuddy -c "Print UUID" /dev/stdin <<< "$(security cms -D -i "$PP_PATH")")
-          cp "$PP_PATH" ~/Library/MobileDevice/Provisioning\ Profiles/"$UUID.mobileprovision"
+          mkdir -p ~/.private_keys
+          echo "$ASC_API_KEY" > ~/.private_keys/AuthKey_${ASC_API_KEY_ID}.p8
 
       # ── Install xcodegen and generate project ─────────────────────────
       - name: Generate Xcode project
@@ -83,6 +80,10 @@ jobs:
             -scheme "$SCHEME" \
             -destination 'generic/platform=iOS' \
             -archivePath "$RUNNER_TEMP/$APP_NAME-iOS.xcarchive" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath ~/.private_keys/AuthKey_${{ secrets.ASC_API_KEY_ID }}.p8 \
+            -authenticationKeyID "${{ secrets.ASC_API_KEY_ID }}" \
+            -authenticationKeyIssuerID "${{ secrets.ASC_API_ISSUER_ID }}" \
             MARKETING_VERSION="$VERSION" \
             CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
             DEVELOPMENT_TEAM="${{ secrets.APPLE_TEAM_ID }}"
@@ -93,16 +94,11 @@ jobs:
           xcodebuild -exportArchive \
             -archivePath "$RUNNER_TEMP/$APP_NAME-iOS.xcarchive" \
             -exportPath "$RUNNER_TEMP/export-ios" \
-            -exportOptionsPlist exportOptions-ios.plist
-
-      # ── Install App Store Connect API Key ──────────────────────────────
-      - name: Install API key
-        env:
-          ASC_API_KEY: ${{ secrets.ASC_API_KEY }}
-          ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
-        run: |
-          mkdir -p ~/.private_keys
-          echo "$ASC_API_KEY" > ~/.private_keys/AuthKey_${ASC_API_KEY_ID}.p8
+            -exportOptionsPlist exportOptions-ios.plist \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath ~/.private_keys/AuthKey_${{ secrets.ASC_API_KEY_ID }}.p8 \
+            -authenticationKeyID "${{ secrets.ASC_API_KEY_ID }}" \
+            -authenticationKeyIssuerID "${{ secrets.ASC_API_ISSUER_ID }}"
 
       # ── Upload to App Store Connect ───────────────────────────────────
       - name: Upload to App Store Connect

@@ -63,23 +63,21 @@ jobs:
 
       # ── Archive ───────────────────────────────────────────────────────
       - name: Archive
-        env:
-          CODESIGN_IDENTITY: ${{ secrets.MACOS_CERTIFICATE_NAME }}
         run: |
           xcodebuild archive \
             -project Balcony.xcodeproj \
             -scheme "$SCHEME" \
             -configuration Release \
             -archivePath "$RUNNER_TEMP/$APP_NAME.xcarchive" \
-            CODE_SIGN_IDENTITY="$CODESIGN_IDENTITY"
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_ALLOWED=NO
 
-      # ── Export archive ────────────────────────────────────────────────
-      - name: Export archive
+      # ── Extract app from archive ────────────────────────────────────
+      - name: Extract app from archive
         run: |
-          xcodebuild -exportArchive \
-            -archivePath "$RUNNER_TEMP/$APP_NAME.xcarchive" \
-            -exportPath "$RUNNER_TEMP/export" \
-            -exportOptionsPlist exportOptions-mac.plist
+          mkdir -p "$RUNNER_TEMP/export"
+          cp -R "$RUNNER_TEMP/$APP_NAME.xcarchive/Products/Applications/$APP_NAME.app" \
+            "$RUNNER_TEMP/export/$APP_NAME.app"
 
       # ── Inject version into exported app ──────────────────────────────
       - name: Set version in app
