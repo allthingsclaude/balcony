@@ -84,7 +84,8 @@ jobs:
             -destination 'generic/platform=iOS' \
             -archivePath "$RUNNER_TEMP/$APP_NAME-iOS.xcarchive" \
             MARKETING_VERSION="$VERSION" \
-            CURRENT_PROJECT_VERSION="$BUILD_NUMBER"
+            CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
+            DEVELOPMENT_TEAM="${{ secrets.APPLE_TEAM_ID }}"
 
       # ── Export IPA ────────────────────────────────────────────────────
       - name: Export IPA

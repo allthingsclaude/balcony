@@ -63,14 +63,15 @@ jobs:
 
       # ── Archive ───────────────────────────────────────────────────────
       - name: Archive
+        env:
+          CODESIGN_IDENTITY: ${{ secrets.MACOS_CERTIFICATE_NAME }}
         run: |
           xcodebuild archive \
             -project Balcony.xcodeproj \
             -scheme "$SCHEME" \
             -configuration Release \
             -archivePath "$RUNNER_TEMP/$APP_NAME.xcarchive" \
-            CODE_SIGN_IDENTITY="-" \
-            CODE_SIGNING_ALLOWED=NO
+            CODE_SIGN_IDENTITY="$CODESIGN_IDENTITY"
 
       # ── Export archive ────────────────────────────────────────────────
       - name: Export archive
