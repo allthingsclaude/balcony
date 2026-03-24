@@ -89,10 +89,28 @@ jobs:
       # ── Export IPA ────────────────────────────────────────────────────
       - name: Export IPA
         run: |
+          # Generate exportOptions with team ID
+          cat > "$RUNNER_TEMP/exportOptions-ios.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>method</key>
+              <string>app-store-connect</string>
+              <key>signingStyle</key>
+              <string>automatic</string>
+              <key>teamID</key>
+              <string>${{ secrets.APPLE_TEAM_ID }}</string>
+              <key>uploadSymbols</key>
+              <true/>
+          </dict>
+          </plist>
+          PLIST
+
           xcodebuild -exportArchive \
             -archivePath "$RUNNER_TEMP/$APP_NAME-iOS.xcarchive" \
             -exportPath "$RUNNER_TEMP/export-ios" \
-            -exportOptionsPlist exportOptions-ios.plist \
+            -exportOptionsPlist "$RUNNER_TEMP/exportOptions-ios.plist" \
             -allowProvisioningUpdates \
             -authenticationKeyPath ~/.private_keys/AuthKey_${{ secrets.ASC_API_KEY_ID }}.p8 \
             -authenticationKeyID "${{ secrets.ASC_API_KEY_ID }}" \

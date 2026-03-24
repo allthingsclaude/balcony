@@ -106,12 +106,31 @@ jobs:
 
           APP="$RUNNER_TEMP/export/$APP_NAME.app"
           ENTITLEMENTS="BalconyMac/Resources/BalconyMac.entitlements"
-          codesign --deep --force --options runtime \
-            --sign "$IDENTITY" \
-            --entitlements "$ENTITLEMENTS" \
-            --timestamp \
-            --keychain "$KEYCHAIN_PATH" \
-            "$APP"
+          SIGN_ARGS=(--force --options runtime --timestamp --keychain "$KEYCHAIN_PATH" --sign "$IDENTITY")
+
+          # Sign frameworks from inside out
+          if [ -d "$APP/Contents/Frameworks" ]; then
+            find "$APP/Contents/Frameworks" \( -name "*.framework" -o -name "*.dylib" \) -print0 | while IFS= read -r -d '' fw; do
+              echo "Signing: $fw"
+              codesign "${SIGN_ARGS[@]}" "$fw"
+            done
+          fi
+
+          # Sign embedded helpers
+          for helper in "$APP/Contents/Resources/balcony-cli" "$APP/Contents/Resources/hook-handler"; do
+            if [ -f "$helper" ]; then
+              echo "Signing: $helper"
+              codesign "${SIGN_ARGS[@]}" "$helper"
+            fi
+          done
+
+          # Sign the main app with entitlements
+          echo "Signing: $APP"
+          codesign "${SIGN_ARGS[@]}" --entitlements "$ENTITLEMENTS" "$APP"
+
+          # Verify
+          codesign --verify --deep --strict "$APP"
+          echo "Code signing verified successfully"
 
       # ── Notarize .app ─────────────────────────────────────────────────
       - name: Notarize app
