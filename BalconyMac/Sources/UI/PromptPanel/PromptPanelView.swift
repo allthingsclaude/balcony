@@ -19,8 +19,8 @@ private enum PanelTheme {
         name: nil,
         dynamicProvider: { appearance in
             appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-                ? NSColor(red: 0x19/255.0, green: 0x18/255.0, blue: 0x14/255.0, alpha: 0.3)
-                : NSColor(red: 0xFA/255.0, green: 0xF8/255.0, blue: 0xF4/255.0, alpha: 0.5)
+                ? NSColor(red: 0x19/255.0, green: 0x18/255.0, blue: 0x14/255.0, alpha: 0.55)
+                : NSColor(red: 0xFA/255.0, green: 0xF8/255.0, blue: 0xF4/255.0, alpha: 0.7)
         }
     ))
 
@@ -122,7 +122,7 @@ private struct ShortcutBadge: View {
             .font(.system(size: 10, weight: .medium, design: .monospaced))
             .foregroundStyle(PanelTheme.brand)
             .frame(width: 18, height: 18)
-            .background(PanelTheme.brand.opacity(0.15))
+            .background(PanelTheme.brand.opacity(0.25))
             .clipShape(RoundedRectangle(cornerRadius: 4))
     }
 }
@@ -291,7 +291,7 @@ struct PromptPanelView: View {
             // Header
             HStack(spacing: 10) {
                 Circle()
-                    .fill(PanelTheme.brand.opacity(0.15))
+                    .fill(PanelTheme.brand.opacity(0.25))
                     .frame(width: 24, height: 24)
                     .overlay {
                         Image(systemName: toolIconName)
@@ -456,7 +456,7 @@ struct IdlePromptPanelView: View {
             // Header
             HStack(spacing: 10) {
                 Circle()
-                    .fill(PanelTheme.brand.opacity(0.15))
+                    .fill(PanelTheme.brand.opacity(0.25))
                     .frame(width: 24, height: 24)
                     .overlay {
                         Image(systemName: "bubble.left.and.text.bubble.right")
@@ -632,7 +632,7 @@ struct MultiOptionPanelView: View {
             // Header
             HStack(spacing: 10) {
                 Circle()
-                    .fill(PanelTheme.brand.opacity(0.15))
+                    .fill(PanelTheme.brand.opacity(0.25))
                     .frame(width: 24, height: 24)
                     .overlay {
                         Image(systemName: "questionmark.bubble")
@@ -814,7 +814,7 @@ struct AskUserQuestionPanelView: View {
             // Header
             HStack(spacing: 10) {
                 Circle()
-                    .fill(PanelTheme.brand.opacity(0.15))
+                    .fill(PanelTheme.brand.opacity(0.25))
                     .frame(width: 24, height: 24)
                     .overlay {
                         Image(systemName: "questionmark.bubble")
@@ -847,7 +847,7 @@ struct AskUserQuestionPanelView: View {
                         .font(.system(size: 10, weight: .medium))
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
-                        .background(PanelTheme.brand.opacity(0.15))
+                        .background(PanelTheme.brand.opacity(0.25))
                         .foregroundStyle(PanelTheme.brand)
                         .clipShape(Capsule())
                 }
@@ -911,13 +911,14 @@ struct AskUserQuestionPanelView: View {
             }
             .padding(.horizontal, 14)
             .padding(.top, 10)
+            .padding(.bottom, 4)
 
             // "Other" text input (only for single-question or last question)
             if isLastQuestion {
                 PanelTheme.divider
                     .frame(height: 0.5)
                     .padding(.horizontal, 14)
-                    .padding(.top, 6)
+                    .padding(.top, 2)
 
                 if showOtherInput {
                     HStack(spacing: 8) {
@@ -941,7 +942,7 @@ struct AskUserQuestionPanelView: View {
                         .disabled(otherText.isEmpty)
                     }
                     .padding(.horizontal, 14)
-                    .padding(.vertical, 8)
+                    .padding(.vertical, 10)
                 } else {
                     Button(action: {
                         showOtherInput = true
@@ -964,10 +965,10 @@ struct AskUserQuestionPanelView: View {
                     }
                     .buttonStyle(.plain)
                     .padding(.horizontal, 14)
-                    .padding(.vertical, 8)
+                    .padding(.vertical, 10)
                 }
             } else {
-                Spacer().frame(height: 10)
+                Spacer().frame(height: 14)
             }
         }
         .frame(width: 340)
