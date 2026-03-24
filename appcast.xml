@@ -44,5 +44,18 @@
                 sparkle:edSignature="5XhqgTd6sxHVbVN5GmSvxFG5x7kwrphB/HblGtVcE4kZuQWC4Wo2hmd9/Wu15GpVECxbXMtiTGujNawDXH0SBA=="
             />
         </item>
+            <item>
+            <title>Version 0.1.17</title>
+            <pubDate>Tue, 24 Mar 2026 21:48:29 +0000</pubDate>
+            <sparkle:version>206</sparkle:version>
+            <sparkle:shortVersionString>0.1.17</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure
+                url="https://github.com/allthingsclaude/balcony/releases/download/v0.1.17/Balcony-0.1.17.dmg"
+                length="10614375"
+                type="application/octet-stream"
+                sparkle:edSignature="jC+1FZL35SOwT6WycZYSSwaMypzzwW5KsY6FtxqyUByB8u4YFCOOVGfj2xuhZePrLemJjJeMaCZ9n7S7cd2yCw=="
+            />
+        </item>
     </channel>
 </rss>
