@@ -777,6 +777,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             logger.info("PTY session ended: \(sessionId)")
             // Clean up any pending prompts for the ended session
             hookEventHandler.sessionEnded(sessionId)
+            // Clean up cached mappings to prevent unbounded dictionary growth
+            idlePromptPTYMapping = idlePromptPTYMapping.filter { $0.value != sessionId }
+            cachedSessionFDs.removeValue(forKey: sessionId)
         }
 
         // Update UI model with enriched session data

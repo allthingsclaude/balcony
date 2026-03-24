@@ -202,29 +202,64 @@ actor SessionFileReader {
             url = found
         }
 
-        guard let data = try? Data(contentsOf: url) else { return 0 }
+        // Stream the file in 64 KB chunks instead of loading the entire file into memory.
+        // JSONL files can be 25 MB+; loading them fully every 10s per session causes memory
+        // pressure that triggers macOS jetsam (SIGKILL).
+        guard let handle = try? FileHandle(forReadingFrom: url) else { return 0 }
+        defer { try? handle.close() }
 
-        // Fast byte scan: count lines containing "type":"user" or "type":"assistant"
+        let chunkSize = 65_536
         let userTag = Array("\"type\":\"user\"".utf8)
         let assistantTag = Array("\"type\":\"assistant\"".utf8)
         var count = 0
+        var leftover = Data()
 
-        data.withUnsafeBytes { buffer in
-            guard let base = buffer.baseAddress?.assumingMemoryBound(to: UInt8.self) else { return }
-            let total = buffer.count
-            var lineStart = 0
+        while let chunk = try? handle.read(upToCount: chunkSize), !chunk.isEmpty {
+            var scanData: Data
+            if leftover.isEmpty {
+                scanData = chunk
+            } else {
+                scanData = leftover
+                scanData.append(chunk)
+                leftover = Data()
+            }
 
-            for i in 0...total {
-                let isEnd = (i == total) || (base[i] == UInt8(ascii: "\n"))
-                guard isEnd else { continue }
-                let lineLen = i - lineStart
-                if lineLen > 10 {
-                    if scanForPattern(base + lineStart, lineLen, userTag) ||
-                       scanForPattern(base + lineStart, lineLen, assistantTag) {
+            scanData.withUnsafeBytes { buffer in
+                guard let base = buffer.baseAddress?.assumingMemoryBound(to: UInt8.self) else { return }
+                let total = buffer.count
+                var lineStart = 0
+                var lastNewline = -1
+
+                for i in 0..<total {
+                    guard base[i] == UInt8(ascii: "\n") else { continue }
+                    lastNewline = i
+                    let lineLen = i - lineStart
+                    if lineLen > 10 {
+                        if scanForPattern(base + lineStart, lineLen, userTag) ||
+                           scanForPattern(base + lineStart, lineLen, assistantTag) {
+                            count += 1
+                        }
+                    }
+                    lineStart = i + 1
+                }
+
+                // Save incomplete last line for next chunk
+                if lineStart < total {
+                    leftover = Data(bytes: base + lineStart, count: total - lineStart)
+                }
+            }
+        }
+
+        // Process any remaining data (last line without trailing newline)
+        if !leftover.isEmpty {
+            leftover.withUnsafeBytes { buffer in
+                guard let base = buffer.baseAddress?.assumingMemoryBound(to: UInt8.self) else { return }
+                if buffer.count > 10 {
+                    if scanForPattern(base, buffer.count, userTag) ||
+                       scanForPattern(base, buffer.count, assistantTag) {
                         count += 1
                     }
                 }
-                lineStart = i + 1
             }
         }
 

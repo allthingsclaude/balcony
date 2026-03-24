@@ -194,19 +194,24 @@ actor PTYSessionManager {
         state.buffer.append(contentsOf: buf[..<n])
 
         // Parse framed messages: [1-byte type][4-byte big-endian length][payload]
-        // Use Array for zero-based indexing (Data.removeFirst shifts startIndex)
+        // Use startIndex-relative subscripts to avoid copying the entire buffer each iteration.
         while state.buffer.count >= 5 {
-            let bytes = Array(state.buffer)
-            let msgType = bytes[0]
-            let len = UInt32(bytes[1]) << 24 | UInt32(bytes[2]) << 16 | UInt32(bytes[3]) << 8 | UInt32(bytes[4])
+            let s = state.buffer.startIndex
+            let msgType = state.buffer[s]
+            let len = UInt32(state.buffer[s + 1]) << 24
+                    | UInt32(state.buffer[s + 2]) << 16
+                    | UInt32(state.buffer[s + 3]) << 8
+                    | UInt32(state.buffer[s + 4])
             let totalLen = 5 + Int(len)
 
-            guard bytes.count >= totalLen else { break }
+            guard state.buffer.count >= totalLen else { break }
 
-            let payload = Data(bytes[5..<totalLen])
-            state.buffer = Data(bytes[totalLen...])
+            let payloadStart = s + 5
+            let payloadEnd = s + totalLen
+            let payload = state.buffer[payloadStart..<payloadEnd]
+            state.buffer = state.buffer[payloadEnd...]
 
-            handleClientMessage(fd: fd, type: msgType, payload: payload)
+            handleClientMessage(fd: fd, type: msgType, payload: Data(payload))
         }
     }
 

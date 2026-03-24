@@ -439,6 +439,16 @@ final class HookEventHandler: ObservableObject {
         pendingIdlePrompts.removeValue(forKey: sessionId)
         lastStopData.removeValue(forKey: sessionId)
         pendingIdleNotifications.removeValue(forKey: sessionId)
+
+        // Prune sessionId from PTY→Claude mappings to prevent unbounded growth
+        for (ptyId, var claudeIds) in ptyToClaudeSessionIds {
+            claudeIds.remove(sessionId)
+            if claudeIds.isEmpty {
+                ptyToClaudeSessionIds.removeValue(forKey: ptyId)
+            } else {
+                ptyToClaudeSessionIds[ptyId] = claudeIds
+            }
+        }
     }
 
     // MARK: - Private
