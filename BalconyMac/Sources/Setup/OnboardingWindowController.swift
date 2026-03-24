@@ -1,16 +1,16 @@
 import AppKit
 import SwiftUI
 
-/// Manages a floating NSWindow hosting the setup wizard.
+/// Manages the floating onboarding window.
 @MainActor
-final class SetupWindowController {
+final class OnboardingWindowController {
     private var window: NSWindow?
-    private var windowDelegate: WindowCloseDelegate?
-    private let model = SetupFlowModel()
+    private var windowDelegate: OnboardingWindowCloseDelegate?
+    private let model = OnboardingFlowModel()
     private let manager = SetupManager()
 
-    /// Show the setup wizard window.
-    /// - Parameter onComplete: Called when the user finishes or dismisses the wizard.
+    /// Show the onboarding window.
+    /// - Parameter onComplete: Called when the user finishes or dismisses the onboarding.
     func showSetupWindow(onComplete: @escaping () -> Void) {
         // Reuse existing window if already open
         if let existing = window, existing.isVisible {
@@ -29,16 +29,16 @@ final class SetupWindowController {
             onComplete()
         }
 
-        let view = SetupView(model: model, manager: manager)
+        let view = OnboardingView(model: model, manager: manager)
         let hostingView = NSHostingView(rootView: view)
 
         let newWindow = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 560, height: 420),
+            contentRect: NSRect(x: 0, y: 0, width: 640, height: 480),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
         )
-        newWindow.title = "Balcony Setup"
+        newWindow.title = "Welcome to Balcony"
         newWindow.contentView = hostingView
         newWindow.isReleasedWhenClosed = false
         newWindow.center()
@@ -46,7 +46,7 @@ final class SetupWindowController {
         newWindow.isMovableByWindowBackground = true
 
         // Store delegate strongly so it isn't deallocated
-        let delegate = WindowCloseDelegate(onClose: { [weak self] in
+        let delegate = OnboardingWindowCloseDelegate(onClose: { [weak self] in
             self?.handleWindowClose(onComplete: onComplete)
         })
         self.windowDelegate = delegate
@@ -54,7 +54,7 @@ final class SetupWindowController {
 
         self.window = newWindow
 
-        // Close Settings window so setup appears clearly
+        // Close Settings window so onboarding appears clearly
         for w in NSApp.windows where w != newWindow && w.isVisible {
             if w.title == "Settings" || w.title == "Preferences" {
                 w.close()
@@ -65,14 +65,14 @@ final class SetupWindowController {
         NSApp.activate(ignoringOtherApps: true)
     }
 
-    /// Close the setup window.
+    /// Close the onboarding window.
     func closeWindow() {
         window?.close()
         window = nil
         windowDelegate = nil
     }
 
-    /// Access the setup manager (for "Re-run Setup" in preferences).
+    /// Access the setup manager (for "Re-run Onboarding" in preferences).
     var setupManager: SetupManager {
         manager
     }
@@ -91,7 +91,7 @@ final class SetupWindowController {
 
 // MARK: - Window Close Delegate
 
-private final class WindowCloseDelegate: NSObject, NSWindowDelegate {
+private final class OnboardingWindowCloseDelegate: NSObject, NSWindowDelegate {
     let onClose: () -> Void
 
     init(onClose: @escaping () -> Void) {

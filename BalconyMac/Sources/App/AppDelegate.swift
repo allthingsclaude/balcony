@@ -16,7 +16,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let modelListProvider = ModelListProvider()
     let awayDetector = AwayDetector()
     let voiceTranscriber = VoiceTranscriber()
-    let setupWindowController = SetupWindowController()
+    let setupWindowController = OnboardingWindowController()
 
     /// Pre-resolved PTY session IDs for idle prompts (Claude session ID → PTY session ID).
     /// Stored when the idle prompt is shown so text responses route to the correct PTY

@@ -216,7 +216,7 @@ private struct AdvancedTab: View {
     var body: some View {
         Form {
             Section("Setup") {
-                Button("Re-run Setup Wizard...") {
+                Button("Re-run Onboarding...") {
                     rerunSetup()
                 }
             }
