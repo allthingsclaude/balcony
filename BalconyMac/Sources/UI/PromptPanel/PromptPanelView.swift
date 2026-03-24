@@ -345,9 +345,9 @@ struct PromptPanelView: View {
 
             // Action buttons
             HStack(spacing: 6) {
-                PanelButton("Deny", shortcut: focusState.isKeyboardFocused ? "N" : nil, role: .destructive) { onAction("n") }
-                PanelButton("Always", shortcut: focusState.isKeyboardFocused ? "A" : nil) { onAction("a") }
-                PanelButton("Allow", shortcut: focusState.isKeyboardFocused ? "Y" : nil, role: .primary) { onAction("y") }
+                PanelButton("Deny", shortcut: "N", role: .destructive) { onAction("n") }
+                PanelButton("Always", shortcut: "A") { onAction("a") }
+                PanelButton("Allow", shortcut: "Y", role: .primary) { onAction("y") }
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
@@ -713,9 +713,7 @@ struct MultiOptionPanelView: View {
                                 otherFieldFocused = true
                             }) {
                                 HStack(spacing: 8) {
-                                    if focusState.isKeyboardFocused {
-                                        ShortcutBadge(key: "\(option.index)")
-                                    }
+                                    ShortcutBadge(key: "\(option.index)")
                                     Text(option.label)
                                         .font(.system(size: 12))
                                         .foregroundStyle(PanelTheme.textPrimary)
@@ -735,9 +733,7 @@ struct MultiOptionPanelView: View {
                     } else {
                         Button(action: { onSelect(option) }) {
                             HStack(spacing: 8) {
-                                if focusState.isKeyboardFocused {
-                                    ShortcutBadge(key: "\(option.index)")
-                                }
+                                ShortcutBadge(key: "\(option.index)")
                                 Text(option.label)
                                     .font(.system(size: 12))
                                     .foregroundStyle(PanelTheme.textPrimary)
@@ -888,9 +884,7 @@ struct AskUserQuestionPanelView: View {
                 ForEach(Array(currentQuestion.options.enumerated()), id: \.offset) { index, option in
                     Button(action: { selectOption(index) }) {
                         HStack(spacing: 8) {
-                            if focusState.isKeyboardFocused {
-                                ShortcutBadge(key: "\(index + 1)")
-                            }
+                            ShortcutBadge(key: "\(index + 1)")
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(option.label)
                                     .font(.system(size: 12, weight: .medium))
