@@ -92,45 +92,39 @@ jobs:
       # ── Sign with Developer ID ─────────────────────────────────────
       - name: Code sign
         env:
-          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+          CODESIGN_IDENTITY: ${{ secrets.MACOS_CERTIFICATE_NAME }}
         run: |
-          KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
-          # Auto-detect the signing identity from the imported certificate
-          IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" | grep "Developer ID" | head -1 | sed 's/.*"\(.*\)".*/\1/')
-          if [[ -z "$IDENTITY" ]]; then
-            echo "Error: No Developer ID identity found in keychain"
-            security find-identity -v -p codesigning "$KEYCHAIN_PATH"
-            exit 1
-          fi
-          echo "Found signing identity"
-
           APP="$RUNNER_TEMP/export/$APP_NAME.app"
           ENTITLEMENTS="BalconyMac/Resources/BalconyMac.entitlements"
-          SIGN_ARGS=(--force --options runtime --timestamp --keychain "$KEYCHAIN_PATH" --sign "$IDENTITY")
 
-          # Sign frameworks from inside out
-          if [ -d "$APP/Contents/Frameworks" ]; then
-            find "$APP/Contents/Frameworks" \( -name "*.framework" -o -name "*.dylib" \) -print0 | while IFS= read -r -d '' fw; do
-              echo "Signing: $fw"
-              codesign "${SIGN_ARGS[@]}" "$fw"
-            done
+          # Sign Sparkle framework first (deep)
+          if [ -d "$APP/Contents/Frameworks/Sparkle.framework" ]; then
+            codesign --force --sign "$CODESIGN_IDENTITY" \
+              --options runtime --timestamp --deep \
+              "$APP/Contents/Frameworks/Sparkle.framework"
           fi
+
+          # Sign other frameworks
+          find "$APP/Contents/Frameworks" \( -name "*.framework" -o -name "*.dylib" \) \
+            ! -path "*/Sparkle.framework*" -print0 2>/dev/null | \
+            while IFS= read -r -d '' fw; do
+              codesign --force --sign "$CODESIGN_IDENTITY" \
+                --options runtime --timestamp "$fw"
+            done
 
           # Sign embedded helpers
           for helper in "$APP/Contents/Resources/balcony-cli" "$APP/Contents/Resources/hook-handler"; do
             if [ -f "$helper" ]; then
-              echo "Signing: $helper"
-              codesign "${SIGN_ARGS[@]}" "$helper"
+              codesign --force --sign "$CODESIGN_IDENTITY" \
+                --options runtime --timestamp "$helper"
             fi
           done
 
-          # Sign the main app with entitlements
-          echo "Signing: $APP"
-          codesign "${SIGN_ARGS[@]}" --entitlements "$ENTITLEMENTS" "$APP"
-
-          # Verify
-          codesign --verify --deep --strict "$APP"
-          echo "Code signing verified successfully"
+          # Sign the main app with entitlements and deep
+          codesign --force --sign "$CODESIGN_IDENTITY" \
+            --entitlements "$ENTITLEMENTS" \
+            --options runtime --timestamp --deep \
+            "$APP"
 
       # ── Notarize .app ─────────────────────────────────────────────────
       - name: Notarize app
@@ -151,15 +145,13 @@ jobs:
       # ── Sign + notarize DMG ───────────────────────────────────────────
       - name: Sign and notarize DMG
         env:
+          CODESIGN_IDENTITY: ${{ secrets.MACOS_CERTIFICATE_NAME }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
-          KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
-          IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" | grep "Developer ID" | head -1 | sed 's/.*"\(.*\)".*/\1/')
           DMG="$APP_NAME-${{ steps.version.outputs.version }}.dmg"
-          codesign --force --sign "$IDENTITY" --timestamp --keychain "$KEYCHAIN_PATH" "$DMG"
+          codesign --force --sign "$CODESIGN_IDENTITY" --timestamp "$DMG"
           bash Scripts/notarize.sh "$DMG"
 
       # ── Sign with Sparkle EdDSA key ───────────────────────────────────
