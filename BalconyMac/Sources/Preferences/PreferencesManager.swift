@@ -1,3 +1,4 @@
+import AppKit
 import AVFoundation
 import Foundation
 import os
@@ -28,6 +29,7 @@ final class PreferencesManager {
     static let voiceInputEnabledKey = "voiceInputEnabled"
     static let voiceLanguageKey = "voiceLanguage"
     static let voiceSecondaryLanguageKey = "voiceSecondaryLanguage"
+    static let appearanceKey = "appearance"
     static let awayDistanceKey = "awayDistance"
     static let awaySustainKey = "awaySustain"
 
@@ -47,9 +49,30 @@ final class PreferencesManager {
         voiceSecondaryLanguageKey: "",
         attentionSoundKey: "",
         doneSoundKey: "",
+        appearanceKey: "system",
         awayDistanceKey: 1,
         awaySustainKey: 3,
     ]
+
+    // MARK: - Appearance
+
+    /// User's preferred appearance: "system", "light", or "dark".
+    var appearance: String {
+        UserDefaults.standard.string(forKey: Self.appearanceKey) ?? "system"
+    }
+
+    /// Apply the appearance preference to the app.
+    func applyAppearance() {
+        let value = appearance
+        switch value {
+        case "light":
+            NSApp.appearance = NSAppearance(named: .aqua)
+        case "dark":
+            NSApp.appearance = NSAppearance(named: .darkAqua)
+        default:
+            NSApp.appearance = nil
+        }
+    }
 
     // MARK: - General
 
@@ -215,6 +238,7 @@ final class PreferencesManager {
     /// Remove all Balcony preference keys and re-register defaults.
     func resetAll() {
         let allKeys = [
+            Self.appearanceKey,
             Self.wsPortKey, Self.idleThresholdKey, Self.awayThresholdKey,
             Self.displayNameKey, Self.sessionRefreshIntervalKey,
             Self.bonjourEnabledKey, Self.bleEnabledKey,

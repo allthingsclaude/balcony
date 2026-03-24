@@ -32,6 +32,7 @@ struct PreferencesView: View {
 
 private struct GeneralTab: View {
     @State private var loginItemEnabled = SMAppService.mainApp.status == .enabled
+    @AppStorage(PreferencesManager.appearanceKey) private var appearance = "system"
     @AppStorage(PreferencesManager.displayNameKey) private var displayName = ""
     @AppStorage(PreferencesManager.sessionRefreshIntervalKey) private var sessionRefreshInterval = 10
 
@@ -41,6 +42,16 @@ private struct GeneralTab: View {
 
     var body: some View {
         Form {
+            Section("Appearance") {
+                Picker("Theme", selection: $appearance) {
+                    Text("System").tag("system")
+                    Text("Light").tag("light")
+                    Text("Dark").tag("dark")
+                }
+                .onChange(of: appearance) { _, _ in
+                    PreferencesManager.shared.applyAppearance()
+                }
+            }
             Section("Startup") {
                 Toggle("Start at login", isOn: $loginItemEnabled)
                     .onChange(of: loginItemEnabled) { _, newValue in

@@ -56,6 +56,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         logger.info("BalconyMac launched")
 
+        PreferencesManager.shared.applyAppearance()
+
         // Ignore SIGPIPE so writing to a closed hook socket returns EPIPE
         // instead of crashing the process (e.g., stale permission panel answered
         // after the hook script already exited).
