@@ -5,5 +5,18 @@
         <link>https://allthingsclaude.github.io/balcony/appcast.xml</link>
         <description>Balcony auto-update feed</description>
         <language>en</language>
+            <item>
+            <title>Version 0.1.11</title>
+            <pubDate>Tue, 24 Mar 2026 09:31:24 +0000</pubDate>
+            <sparkle:version>181</sparkle:version>
+            <sparkle:shortVersionString>0.1.11</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure
+                url="https://github.com/allthingsclaude/balcony/releases/download/v0.1.11/Balcony-0.1.11.dmg"
+                length="7591761"
+                type="application/octet-stream"
+                sparkle:edSignature="7fZ7QUL+TWnlOJEORpbiJOUK9tQYpTg2polteQSFuF3R0e2tPFWjIfLPx3mz18G1wjW41aGW+RkMDpE5Qg2tBA=="
+            />
+        </item>
     </channel>
 </rss>
