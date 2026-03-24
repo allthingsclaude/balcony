@@ -614,8 +614,8 @@ final class PromptPanelController {
                     self.selectNextPanel()
                     return true
                 }
-                // Space → focus terminal/IDE window and dismiss panel
-                if event.keyCode == 49 {
+                // Tab → focus terminal/IDE window and dismiss panel
+                if event.keyCode == 48 {
                     self.onFocus?(sessionId)
                     self.dismissPrompt(for: sessionId)
                     return true
