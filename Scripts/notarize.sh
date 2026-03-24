@@ -37,30 +37,14 @@ fi
 
 echo "==> Submitting for notarization: $SUBMIT_PATH"
 
-RESULT=$(xcrun notarytool submit "$SUBMIT_PATH" \
+xcrun notarytool submit "$SUBMIT_PATH" \
     --apple-id "$APPLE_ID" \
     --password "$APPLE_APP_PASSWORD" \
     --team-id "$APPLE_TEAM_ID" \
-    --wait 2>&1) || true
+    --wait
 
-echo "$RESULT"
-
-# Extract submission ID and check status
-SUBMISSION_ID=$(echo "$RESULT" | grep "id:" | head -1 | awk '{print $2}')
-STATUS=$(echo "$RESULT" | grep "status:" | head -1 | awk '{print $2}')
-
-if [[ "$STATUS" != "Accepted" ]]; then
-    echo "==> Notarization failed (status: $STATUS). Fetching log..."
-    xcrun notarytool log "$SUBMISSION_ID" \
-        --apple-id "$APPLE_ID" \
-        --password "$APPLE_APP_PASSWORD" \
-        --team-id "$APPLE_TEAM_ID" || true
-    # Clean up temp zip
-    if [[ "$EXT" == "app" && -f "${ZIP_PATH:-}" ]]; then
-        rm -f "$ZIP_PATH"
-    fi
-    exit 1
-fi
+# If notarytool exits non-zero, the set -e will catch it.
+# If it exits zero but status is not Accepted, stapler will fail below.
 
 # Clean up temp zip
 if [[ "$EXT" == "app" && -f "${ZIP_PATH:-}" ]]; then
