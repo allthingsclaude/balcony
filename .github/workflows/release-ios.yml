@@ -80,13 +80,11 @@ jobs:
             -scheme "$SCHEME" \
             -destination 'generic/platform=iOS' \
             -archivePath "$RUNNER_TEMP/$APP_NAME-iOS.xcarchive" \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath ~/.private_keys/AuthKey_${{ secrets.ASC_API_KEY_ID }}.p8 \
-            -authenticationKeyID "${{ secrets.ASC_API_KEY_ID }}" \
-            -authenticationKeyIssuerID "${{ secrets.ASC_API_ISSUER_ID }}" \
             MARKETING_VERSION="$VERSION" \
             CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
-            DEVELOPMENT_TEAM="${{ secrets.APPLE_TEAM_ID }}"
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
 
       # ── Export IPA ────────────────────────────────────────────────────
       - name: Export IPA
