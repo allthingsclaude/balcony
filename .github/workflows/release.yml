@@ -263,6 +263,51 @@ jobs:
           git commit -m "Update appcast for v$VERSION"
           git push
 
+      # ── Update Homebrew cask (in-repo) ──────────────────────────────────
+      - name: Update Homebrew cask
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          DMG="$APP_NAME-$VERSION.dmg"
+          SHA256=$(shasum -a 256 "$DMG" | awk '{print $1}')
+          DMG_URL="https://github.com/${{ github.repository }}/releases/download/v$VERSION/$DMG"
+
+          git clone --branch main --single-branch \
+            "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" \
+            cask-update-dir
+
+          cd cask-update-dir
+
+          python3 -c "
+          import sys
+          v, s, u = sys.argv[1], sys.argv[2], sys.argv[3]
+          cask = f'''cask \"balcony\" do
+            version \"{v}\"
+            sha256 \"{s}\"
+
+            url \"{u}\"
+            name \"Balcony\"
+            desc \"Monitor and interact with Claude Code sessions from your iPhone\"
+            homepage \"https://github.com/allthingsclaude/balcony\"
+
+            app \"Balcony.app\"
+            binary \"#{{appdir}}/Balcony.app/Contents/Resources/balcony-cli\"
+
+            zap trash: [
+              \"~/Library/Preferences/com.balcony.mac.plist\",
+            ]
+          end
+          '''
+          open('Casks/balcony.rb', 'w').write(cask)
+          " "$VERSION" "$SHA256" "$DMG_URL"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Casks/balcony.rb
+          git commit -m "Update cask to v$VERSION"
+          git push
+
       # ── Cleanup keychain ──────────────────────────────────────────────
       - name: Cleanup keychain
         if: always()
