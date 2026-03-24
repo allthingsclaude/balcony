@@ -15,6 +15,12 @@ private class KeyablePanel: NSPanel {
     /// Returns true if backspace should be consumed (voice recording is active).
     var onBackspace: (() -> Bool)?
 
+    /// Keyboard shortcut handler. Returns true if the event was consumed.
+    var onKeyDown: ((NSEvent) -> Bool)?
+
+    /// Called when this panel stops being the key window.
+    var onResignKey: (() -> Void)?
+
     override func sendEvent(_ event: NSEvent) {
         if event.type == .keyDown, event.keyCode == 53 {
             onCancel?()
@@ -24,7 +30,19 @@ private class KeyablePanel: NSPanel {
         if event.type == .keyDown, event.keyCode == 51, onBackspace?() == true {
             return
         }
+        // Keyboard shortcuts (only when not editing a text field)
+        if event.type == .keyDown, let handler = onKeyDown {
+            let isEditingText = firstResponder is NSText
+            if !isEditingText, handler(event) {
+                return
+            }
+        }
         super.sendEvent(event)
+    }
+
+    override func resignKey() {
+        super.resignKey()
+        onResignKey?()
     }
 }
 
@@ -42,6 +60,16 @@ private class DimmingView: NSView {
     }
 
     required init?(coder: NSCoder) { fatalError() }
+}
+
+/// Observable focus state shared between the controller and individual panel views.
+@MainActor
+final class PanelFocusState: ObservableObject {
+    @Published var isKeyboardFocused = false
+    /// Set by the controller to trigger showing the "Other" text input via keyboard shortcut.
+    @Published var activateOtherInput = false
+    /// Triggers option selection in ask-user-question panels (0-based index).
+    @Published var selectedOptionIndex: Int?
 }
 
 /// NSView wrapper providing mouse hover tracking, drag/swipe-to-dismiss, and a dimming overlay.
@@ -202,7 +230,7 @@ final class PromptPanelController {
     private let logger = Logger(subsystem: "com.balcony.mac", category: "PromptPanelController")
 
     /// Active panels in stack order (index 0 = topmost).
-    private var panels: [(sessionId: String, panel: NSPanel)] = []
+    private var panels: [(sessionId: String, panel: NSPanel, focusState: PanelFocusState)] = []
 
     /// Voice transcriber for dictation input. Set by AppDelegate.
     var voiceTranscriber: VoiceTranscriber?
@@ -244,6 +272,10 @@ final class PromptPanelController {
 
     private var isExpanded = false
     private var collapseTimer: Timer?
+    /// Index of the panel currently selected via keyboard navigation.
+    private var selectedPanelIndex: Int?
+    /// Flag to prevent clearing focus during panel navigation switches.
+    private var isNavigatingPanels = false
 
     // MARK: - Show
 
@@ -254,9 +286,11 @@ final class PromptPanelController {
 
         let sessionId = info.sessionId
         let panel = makePanel()
+        let focusState = PanelFocusState()
         let hostingView = NSHostingView(
             rootView: PromptPanelView(
                 info: info,
+                focusState: focusState,
                 onAction: { [weak self] keystroke in
                     self?.handleAction(sessionId: sessionId, keystroke: keystroke)
                 },
@@ -269,7 +303,17 @@ final class PromptPanelController {
             )
         )
 
-        configureAndShow(panel: panel, hostingView: hostingView, sessionId: sessionId)
+        let keyHandler: (NSEvent) -> Bool = { [weak self] event in
+            guard let char = event.charactersIgnoringModifiers?.lowercased() else { return false }
+            switch char {
+            case "y", "3": self?.handleAction(sessionId: sessionId, keystroke: "y"); return true
+            case "n", "1": self?.handleAction(sessionId: sessionId, keystroke: "n"); return true
+            case "a", "2": self?.handleAction(sessionId: sessionId, keystroke: "a"); return true
+            default: return false
+            }
+        }
+
+        configureAndShow(panel: panel, hostingView: hostingView, sessionId: sessionId, focusState: focusState, keyHandler: keyHandler)
     }
 
     /// Show the prompt panel for an idle prompt (Claude waiting for user input).
@@ -279,9 +323,11 @@ final class PromptPanelController {
 
         let sessionId = info.sessionId
         let panel = makePanel()
+        let focusState = PanelFocusState()
         let hostingView = NSHostingView(
             rootView: IdlePromptPanelView(
                 info: info,
+                focusState: focusState,
                 voiceTranscriber: voiceTranscriber,
                 onSubmit: { [weak self] text in
                     self?.handleTextSubmit(sessionId: sessionId, text: text)
@@ -298,7 +344,7 @@ final class PromptPanelController {
             )
         )
 
-        configureAndShow(panel: panel, hostingView: hostingView, sessionId: sessionId)
+        configureAndShow(panel: panel, hostingView: hostingView, sessionId: sessionId, focusState: focusState)
     }
 
     /// Show the prompt panel for a multi-option question (AskUserQuestion).
@@ -308,10 +354,12 @@ final class PromptPanelController {
 
         let sessionId = info.sessionId
         let panel = makePanel()
+        let focusState = PanelFocusState()
         let hostingView = NSHostingView(
             rootView: MultiOptionPanelView(
                 info: info,
                 options: options,
+                focusState: focusState,
                 onSelect: { [weak self] option in
                     self?.handleMultiOptionSelect(sessionId: sessionId, option: option, allOptions: options)
                 },
@@ -328,7 +376,21 @@ final class PromptPanelController {
             )
         )
 
-        configureAndShow(panel: panel, hostingView: hostingView, sessionId: sessionId)
+        let keyHandler: (NSEvent) -> Bool = { [weak self] event in
+            guard let char = event.charactersIgnoringModifiers else { return false }
+            if let num = Int(char), num >= 1, num <= options.count {
+                let option = options[num - 1]
+                if option.isOther {
+                    focusState.activateOtherInput = true
+                    return true
+                }
+                self?.handleMultiOptionSelect(sessionId: sessionId, option: option, allOptions: options)
+                return true
+            }
+            return false
+        }
+
+        configureAndShow(panel: panel, hostingView: hostingView, sessionId: sessionId, focusState: focusState, keyHandler: keyHandler)
     }
 
     /// Show the prompt panel for an AskUserQuestion tool call with structured options.
@@ -338,9 +400,11 @@ final class PromptPanelController {
 
         let sessionId = info.sessionId
         let panel = makePanel()
+        let focusState = PanelFocusState()
         let hostingView = NSHostingView(
             rootView: AskUserQuestionPanelView(
                 info: info,
+                focusState: focusState,
                 onComplete: { [weak self] answers in
                     self?.handleAskUserQuestionComplete(sessionId: sessionId, info: info, answers: answers)
                 },
@@ -353,7 +417,16 @@ final class PromptPanelController {
             )
         )
 
-        configureAndShow(panel: panel, hostingView: hostingView, sessionId: sessionId)
+        let keyHandler: (NSEvent) -> Bool = { event in
+            guard let char = event.charactersIgnoringModifiers else { return false }
+            if let num = Int(char), num >= 1, num <= 9 {
+                focusState.selectedOptionIndex = num - 1
+                return true
+            }
+            return false
+        }
+
+        configureAndShow(panel: panel, hostingView: hostingView, sessionId: sessionId, focusState: focusState, keyHandler: keyHandler)
     }
 
     // MARK: - Dismiss
@@ -363,7 +436,17 @@ final class PromptPanelController {
         guard let index = panels.firstIndex(where: { $0.sessionId == sessionId }) else { return }
 
         let entry = panels.remove(at: index)
+        entry.focusState.isKeyboardFocused = false
         fadeOut(entry.panel)
+
+        // Update selectedPanelIndex after removal
+        if let selected = selectedPanelIndex {
+            if index == selected {
+                selectedPanelIndex = nil
+            } else if index < selected {
+                selectedPanelIndex = selected - 1
+            }
+        }
 
         if panels.count <= 1 {
             isExpanded = false
@@ -409,6 +492,9 @@ final class PromptPanelController {
         // Explicitly focus the first editable text field — SwiftUI's @FocusState
         // from onAppear doesn't re-fire when the panel is re-activated.
         focusFirstTextField(in: entry.panel)
+        // Set keyboard focus on the frontmost panel
+        selectedPanelIndex = 0
+        updateKeyboardFocusStates()
         logger.info("[HOTKEY] Panel activated: isKey=\(entry.panel.isKeyWindow) firstResponder=\(String(describing: entry.panel.firstResponder))")
     }
 
@@ -444,12 +530,61 @@ final class PromptPanelController {
         app.activate()
     }
 
+    // MARK: - Keyboard Navigation
+
+    /// Select the next panel in the stack (wrapping around).
+    func selectNextPanel() {
+        guard panels.count > 1 else { return }
+        let current = selectedPanelIndex ?? 0
+        let newIndex = (current + 1) % panels.count
+        selectedPanelIndex = newIndex
+        applyKeyboardNavigation(to: newIndex)
+    }
+
+    /// Select the previous panel in the stack (wrapping around).
+    func selectPreviousPanel() {
+        guard panels.count > 1 else { return }
+        let current = selectedPanelIndex ?? 0
+        let newIndex = (current - 1 + panels.count) % panels.count
+        selectedPanelIndex = newIndex
+        applyKeyboardNavigation(to: newIndex)
+    }
+
+    private func applyKeyboardNavigation(to index: Int) {
+        updateKeyboardFocusStates()
+        if !isExpanded && panels.count > 1 {
+            isExpanded = true
+            repositionPanels(animated: true)
+        }
+        isNavigatingPanels = true
+        panels[index].panel.makeKeyAndOrderFront(nil)
+        focusFirstTextField(in: panels[index].panel)
+        isNavigatingPanels = false
+    }
+
+    /// Update focus states on all panels to reflect `selectedPanelIndex`.
+    private func updateKeyboardFocusStates() {
+        for (index, entry) in panels.enumerated() {
+            entry.focusState.isKeyboardFocused = (index == selectedPanelIndex)
+        }
+    }
+
+    /// Clear keyboard focus from all panels.
+    private func clearKeyboardFocus() {
+        selectedPanelIndex = nil
+        for entry in panels {
+            entry.focusState.isKeyboardFocused = false
+        }
+    }
+
     /// Dismiss all panels (e.g., on app termination).
     func dismissAllPanels() {
         for entry in panels {
+            entry.focusState.isKeyboardFocused = false
             fadeOut(entry.panel)
         }
         panels.removeAll()
+        selectedPanelIndex = nil
         isExpanded = false
         collapseTimer?.invalidate()
         collapseTimer = nil
@@ -457,7 +592,7 @@ final class PromptPanelController {
 
     // MARK: - Private — Panel Setup
 
-    private func configureAndShow(panel: NSPanel, hostingView: NSHostingView<some View>, sessionId: String) {
+    private func configureAndShow(panel: NSPanel, hostingView: NSHostingView<some View>, sessionId: String, focusState: PanelFocusState, keyHandler: ((NSEvent) -> Bool)? = nil) {
         // Wire up ESC key to dismiss
         if let keyablePanel = panel as? KeyablePanel {
             keyablePanel.onCancel = { [weak self] in
@@ -467,6 +602,31 @@ final class PromptPanelController {
                 guard let transcriber = self?.voiceTranscriber, transcriber.isRecording else { return false }
                 transcriber.deleteLastWord()
                 return true
+            }
+            keyablePanel.onKeyDown = { [weak self] event -> Bool in
+                guard let self else { return false }
+                // Up arrow → previous panel
+                if event.keyCode == 126 {
+                    self.selectPreviousPanel()
+                    return true
+                }
+                // Down arrow → next panel
+                if event.keyCode == 125 {
+                    self.selectNextPanel()
+                    return true
+                }
+                // Space → focus terminal/IDE window and dismiss panel
+                if event.keyCode == 49 {
+                    self.onFocus?(sessionId)
+                    self.dismissPrompt(for: sessionId)
+                    return true
+                }
+                // Panel-specific shortcuts
+                return keyHandler?(event) ?? false
+            }
+            keyablePanel.onResignKey = { [weak self] in
+                guard self?.isNavigatingPanels != true else { return }
+                self?.clearKeyboardFocus()
             }
         }
 
@@ -508,7 +668,7 @@ final class PromptPanelController {
         trackingView.originalPanelX = x
 
         // Insert new panel at the front (top of stack)
-        panels.insert((sessionId: sessionId, panel: panel), at: 0)
+        panels.insert((sessionId: sessionId, panel: panel, focusState: focusState), at: 0)
 
         // Start slightly below final position for slide-up entrance
         let slideOffset: CGFloat = 8

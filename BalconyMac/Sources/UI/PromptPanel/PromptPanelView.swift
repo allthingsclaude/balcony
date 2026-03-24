@@ -97,6 +97,36 @@ private struct PanelBackground: View {
     }
 }
 
+/// Focus ring overlay shown when a panel is keyboard-focused.
+private struct PanelFocusRing: ViewModifier {
+    @ObservedObject var focusState: PanelFocusState
+
+    func body(content: Content) -> some View {
+        content.overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .strokeBorder(
+                    PanelTheme.brand.opacity(focusState.isKeyboardFocused ? 0.5 : 0),
+                    lineWidth: 2
+                )
+                .animation(.easeInOut(duration: 0.15), value: focusState.isKeyboardFocused)
+        )
+    }
+}
+
+/// Small keyboard shortcut badge shown next to options when focused.
+private struct ShortcutBadge: View {
+    let key: String
+
+    var body: some View {
+        Text(key)
+            .font(.system(size: 10, weight: .medium, design: .monospaced))
+            .foregroundStyle(PanelTheme.brand)
+            .frame(width: 18, height: 18)
+            .background(PanelTheme.brand.opacity(0.15))
+            .clipShape(RoundedRectangle(cornerRadius: 4))
+    }
+}
+
 /// Renders markdown text with support for fenced code blocks, inline formatting, and proper fonts.
 private struct MarkdownText: View {
     let text: String
@@ -251,6 +281,7 @@ private struct DismissButton: View {
 /// Notification-style view for permission requests.
 struct PromptPanelView: View {
     let info: PermissionPromptInfo
+    @ObservedObject var focusState: PanelFocusState
     let onAction: (String) -> Void
     let onFocus: () -> Void
     let onDismiss: () -> Void
@@ -314,9 +345,9 @@ struct PromptPanelView: View {
 
             // Action buttons
             HStack(spacing: 6) {
-                PanelButton("Deny", role: .destructive) { onAction("n") }
-                PanelButton("Always") { onAction("a") }
-                PanelButton("Allow", role: .primary) { onAction("y") }
+                PanelButton("Deny", shortcut: focusState.isKeyboardFocused ? "N" : nil, role: .destructive) { onAction("n") }
+                PanelButton("Always", shortcut: focusState.isKeyboardFocused ? "A" : nil) { onAction("a") }
+                PanelButton("Allow", shortcut: focusState.isKeyboardFocused ? "Y" : nil, role: .primary) { onAction("y") }
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
@@ -324,6 +355,7 @@ struct PromptPanelView: View {
         .frame(width: 340)
         .background(PanelBackground())
         .clipShape(RoundedRectangle(cornerRadius: 14))
+        .modifier(PanelFocusRing(focusState: focusState))
         .tint(PanelTheme.brand)
         .shadow(color: .black.opacity(0.2), radius: 16, y: 6)
         .shadow(color: .black.opacity(0.08), radius: 2, y: 1)
@@ -410,6 +442,7 @@ struct PromptPanelView: View {
 /// Notification-style view for idle prompts (Claude waiting for input).
 struct IdlePromptPanelView: View {
     let info: IdlePromptInfo
+    @ObservedObject var focusState: PanelFocusState
     var voiceTranscriber: VoiceTranscriber?
     let onSubmit: (String) -> Void
     let onTyping: (String) -> Void
@@ -522,6 +555,7 @@ struct IdlePromptPanelView: View {
         .frame(width: 340)
         .background(PanelBackground())
         .clipShape(RoundedRectangle(cornerRadius: 14))
+        .modifier(PanelFocusRing(focusState: focusState))
         .tint(PanelTheme.brand)
         .shadow(color: .black.opacity(0.2), radius: 16, y: 6)
         .shadow(color: .black.opacity(0.08), radius: 2, y: 1)
@@ -584,6 +618,7 @@ struct IdlePromptPanelView: View {
 struct MultiOptionPanelView: View {
     let info: IdlePromptInfo
     let options: [ParsedOption]
+    @ObservedObject var focusState: PanelFocusState
     let onSelect: (ParsedOption) -> Void
     let onTextSubmit: (String) -> Void
     let onFocus: () -> Void
@@ -677,7 +712,10 @@ struct MultiOptionPanelView: View {
                                 showOtherInput = true
                                 otherFieldFocused = true
                             }) {
-                                HStack {
+                                HStack(spacing: 8) {
+                                    if focusState.isKeyboardFocused {
+                                        ShortcutBadge(key: "\(option.index)")
+                                    }
                                     Text(option.label)
                                         .font(.system(size: 12))
                                         .foregroundStyle(PanelTheme.textPrimary)
@@ -696,7 +734,10 @@ struct MultiOptionPanelView: View {
                         }
                     } else {
                         Button(action: { onSelect(option) }) {
-                            HStack {
+                            HStack(spacing: 8) {
+                                if focusState.isKeyboardFocused {
+                                    ShortcutBadge(key: "\(option.index)")
+                                }
                                 Text(option.label)
                                     .font(.system(size: 12))
                                     .foregroundStyle(PanelTheme.textPrimary)
@@ -721,9 +762,17 @@ struct MultiOptionPanelView: View {
         .frame(width: 340)
         .background(PanelBackground())
         .clipShape(RoundedRectangle(cornerRadius: 14))
+        .modifier(PanelFocusRing(focusState: focusState))
         .tint(PanelTheme.brand)
         .shadow(color: .black.opacity(0.2), radius: 16, y: 6)
         .shadow(color: .black.opacity(0.08), radius: 2, y: 1)
+        .onChange(of: focusState.activateOtherInput) { _, activate in
+            if activate {
+                showOtherInput = true
+                otherFieldFocused = true
+                focusState.activateOtherInput = false
+            }
+        }
     }
 
     private var projectName: String? {
@@ -746,6 +795,7 @@ struct MultiOptionPanelView: View {
 /// Shows one question at a time (wizard-style) and collects all answers before submitting.
 struct AskUserQuestionPanelView: View {
     let info: AskUserQuestionInfo
+    @ObservedObject var focusState: PanelFocusState
     let onComplete: ([AskUserQuestionAnswer]) -> Void
     let onFocus: () -> Void
     let onDismiss: () -> Void
@@ -837,7 +887,10 @@ struct AskUserQuestionPanelView: View {
             VStack(spacing: 4) {
                 ForEach(Array(currentQuestion.options.enumerated()), id: \.offset) { index, option in
                     Button(action: { selectOption(index) }) {
-                        HStack {
+                        HStack(spacing: 8) {
+                            if focusState.isKeyboardFocused {
+                                ShortcutBadge(key: "\(index + 1)")
+                            }
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(option.label)
                                     .font(.system(size: 12, weight: .medium))
@@ -927,9 +980,16 @@ struct AskUserQuestionPanelView: View {
         .frame(width: 340)
         .background(PanelBackground())
         .clipShape(RoundedRectangle(cornerRadius: 14))
+        .modifier(PanelFocusRing(focusState: focusState))
         .tint(PanelTheme.brand)
         .shadow(color: .black.opacity(0.2), radius: 16, y: 6)
         .shadow(color: .black.opacity(0.08), radius: 2, y: 1)
+        .onChange(of: focusState.selectedOptionIndex) { _, index in
+            if let index, index < currentQuestion.options.count {
+                selectOption(index)
+                focusState.selectedOptionIndex = nil
+            }
+        }
     }
 
     private var projectName: String? {
@@ -1004,11 +1064,13 @@ private struct VoiceRecordingGlow: View {
 /// Styled button using the terracotta theme.
 private struct PanelButton: View {
     let title: String
+    let shortcut: String?
     let role: ButtonRole
     let action: () -> Void
 
-    init(_ title: String, role: ButtonRole = .default, action: @escaping () -> Void) {
+    init(_ title: String, shortcut: String? = nil, role: ButtonRole = .default, action: @escaping () -> Void) {
         self.title = title
+        self.shortcut = shortcut
         self.role = role
         self.action = action
     }
@@ -1021,15 +1083,30 @@ private struct PanelButton: View {
 
     var body: some View {
         Button(action: action) {
-            Text(title)
-                .font(.system(size: 12, weight: role == .primary ? .semibold : .regular))
-                .frame(maxWidth: .infinity)
-                .frame(height: 28)
+            HStack(spacing: 4) {
+                Text(title)
+                    .font(.system(size: 12, weight: role == .primary ? .semibold : .regular))
+                if let shortcut {
+                    Text(shortcut)
+                        .font(.system(size: 10, weight: .medium, design: .monospaced))
+                        .foregroundStyle(shortcutColor)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 28)
         }
         .buttonStyle(.plain)
         .foregroundStyle(foregroundColor)
         .background(backgroundColor)
         .clipShape(RoundedRectangle(cornerRadius: 6))
+    }
+
+    private var shortcutColor: Color {
+        switch role {
+        case .primary: return .white.opacity(0.6)
+        case .destructive: return PanelTheme.brandDark.opacity(0.5)
+        case .default: return PanelTheme.textTertiary
+        }
     }
 
     private var foregroundColor: Color {
