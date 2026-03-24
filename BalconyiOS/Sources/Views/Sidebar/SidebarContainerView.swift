@@ -155,7 +155,7 @@ struct SidebarContainerView: View {
     private var mainContent: some View {
         NavigationStack {
             ZStack {
-                BalconyTheme.background.ignoresSafeArea()
+                BalconyTheme.background.ignoresSafeArea(edges: [.horizontal, .bottom])
 
                 if let session = selectedSession {
                     Group {
