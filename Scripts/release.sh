@@ -80,13 +80,46 @@ git add "$MAC_PLIST" "$IOS_PLIST"
 git commit -m "chore: bump version to $VERSION"
 echo "  Committed version bump"
 
-# Create and push the tag
+# Create the tag (but don't push it yet)
 git tag "v$VERSION"
 echo "  Created tag v$VERSION"
 
+# Push commit to main
 git push
+echo "  Pushed commit to origin"
+
+# Wait for CI to pass before pushing the tag
+echo ""
+echo "Waiting for CI to pass..."
+REPO=$(gh repo view --json nameWithOwner -q '.nameWithOwner')
+COMMIT_SHA=$(git rev-parse HEAD)
+
+# Poll until CI completes
+while true; do
+  STATUS=$(gh api "repos/$REPO/commits/$COMMIT_SHA/check-runs" \
+    --jq '.check_runs[] | select(.name == "build-and-test") | .status + ":" + .conclusion' 2>/dev/null || echo "pending:")
+
+  case "$STATUS" in
+    completed:success)
+      echo "  CI passed!"
+      break
+      ;;
+    completed:*)
+      CONCLUSION="${STATUS#completed:}"
+      echo "  CI failed ($CONCLUSION). Aborting release."
+      git tag -d "v$VERSION"
+      exit 1
+      ;;
+    *)
+      printf "."
+      sleep 10
+      ;;
+  esac
+done
+
+# Now push the tag to trigger release workflows
 git push origin "v$VERSION"
-echo "  Pushed commit and tag to origin"
+echo "  Pushed tag v$VERSION to origin"
 
 echo ""
 echo "Done! Version bumped to $VERSION"

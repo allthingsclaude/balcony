@@ -69,6 +69,10 @@ jobs:
           brew install xcodegen
           xcodegen generate
 
+      # ── Run tests ───────────────────────────────────────────────────
+      - name: Test BalconyShared
+        run: cd BalconyShared && swift test
+
       # ── Archive ───────────────────────────────────────────────────────
       - name: Archive
         env:
