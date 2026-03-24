@@ -139,6 +139,10 @@ jobs:
         run: |
           bash Scripts/notarize.sh "$RUNNER_TEMP/export/$APP_NAME.app"
 
+      # ── Free disk space ──────────────────────────────────────────────
+      - name: Free disk space
+        run: rm -rf "$RUNNER_TEMP/$APP_NAME.xcarchive"
+
       # ── Create DMG ────────────────────────────────────────────────────
       - name: Create DMG
         run: |

@@ -88,7 +88,8 @@ open('$BG_DIR/background.png', 'wb').write(data)
 "
 
 # Create a read-write DMG first (needed for AppleScript styling)
-RW_DMG="$STAGING_DIR/rw.dmg"
+# Place RW DMG outside staging dir so hdiutil -srcfolder doesn't include it
+RW_DMG="$(mktemp -d)/rw.dmg"
 hdiutil create \
     -volname "$APP_NAME" \
     -srcfolder "$STAGING_DIR" \
