@@ -346,7 +346,6 @@ struct PromptPanelView: View {
             // Action buttons
             HStack(spacing: 6) {
                 PanelButton("Deny", shortcut: "N", role: .destructive) { onAction("n") }
-                PanelButton("Always", shortcut: "A") { onAction("a") }
                 PanelButton("Allow", shortcut: "Y", role: .primary) { onAction("y") }
             }
             .padding(.horizontal, 14)

@@ -306,9 +306,8 @@ final class PromptPanelController {
         let keyHandler: (NSEvent) -> Bool = { [weak self] event in
             guard let char = event.charactersIgnoringModifiers?.lowercased() else { return false }
             switch char {
-            case "y", "3": self?.handleAction(sessionId: sessionId, keystroke: "y"); return true
+            case "y", "2": self?.handleAction(sessionId: sessionId, keystroke: "y"); return true
             case "n", "1": self?.handleAction(sessionId: sessionId, keystroke: "n"); return true
-            case "a", "2": self?.handleAction(sessionId: sessionId, keystroke: "a"); return true
             default: return false
             }
         }
