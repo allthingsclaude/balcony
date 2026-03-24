@@ -255,7 +255,7 @@ private struct FocusButton: View {
                 .clipShape(Circle())
         }
         .buttonStyle(.plain)
-        .help("Focus terminal")
+        .help("Focus Window (Tab)")
     }
 }
 
