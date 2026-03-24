@@ -30,6 +30,12 @@ private class KeyablePanel: NSPanel {
         if event.type == .keyDown, event.keyCode == 51, onBackspace?() == true {
             return
         }
+        // Tab (keyCode 48) always focuses the terminal/IDE window,
+        // even when editing a text field, so handle it before the
+        // isEditingText guard.
+        if event.type == .keyDown, event.keyCode == 48, let handler = onKeyDown {
+            if handler(event) { return }
+        }
         // Keyboard shortcuts (only when not editing a text field)
         if event.type == .keyDown, let handler = onKeyDown {
             let isEditingText = firstResponder is NSText
