@@ -112,13 +112,13 @@ jobs:
                 --options runtime --timestamp "$fw"
             done
 
-          # Sign embedded helpers
-          for helper in "$APP/Contents/Resources/balcony-cli" "$APP/Contents/Resources/hook-handler"; do
-            if [ -f "$helper" ]; then
+          # Sign all executable binaries in Resources
+          find "$APP/Contents/Resources" -type f -perm +111 -print0 2>/dev/null | \
+            while IFS= read -r -d '' bin; do
+              echo "Signing resource: $bin"
               codesign --force --sign "$CODESIGN_IDENTITY" \
-                --options runtime --timestamp "$helper"
-            fi
-          done
+                --options runtime --timestamp "$bin"
+            done
 
           # Sign the main app with entitlements and deep
           codesign --force --sign "$CODESIGN_IDENTITY" \
