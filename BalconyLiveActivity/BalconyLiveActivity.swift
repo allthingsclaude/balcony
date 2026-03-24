@@ -79,12 +79,18 @@ private struct LockScreenLiveActivityView: View {
 
             // Counts row
             HStack(spacing: 0) {
+                CountColumn(
+                    count: state.totalCount,
+                    label: "Total",
+                    color: .white
+                )
+                .frame(maxWidth: .infinity)
+
                 if state.workingCount > 0 {
                     CountColumn(
                         count: state.workingCount,
                         label: "Working",
-                        color: Brand.light,
-                        showPulse: true
+                        color: Brand.light
                     )
                     .frame(maxWidth: .infinity)
                 }
@@ -92,8 +98,7 @@ private struct LockScreenLiveActivityView: View {
                     CountColumn(
                         count: state.doneCount,
                         label: "Finished",
-                        color: Brand.medium,
-                        showPulse: false
+                        color: Brand.medium
                     )
                     .frame(maxWidth: .infinity)
                 }
@@ -101,8 +106,7 @@ private struct LockScreenLiveActivityView: View {
                     CountColumn(
                         count: state.attentionCount,
                         label: "Attention",
-                        color: Brand.full,
-                        showPulse: false
+                        color: Brand.full
                     )
                     .frame(maxWidth: .infinity)
                 }
@@ -121,7 +125,6 @@ private struct CountColumn: View {
     let count: Int
     let label: String
     let color: Color
-    let showPulse: Bool
 
     var body: some View {
         VStack(spacing: 3) {
@@ -130,40 +133,14 @@ private struct CountColumn: View {
                 .foregroundStyle(color)
 
             HStack(spacing: 4) {
-                if showPulse {
-                    // Pulse ring for working state — concentric circles imply activity
-                    PulseIndicator(color: color)
-                } else {
-                    Circle()
-                        .fill(color)
-                        .frame(width: 5, height: 5)
-                }
+                Circle()
+                    .fill(color)
+                    .frame(width: 5, height: 5)
 
                 Text(label)
                     .font(.system(size: 11, weight: .medium, design: .rounded))
                     .foregroundStyle(Brand.textSecondary)
             }
-        }
-    }
-}
-
-/// A dot with an expanding ring — static "radar pulse" look that implies activity.
-private struct PulseIndicator: View {
-    let color: Color
-
-    var body: some View {
-        ZStack {
-            Circle()
-                .fill(color.opacity(0.15))
-                .frame(width: 12, height: 12)
-
-            Circle()
-                .fill(color.opacity(0.35))
-                .frame(width: 8, height: 8)
-
-            Circle()
-                .fill(color)
-                .frame(width: 5, height: 5)
         }
     }
 }
@@ -180,8 +157,7 @@ private struct ExpandedCountsRow: View {
                 CompactCountPill(
                     count: state.workingCount,
                     label: "Working",
-                    color: Brand.light,
-                    showPulse: true
+                    color: Brand.light
                 )
                 .frame(maxWidth: .infinity)
             }
@@ -189,8 +165,7 @@ private struct ExpandedCountsRow: View {
                 CompactCountPill(
                     count: state.doneCount,
                     label: "Finished",
-                    color: Brand.medium,
-                    showPulse: false
+                    color: Brand.medium
                 )
                 .frame(maxWidth: .infinity)
             }
@@ -198,8 +173,7 @@ private struct ExpandedCountsRow: View {
                 CompactCountPill(
                     count: state.attentionCount,
                     label: "Attention",
-                    color: Brand.full,
-                    showPulse: false
+                    color: Brand.full
                 )
                 .frame(maxWidth: .infinity)
             }
@@ -212,17 +186,12 @@ private struct CompactCountPill: View {
     let count: Int
     let label: String
     let color: Color
-    let showPulse: Bool
 
     var body: some View {
         HStack(spacing: 4) {
-            if showPulse {
-                PulseIndicator(color: color)
-            } else {
-                Circle()
-                    .fill(color)
-                    .frame(width: 5, height: 5)
-            }
+            Circle()
+                .fill(color)
+                .frame(width: 5, height: 5)
 
             Text("\(count)")
                 .font(.system(size: 15, weight: .bold, design: .rounded))
@@ -241,22 +210,27 @@ private struct CompactCountPill: View {
 private struct CompactTrailingView: View {
     let state: BalconySessionAttributes.ContentState
 
-    var body: some View {
+    /// Priority count and color: attention > done > working.
+    private var priorityInfo: (count: Int, color: Color) {
         if state.attentionCount > 0 {
-            countBadge(state.attentionCount, color: Brand.full)
+            return (state.attentionCount, Brand.full)
         } else if state.doneCount > 0 {
-            countBadge(state.doneCount, color: Brand.medium)
+            return (state.doneCount, Brand.medium)
         } else {
-            countBadge(state.workingCount, color: Brand.light)
+            return (state.workingCount, Brand.light)
         }
     }
 
-    private func countBadge(_ count: Int, color: Color) -> some View {
+    var body: some View {
+        let info = priorityInfo
         HStack(spacing: 3) {
-            Circle().fill(color).frame(width: 5, height: 5)
-            Text("\(count)")
+            Circle().fill(info.color).frame(width: 5, height: 5)
+            Text("\(info.count)")
                 .font(.system(size: 13, weight: .bold, design: .rounded))
-                .foregroundStyle(color)
+                .foregroundStyle(info.color)
+            Text("/\(state.totalCount)")
+                .font(.system(size: 13, weight: .bold, design: .rounded))
+                .foregroundStyle(.white.opacity(0.5))
         }
     }
 }
