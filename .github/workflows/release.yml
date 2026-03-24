@@ -164,16 +164,23 @@ jobs:
           SIZE=$(stat -f%z "$DMG")
           echo "size=$SIZE" >> "$GITHUB_OUTPUT"
 
-          # Find sign_update in Sparkle build artifacts
+          # Find sign_update in Sparkle build artifacts or download it
           SIGN_UPDATE=$(find .build -name "sign_update" -type f 2>/dev/null | head -1)
           if [[ -z "$SIGN_UPDATE" ]]; then
             echo "Downloading sign_update from Sparkle release..."
             SPARKLE_VERSION="2.8.1"
             SPARKLE_URL="https://github.com/sparkle-project/Sparkle/releases/download/${SPARKLE_VERSION}/Sparkle-${SPARKLE_VERSION}.tar.xz"
             SPARKLE_ARCHIVE="$RUNNER_TEMP/Sparkle-${SPARKLE_VERSION}.tar.xz"
+            SPARKLE_DIR="$RUNNER_TEMP/sparkle-extract"
             curl -sL -o "$SPARKLE_ARCHIVE" "$SPARKLE_URL"
-            tar xJf "$SPARKLE_ARCHIVE" --include="*/bin/sign_update" -C "$RUNNER_TEMP"
-            SIGN_UPDATE="$RUNNER_TEMP/bin/sign_update"
+            mkdir -p "$SPARKLE_DIR"
+            tar xJf "$SPARKLE_ARCHIVE" -C "$SPARKLE_DIR"
+            SIGN_UPDATE=$(find "$SPARKLE_DIR" -name "sign_update" -type f | head -1)
+            if [[ -z "$SIGN_UPDATE" ]]; then
+              echo "Error: sign_update not found in Sparkle archive"
+              find "$SPARKLE_DIR" -type f | head -20
+              exit 1
+            fi
             chmod +x "$SIGN_UPDATE"
           fi
 
