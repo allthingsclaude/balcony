@@ -340,6 +340,8 @@ struct ConversationView: View {
                     TextField(inputPlaceholder, text: $inputText)
                         .textFieldStyle(.plain)
                         .font(BalconyTheme.monoFont(15))
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
                         .focused($inputFocused)
                         .onSubmit { submitInput() }
                         .onChange(of: inputText) { newValue in
@@ -422,6 +424,10 @@ struct ConversationView: View {
             guard newValue != inputText else { return }
             let elapsed = Date().timeIntervalSince(lastLocalKeystroke)
             guard elapsed > 0.5 else { return }
+            // Don't truncate: if Mac's text is a prefix of what we have, the Mac
+            // parser likely only read the first terminal row of a wrapped input.
+            // Overwriting would desync previousText and cause corrupt diffs.
+            guard !inputText.hasPrefix(newValue) || newValue.count >= inputText.count else { return }
             previousText = newValue
             inputText = newValue
         }
@@ -457,11 +463,18 @@ struct ConversationView: View {
             onSendInput?(String(repeating: "\u{7f}", count: deleteCount))
         } else {
             // Complex edit (autocorrect, paste, etc.) — clear old, send new.
+            // Combine into a single send so the backspaces and replacement text
+            // travel in one WebSocket message, avoiding a race where two separate
+            // Task-per-send calls can arrive out of order and corrupt the terminal.
+            var combined = ""
             if !oldText.isEmpty {
-                onSendInput?(String(repeating: "\u{7f}", count: oldText.count))
+                combined += String(repeating: "\u{7f}", count: oldText.count)
             }
             if !newText.isEmpty {
-                onSendInput?(newText)
+                combined += newText
+            }
+            if !combined.isEmpty {
+                onSendInput?(combined)
             }
         }
     }

@@ -524,82 +524,133 @@ final class HeadlessTerminalParser: ObservableObject {
     private func extractChromeInputText(allRows: [BufferLine], chromeStart: Int) -> String {
         guard chromeStart < allRows.count else { return "" }
 
+        // --- Step 1: Find the ❯ prompt row ---
+        var promptRow = -1
+        var promptCol = -1
+
         for i in chromeStart..<allRows.count {
             let bufLine = allRows[i]
             let trimmedLen = bufLine.getTrimmedLength()
-
-            // Find ❯ column by scanning buffer cells.
-            var promptCol = -1
             for col in 0..<trimmedLen {
                 let ch = terminal.getCharacter(for: bufLine[col])
                 if ch == "\u{276F}" {
+                    promptRow = i
                     promptCol = col
                     break
                 }
             }
-            guard promptCol >= 0 else { continue }
+            if promptRow >= 0 { break }
+        }
+        guard promptRow >= 0 else { return "" }
 
-            // Skip ❯ and the space after it.
-            var startCol = promptCol + 1
-            if startCol < trimmedLen {
-                let ch = terminal.getCharacter(for: bufLine[startCol])
-                if ch == " " || ch == "\0" { startCol += 1 }
+        let promptBufLine = allRows[promptRow]
+        let promptTrimmedLen = promptBufLine.getTrimmedLength()
+
+        // Skip ❯ and the space after it.
+        var textStartCol = promptCol + 1
+        if textStartCol < promptTrimmedLen {
+            let ch = terminal.getCharacter(for: promptBufLine[textStartCol])
+            if ch == " " || ch == "\0" { textStartCol += 1 }
+        }
+
+        // No content after ❯ — empty input.
+        guard textStartCol < promptTrimmedLen else { return "" }
+
+        // Placeholder detection: Claude Code placeholder text (e.g.
+        // 'Try "fix lint errors"') uses mixed dim styling — some chars
+        // dim, some not. Real user input never has dim characters.
+        // Check the first several characters; if ANY are dim, it's placeholder.
+        let scanEnd = min(textStartCol + 10, promptTrimmedLen)
+        for col in textStartCol..<scanEnd {
+            let ch = terminal.getCharacter(for: promptBufLine[col])
+            if ch == "\0" || ch == " " { continue }
+            if promptBufLine[col].attribute.style.contains(.dim) {
+                return ""
             }
+        }
 
-            // No content after ❯ — empty input.
-            guard startCol < trimmedLen else { return "" }
+        // --- Step 2: Extract text across prompt row + any continuation rows ---
+        // When the user's input exceeds the terminal width, text wraps onto
+        // subsequent rows. We read until we find the TUI block cursor (inverse
+        // video cell) or run out of plausible continuation rows.
+        var result = ""
+        var cursorFound = false
+        let totalCols = terminal.cols
 
-            // Placeholder detection: Claude Code placeholder text (e.g.
-            // 'Try "fix lint errors"') uses mixed dim styling — some chars
-            // dim, some not. Real user input never has dim characters.
-            // Check the first several characters; if ANY are dim, it's placeholder.
-            let scanEnd = min(startCol + 10, trimmedLen)
-            for col in startCol..<scanEnd {
-                let ch = terminal.getCharacter(for: bufLine[col])
-                if ch == "\0" || ch == " " { continue }
-                if bufLine[col].attribute.style.contains(.dim) {
-                    return ""
+        for rowIdx in promptRow..<allRows.count {
+            let bufLine = allRows[rowIdx]
+            let trimmedLen = bufLine.getTrimmedLength()
+            let colStart: Int
+
+            if rowIdx == promptRow {
+                colStart = textStartCol
+            } else {
+                // Continuation row: Claude Code may indent wrapped lines to
+                // align with the text start column. Skip those indent spaces.
+                // If the leading columns contain non-whitespace, this row isn't
+                // a continuation — stop reading.
+                let indentCols = min(textStartCol, trimmedLen)
+                var isIndent = true
+                for col in 0..<indentCols {
+                    let ch = terminal.getCharacter(for: bufLine[col])
+                    if ch != " " && ch != "\0" {
+                        isIndent = false
+                        break
+                    }
+                }
+
+                if isIndent && indentCols > 0 {
+                    colStart = indentCols
+                } else if trimmedLen == 0 {
+                    // Empty row — end of input
+                    break
+                } else {
+                    // Non-indented continuation (terminal hard-wrap at column 0)
+                    colStart = 0
                 }
             }
 
-            // Find end of user content by locating the TUI block cursor.
-            // Claude Code renders the cursor as a cell with inverse video
-            // (style includes bit for inverse/reverse), while all user-typed
-            // text and padding have style=0. Scanning for the first cell with
-            // non-zero style gives us the exact end-of-input column, including
-            // any trailing spaces the user typed.
-            var endCol = -1
-            for col in startCol..<trimmedLen {
+            // Find TUI block cursor on this row (inverse video = non-zero
+            // style excluding dim).
+            var cursorCol = -1
+            for col in colStart..<trimmedLen {
                 let style = bufLine[col].attribute.style
                 if style.rawValue != 0 && !style.contains(.dim) {
-                    endCol = col
+                    cursorCol = col
                     break
                 }
             }
 
-            if endCol < 0 {
-                // No TUI cursor found (cursor hidden or off-screen) — fall
-                // back to stripping trailing whitespace.
+            let endCol: Int
+            if cursorCol >= 0 {
+                endCol = cursorCol
+                cursorFound = true
+            } else {
+                // No cursor on this row — take all content.
                 endCol = trimmedLen
-                while endCol > startCol {
-                    let ch = terminal.getCharacter(for: bufLine[endCol - 1])
-                    guard ch == " " || ch == "\0" else { break }
-                    endCol -= 1
-                }
             }
 
-            guard endCol > startCol else { return "" }
-
-            // Collect characters from the buffer cells.
-            var result = ""
-            for col in startCol..<endCol {
+            // Collect characters from this row.
+            for col in colStart..<endCol {
                 let ch = terminal.getCharacter(for: bufLine[col])
                 result.append(ch == "\0" ? " " : ch)
             }
-            return result
+
+            if cursorFound { break }
+
+            // If this row didn't fill the full terminal width, text didn't
+            // wrap — no more continuation rows to read.
+            if trimmedLen < totalCols { break }
         }
 
-        return ""
+        // Strip trailing whitespace if no cursor was found (fallback).
+        if !cursorFound {
+            while result.hasSuffix(" ") {
+                result.removeLast()
+            }
+        }
+
+        return result
     }
 
     /// Check if a row consists mostly of box-drawing characters (─ U+2500 and similar).
