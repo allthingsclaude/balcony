@@ -17,10 +17,14 @@ final class HeadlessTerminalParser: ObservableObject {
     /// Used to pre-fill the iOS input composer when entering a session.
     @Published var pendingInputText: String = ""
 
+    /// True once the first extraction has produced lines. Used by the UI to
+    /// hold the loading indicator until meaningful content is available.
+    @Published var isReady = false
+
     private let terminal: Terminal
     private let delegate: MinimalTerminalDelegate
 
-    /// Throttle extraction to ~10fps.
+    /// Throttle extraction to ~10fps during live streaming.
     private var extractionScheduled = false
 
     /// Maximum number of terminal rows to process during extraction.
@@ -48,6 +52,8 @@ final class HeadlessTerminalParser: ObservableObject {
     ///
     /// Large payloads are processed in 64 KB chunks with main-thread yields
     /// between them so the UI stays responsive during initial history replay.
+    /// Extraction is deferred until all pending data is consumed so the UI
+    /// never sees partially-loaded content.
     func feed(bytes: [UInt8]) {
         pendingFeedData.append(contentsOf: bytes)
         drainFeedQueue()
@@ -64,7 +70,6 @@ final class HeadlessTerminalParser: ObservableObject {
         pendingFeedData.removeFirst(end)
 
         terminal.feed(byteArray: chunk)
-        scheduleExtraction()
 
         if !pendingFeedData.isEmpty {
             DispatchQueue.main.async { [weak self] in
@@ -73,6 +78,8 @@ final class HeadlessTerminalParser: ObservableObject {
             }
         } else {
             feedDraining = false
+            // All pending data consumed — extract without partial flicker.
+            scheduleExtraction()
         }
     }
 
@@ -85,7 +92,7 @@ final class HeadlessTerminalParser: ObservableObject {
     private func scheduleExtraction() {
         guard !extractionScheduled else { return }
         extractionScheduled = true
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
             self?.extractionScheduled = false
             self?.extractLines()
         }
@@ -413,6 +420,9 @@ final class HeadlessTerminalParser: ObservableObject {
         }
 
         conversationLines = lines
+        if !isReady && !lines.isEmpty {
+            isReady = true
+        }
 
         // Update chrome input — re-extract since the terminal may have changed
         // between the early extraction and now (e.g. prompt detection stripped lines).

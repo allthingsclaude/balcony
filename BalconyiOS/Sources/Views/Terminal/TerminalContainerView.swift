@@ -6,11 +6,10 @@ struct TerminalContainerView: View {
     let session: Session
     @EnvironmentObject var sessionManager: SessionManager
     @EnvironmentObject var connectionManager: ConnectionManager
-    @State private var isLoading = true
 
     var body: some View {
         ZStack {
-            if isLoading {
+            if !sessionManager.isParserReady {
                 // Loading state
                 VStack(spacing: BalconyTheme.spacingMD) {
                     ProgressView()
@@ -89,7 +88,7 @@ struct TerminalContainerView: View {
                 .transition(.opacity)
             }
         }
-        .animation(.easeInOut(duration: 0.25), value: isLoading)
+        .animation(.easeInOut(duration: 0.25), value: sessionManager.isParserReady)
         .safeAreaInset(edge: .top, spacing: 0) {
             if !connectionManager.isConnected {
                 HStack(spacing: BalconyTheme.spacingSM) {
@@ -135,7 +134,6 @@ struct TerminalContainerView: View {
         .onAppear {
             Task {
                 await sessionManager.subscribe(to: session)
-                isLoading = false
             }
         }
         .onDisappear {

@@ -42,6 +42,9 @@ struct ConversationView: View {
     @State private var needsInitialScroll = true
     /// Track previous line count to only auto-scroll when content grows.
     @State private var lastLineCount = 0
+    /// Number of lines to display from the tail. Grows as the user scrolls up.
+    @State private var visibleTailCount = 80
+    private static let pageSize = 60
     @State private var showEmptyState = false
     @State private var showSlashMenu = false
     @State private var showFilePicker = false
@@ -104,6 +107,13 @@ struct ConversationView: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 0) {
+                        // Invisible trigger to load more history when scrolling near top.
+                        if hasMoreAbove {
+                            Color.clear
+                                .frame(height: 1)
+                                .onAppear { loadMoreAbove() }
+                        }
+
                         ForEach(groupedBlocks, id: \.id) { block in
                             switch block {
                             case .spacer:
@@ -167,6 +177,10 @@ struct ConversationView: View {
                 .contentShape(Rectangle())
                 .onTapGesture { handleOutsideTap() }
                 .onChange(of: lines.count) { newCount in
+                    // Reset pagination when switching sessions (lines drop to 0).
+                    if lastLineCount > 0 && newCount == 0 {
+                        visibleTailCount = 80
+                    }
                     if needsInitialScroll {
                         scrollToBottom(proxy: proxy, animated: false)
                     } else if isNearBottom && newCount >= lastLineCount {
@@ -435,6 +449,11 @@ struct ConversationView: View {
 
     // MARK: - Scrolling
 
+    /// Load another page of history when the user scrolls near the top.
+    private func loadMoreAbove() {
+        visibleTailCount += Self.pageSize
+    }
+
     private func scrollToBottom(proxy: ScrollViewProxy, animated: Bool) {
         guard !lines.isEmpty else { return }
         if animated {
@@ -602,10 +621,22 @@ struct ConversationView: View {
         line.markerRole == .user || line.markerRole == .assistant
     }
 
-    /// Lines to display, with AskUserQuestion TUI stripped when the native card is showing.
+    /// Lines to display — paginated from the tail and with AskUserQuestion TUI
+    /// stripped when the native card is showing.
     private var displayLines: [TerminalLine] {
-        guard pendingAskUserQuestion != nil else { return lines }
-        return Self.stripAskUserQuestionTUI(from: lines)
+        let source = pendingAskUserQuestion != nil
+            ? Self.stripAskUserQuestionTUI(from: lines)
+            : lines
+        // Show only the last `visibleTailCount` lines (infinite scroll from bottom).
+        if source.count > visibleTailCount {
+            return Array(source.suffix(visibleTailCount))
+        }
+        return source
+    }
+
+    /// Whether there are more lines above the currently visible set.
+    private var hasMoreAbove: Bool {
+        lines.count > visibleTailCount
     }
 
     /// Strip the AskUserQuestion TUI chrome from terminal lines.
