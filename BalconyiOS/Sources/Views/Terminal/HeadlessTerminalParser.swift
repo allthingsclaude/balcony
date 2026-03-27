@@ -20,8 +20,12 @@ final class HeadlessTerminalParser: ObservableObject {
     private let terminal: Terminal
     private let delegate: MinimalTerminalDelegate
 
-    /// Throttle extraction to ~20fps.
+    /// Throttle extraction to ~10fps.
     private var extractionScheduled = false
+
+    /// Maximum number of terminal rows to process during extraction.
+    /// Limits work to the tail of the buffer — more than enough for mobile.
+    private static let maxExtractRows = 500
 
     init(cols: Int, rows: Int) {
         var options = TerminalOptions()
@@ -33,18 +37,55 @@ final class HeadlessTerminalParser: ObservableObject {
         self.terminal = Terminal(delegate: delegate, options: options)
     }
 
+    /// Pending bytes waiting to be fed into SwiftTerm.
+    private var pendingFeedData: [UInt8] = []
+    /// True while the drain loop is active.
+    private var feedDraining = false
+
     // MARK: - Feeding Data
 
     /// Feed raw PTY bytes into the terminal emulator.
+    ///
+    /// Large payloads are processed in 64 KB chunks with main-thread yields
+    /// between them so the UI stays responsive during initial history replay.
     func feed(bytes: [UInt8]) {
-        terminal.feed(byteArray: bytes)
+        pendingFeedData.append(contentsOf: bytes)
+        drainFeedQueue()
+    }
+
+    private func drainFeedQueue() {
+        guard !feedDraining, !pendingFeedData.isEmpty else { return }
+        feedDraining = true
+
+        // Process up to 64 KB per main-thread cycle.
+        let chunkSize = 65536
+        let end = min(chunkSize, pendingFeedData.count)
+        let chunk = Array(pendingFeedData.prefix(end))
+        pendingFeedData.removeFirst(end)
+
+        terminal.feed(byteArray: chunk)
+        scheduleExtraction()
+
+        if !pendingFeedData.isEmpty {
+            DispatchQueue.main.async { [weak self] in
+                self?.feedDraining = false
+                self?.drainFeedQueue()
+            }
+        } else {
+            feedDraining = false
+        }
+    }
+
+    /// Update terminal dimensions when the Mac PTY is resized.
+    func resize(cols: Int, rows: Int) {
+        terminal.resize(cols: cols, rows: rows)
         scheduleExtraction()
     }
 
     private func scheduleExtraction() {
         guard !extractionScheduled else { return }
         extractionScheduled = true
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
             self?.extractionScheduled = false
             self?.extractLines()
         }
@@ -56,9 +97,13 @@ final class HeadlessTerminalParser: ObservableObject {
         let topVisible = terminal.getTopVisibleRow()
         let totalRows = topVisible + terminal.rows
 
-        // Collect all lines (scrollback + visible) via public API.
+        // Only read the tail of the buffer — old scrollback beyond
+        // maxExtractRows is never visible on a phone anyway.
+        let readStart = max(0, totalRows - Self.maxExtractRows)
+
         var allRows: [BufferLine] = []
-        for row in 0..<totalRows {
+        allRows.reserveCapacity(min(totalRows, Self.maxExtractRows))
+        for row in readStart..<totalRows {
             if let line = terminal.getScrollInvariantLine(row: row) {
                 allRows.append(line)
             }
@@ -300,7 +345,8 @@ final class HeadlessTerminalParser: ObservableObject {
                     guard let ch = seg.text.first else { return false }
                     return !ch.isASCII && !ch.isLetter
                 } ?? false
-            let prevWrapped = !isPreformatted && i > 0 &&
+            let prevIsPreformatted = i > 0 && (rowIsTable[i - 1] || isCodeBlock[i - 1])
+            let prevWrapped = !isPreformatted && !prevIsPreformatted && i > 0 &&
                 rowOrigLen[i - 1] >= cols && !startsNewContent
 
             if prevWrapped, !lines.isEmpty {
@@ -841,6 +887,7 @@ final class HeadlessTerminalParser: ObservableObject {
             isBold: attr.style.contains(.bold),
             isItalic: attr.style.contains(.italic),
             isUnderline: attr.style.contains(.underline),
+            isStrikethrough: attr.style.contains(.crossedOut),
             isDim: attr.style.contains(.dim)
         )
     }

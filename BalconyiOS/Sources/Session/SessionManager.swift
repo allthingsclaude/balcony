@@ -400,6 +400,8 @@ final class SessionManager: ObservableObject {
             handleSessionUpdate(message)
         case .terminalData:
             handleTerminalData(message)
+        case .terminalResize:
+            handleTerminalResize(message)
         case .slashCommands:
             handleSlashCommands(message)
         case .fileList:
@@ -534,6 +536,17 @@ final class SessionManager: ObservableObject {
             logger.debug("Terminal data for \(payload.sessionId): \(payload.data.count) bytes")
         } catch {
             logger.error("Failed to decode terminal data: \(error.localizedDescription)")
+        }
+    }
+
+    private func handleTerminalResize(_ message: BalconyMessage) {
+        do {
+            let payload = try message.decodePayload(TerminalResizePayload.self)
+            guard payload.sessionId == activeSession?.id else { return }
+            parser?.resize(cols: Int(payload.cols), rows: Int(payload.rows))
+            logger.info("Terminal resized to \(payload.cols)x\(payload.rows)")
+        } catch {
+            logger.error("Failed to decode terminal resize: \(error.localizedDescription)")
         }
     }
 

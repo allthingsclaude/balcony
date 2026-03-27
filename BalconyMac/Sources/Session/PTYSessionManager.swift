@@ -32,6 +32,9 @@ actor PTYSessionManager {
     /// Called when the user types in the local terminal (stdin activity detected).
     private var onStdinActivity: (@Sendable (String) -> Void)?
 
+    /// Called when the CLI's PTY is resized locally (SIGWINCH).
+    private var onResizeNotify: (@Sendable (String, UInt16, UInt16) -> Void)?
+
     /// Set the session event callback.
     func setOnSessionEvent(_ handler: @escaping @Sendable (SessionEvent) -> Void) {
         onSessionEvent = handler
@@ -45,6 +48,11 @@ actor PTYSessionManager {
     /// Set the stdin activity callback.
     func setOnStdinActivity(_ handler: @escaping @Sendable (String) -> Void) {
         onStdinActivity = handler
+    }
+
+    /// Set the resize notification callback.
+    func setOnResizeNotify(_ handler: @escaping @Sendable (String, UInt16, UInt16) -> Void) {
+        onResizeNotify = handler
     }
 
     init() {
@@ -263,6 +271,17 @@ actor PTYSessionManager {
         case 0x06: // Stdin activity — user typed in local terminal
             guard let state = clientFDs[fd], let sessionId = state.sessionId else { return }
             onStdinActivity?(sessionId)
+
+        case 0x07: // Resize notification — local terminal was resized
+            guard let state = clientFDs[fd], let sessionId = state.sessionId else { return }
+            guard payload.count >= 4 else { return }
+            let cols = UInt16(payload[payload.startIndex]) << 8 | UInt16(payload[payload.startIndex + 1])
+            let rows = UInt16(payload[payload.startIndex + 2]) << 8 | UInt16(payload[payload.startIndex + 3])
+            // Update stored session dimensions.
+            sessions[sessionId]?.cols = cols
+            sessions[sessionId]?.rows = rows
+            logger.info("PTY resize notification: \(sessionId) → \(cols)x\(rows)")
+            onResizeNotify?(sessionId, cols, rows)
 
         default:
             break

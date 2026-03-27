@@ -610,6 +610,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 }
             }
 
+            await ptySessionManager.setOnResizeNotify { [weak self] sessionId, cols, rows in
+                Task { @MainActor in
+                    await self?.connectionManager.forwardResizeNotify(sessionId: sessionId, cols: cols, rows: rows)
+                }
+            }
+
             // Dismiss idle prompt when user types in the local terminal
             // (but not within 1s of restoring focus — app switching generates spurious stdin)
             await ptySessionManager.setOnStdinActivity { [weak self] ptySessionId in

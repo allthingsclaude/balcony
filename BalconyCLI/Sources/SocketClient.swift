@@ -14,6 +14,8 @@ enum SocketMessageType: UInt8 {
     case sessionEnded = 0x05
     /// Stdin activity: user typed in the local terminal (CLI → Mac).
     case stdinActivity = 0x06
+    /// Resize notification: PTY size changed locally (CLI → Mac).
+    case resizeNotify = 0x07
 }
 
 /// Session metadata sent from CLI to Mac on connect.
@@ -176,6 +178,16 @@ final class SocketClient {
     /// Notify Mac agent that the user typed in the local terminal.
     func sendStdinActivity() {
         send(type: .stdinActivity, data: Data())
+    }
+
+    /// Notify Mac agent that the local terminal was resized.
+    func sendResizeNotify(cols: UInt16, rows: UInt16) {
+        var data = Data(count: 4)
+        let bigCols = cols.bigEndian
+        let bigRows = rows.bigEndian
+        withUnsafeBytes(of: bigCols) { data.replaceSubrange(0..<2, with: $0) }
+        withUnsafeBytes(of: bigRows) { data.replaceSubrange(2..<4, with: $0) }
+        send(type: .resizeNotify, data: data)
     }
 
     // MARK: - Reading

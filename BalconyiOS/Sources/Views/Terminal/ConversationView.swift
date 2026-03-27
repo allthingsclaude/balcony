@@ -741,6 +741,7 @@ struct ConversationView: View {
             if segment.style.isBold { text = text.bold() }
             if segment.style.isItalic { text = text.italic() }
             if segment.style.isUnderline { text = text.underline() }
+            if segment.style.isStrikethrough { text = text.strikethrough() }
             result = result + text
         }
         return result
@@ -961,6 +962,7 @@ struct TerminalLineView: View {
             if segment.style.isBold { text = text.bold() }
             if segment.style.isItalic { text = text.italic() }
             if segment.style.isUnderline { text = text.underline() }
+            if segment.style.isStrikethrough { text = text.strikethrough() }
             result = result + text
         }
         return result
