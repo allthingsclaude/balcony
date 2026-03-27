@@ -17,14 +17,10 @@ final class HeadlessTerminalParser: ObservableObject {
     /// Used to pre-fill the iOS input composer when entering a session.
     @Published var pendingInputText: String = ""
 
-    /// True once the first extraction has produced lines. Used by the UI to
-    /// hold the loading indicator until meaningful content is available.
-    @Published var isReady = false
-
     private let terminal: Terminal
     private let delegate: MinimalTerminalDelegate
 
-    /// Throttle extraction to ~10fps during live streaming.
+    /// Throttle extraction.
     private var extractionScheduled = false
 
     /// Maximum number of terminal rows to process during extraction.
@@ -41,46 +37,12 @@ final class HeadlessTerminalParser: ObservableObject {
         self.terminal = Terminal(delegate: delegate, options: options)
     }
 
-    /// Pending bytes waiting to be fed into SwiftTerm.
-    private var pendingFeedData: [UInt8] = []
-    /// True while the drain loop is active.
-    private var feedDraining = false
-
     // MARK: - Feeding Data
 
     /// Feed raw PTY bytes into the terminal emulator.
-    ///
-    /// Large payloads are processed in 64 KB chunks with main-thread yields
-    /// between them so the UI stays responsive during initial history replay.
-    /// Extraction is deferred until all pending data is consumed so the UI
-    /// never sees partially-loaded content.
     func feed(bytes: [UInt8]) {
-        pendingFeedData.append(contentsOf: bytes)
-        drainFeedQueue()
-    }
-
-    private func drainFeedQueue() {
-        guard !feedDraining, !pendingFeedData.isEmpty else { return }
-        feedDraining = true
-
-        // Process up to 64 KB per main-thread cycle.
-        let chunkSize = 65536
-        let end = min(chunkSize, pendingFeedData.count)
-        let chunk = Array(pendingFeedData.prefix(end))
-        pendingFeedData.removeFirst(end)
-
-        terminal.feed(byteArray: chunk)
-
-        if !pendingFeedData.isEmpty {
-            DispatchQueue.main.async { [weak self] in
-                self?.feedDraining = false
-                self?.drainFeedQueue()
-            }
-        } else {
-            feedDraining = false
-            // All pending data consumed — extract without partial flicker.
-            scheduleExtraction()
-        }
+        terminal.feed(byteArray: bytes)
+        scheduleExtraction()
     }
 
     /// Update terminal dimensions when the Mac PTY is resized.
@@ -420,9 +382,6 @@ final class HeadlessTerminalParser: ObservableObject {
         }
 
         conversationLines = lines
-        if !isReady && !lines.isEmpty {
-            isReady = true
-        }
 
         // Update chrome input — re-extract since the terminal may have changed
         // between the early extraction and now (e.g. prompt detection stripped lines).

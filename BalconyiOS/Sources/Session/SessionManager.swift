@@ -42,8 +42,6 @@ final class SessionManager: ObservableObject {
     /// Text currently in the Mac's input box (after ❯). Used to pre-fill the iOS input.
     @Published var pendingInputText: String = ""
 
-    /// True once the parser's first extraction has produced lines.
-    @Published var isParserReady = false
 
     /// Available sessions for native session picker (/resume command).
     @Published var availableSessions: [SessionInfo] = []
@@ -76,7 +74,6 @@ final class SessionManager: ObservableObject {
     private var parserCancellable: AnyCancellable?
     private var promptCancellable: AnyCancellable?
     private var pendingInputCancellable: AnyCancellable?
-    private var parserReadyCancellable: AnyCancellable?
 
     private weak var connectionManager: ConnectionManager?
 
@@ -114,7 +111,6 @@ final class SessionManager: ObservableObject {
         conversationLines = []
         slashCommands = []
         projectFiles = []
-        isParserReady = false
 
         let cols = Int(session.cols ?? 80)
         let rows = Int(session.rows ?? 24)
@@ -135,9 +131,6 @@ final class SessionManager: ObservableObject {
         pendingInputCancellable = newParser.$pendingInputText
             .receive(on: DispatchQueue.main)
             .assign(to: \.pendingInputText, on: self)
-        parserReadyCancellable = newParser.$isReady
-            .receive(on: DispatchQueue.main)
-            .assign(to: \.isParserReady, on: self)
 
         guard let connectionManager else { return }
         do {
@@ -160,11 +153,8 @@ final class SessionManager: ObservableObject {
             promptCancellable = nil
             pendingInputCancellable?.cancel()
             pendingInputCancellable = nil
-            parserReadyCancellable?.cancel()
-            parserReadyCancellable = nil
             parser = nil
             conversationLines = []
-            isParserReady = false
             activePrompt = nil
             pendingHookData = nil
             pendingIdlePrompt = nil
@@ -499,12 +489,9 @@ final class SessionManager: ObservableObject {
                 promptCancellable = nil
                 pendingInputCancellable?.cancel()
                 pendingInputCancellable = nil
-                parserReadyCancellable?.cancel()
-                parserReadyCancellable = nil
                 parser = nil
                 conversationLines = []
-                isParserReady = false
-                activePrompt = nil
+                    activePrompt = nil
                 pendingHookData = nil
                 pendingIdlePrompt = nil
                 pendingAskUserQuestion = nil
