@@ -136,17 +136,6 @@ final class ConnectionManager: ObservableObject {
         }
     }
 
-    /// Forward a terminal resize notification from the CLI to subscribed iOS clients.
-    func forwardResizeNotify(sessionId: String, cols: UInt16, rows: UInt16) async {
-        do {
-            let payload = TerminalResizePayload(sessionId: sessionId, cols: cols, rows: rows)
-            let msg = try BalconyMessage.create(type: .terminalResize, payload: payload)
-            await webSocketServer.sendToSubscribers(of: sessionId, message: msg)
-        } catch {
-            logger.error("Failed to forward resize notification: \(error.localizedDescription)")
-        }
-    }
-
     /// Check if any iOS clients are currently connected.
     func hasConnectedClients() async -> Bool {
         return !connectedDevices.isEmpty

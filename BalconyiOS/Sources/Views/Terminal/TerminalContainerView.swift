@@ -11,7 +11,7 @@ struct TerminalContainerView: View {
     var body: some View {
         ZStack {
             if isLoading {
-                // Loading state — shown briefly while history replay completes.
+                // Loading state
                 VStack(spacing: BalconyTheme.spacingMD) {
                     ProgressView()
                         .tint(BalconyTheme.accent)
@@ -135,9 +135,6 @@ struct TerminalContainerView: View {
         .onAppear {
             Task {
                 await sessionManager.subscribe(to: session)
-                // Brief delay so history replay finishes before showing content.
-                // Prevents the screen from jumping as chunks arrive.
-                try? await Task.sleep(nanoseconds: 500_000_000)
                 isLoading = false
             }
         }

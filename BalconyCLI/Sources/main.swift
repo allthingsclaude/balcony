@@ -171,7 +171,6 @@ signal(SIGWINCH) { _ in
     let (newCols, newRows) = PTYManager.getWindowSize(fd: STDOUT_FILENO)
     PTYManager.setWindowSize(masterFD: pty.masterFD, cols: newCols, rows: newRows)
     kill(childPID, SIGWINCH)
-    socketClient.sendResizeNotify(cols: newCols, rows: newRows)
 }
 
 // Handle SIGINT — forward to child instead of killing ourselves

@@ -42,9 +42,6 @@ struct ConversationView: View {
     @State private var needsInitialScroll = true
     /// Track previous line count to only auto-scroll when content grows.
     @State private var lastLineCount = 0
-    /// Number of lines to display from the tail. Grows as the user scrolls up.
-    @State private var visibleTailCount = 80
-    private static let pageSize = 60
     @State private var showEmptyState = false
     @State private var showSlashMenu = false
     @State private var showFilePicker = false
@@ -107,13 +104,6 @@ struct ConversationView: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 0) {
-                        // Invisible trigger to load more history when scrolling near top.
-                        if hasMoreAbove {
-                            Color.clear
-                                .frame(height: 1)
-                                .onAppear { loadMoreAbove() }
-                        }
-
                         ForEach(groupedBlocks, id: \.id) { block in
                             switch block {
                             case .spacer:
@@ -177,10 +167,6 @@ struct ConversationView: View {
                 .contentShape(Rectangle())
                 .onTapGesture { handleOutsideTap() }
                 .onChange(of: lines.count) { newCount in
-                    // Reset pagination when switching sessions (lines drop to 0).
-                    if lastLineCount > 0 && newCount == 0 {
-                        visibleTailCount = 80
-                    }
                     if needsInitialScroll {
                         scrollToBottom(proxy: proxy, animated: false)
                     } else if isNearBottom && newCount >= lastLineCount {
@@ -354,8 +340,6 @@ struct ConversationView: View {
                     TextField(inputPlaceholder, text: $inputText)
                         .textFieldStyle(.plain)
                         .font(BalconyTheme.monoFont(15))
-                        .autocorrectionDisabled()
-                        .textInputAutocapitalization(.never)
                         .focused($inputFocused)
                         .onSubmit { submitInput() }
                         .onChange(of: inputText) { newValue in
@@ -438,21 +422,12 @@ struct ConversationView: View {
             guard newValue != inputText else { return }
             let elapsed = Date().timeIntervalSince(lastLocalKeystroke)
             guard elapsed > 0.5 else { return }
-            // Don't truncate: if Mac's text is a prefix of what we have, the Mac
-            // parser likely only read the first terminal row of a wrapped input.
-            // Overwriting would desync previousText and cause corrupt diffs.
-            guard !inputText.hasPrefix(newValue) || newValue.count >= inputText.count else { return }
             previousText = newValue
             inputText = newValue
         }
     }
 
     // MARK: - Scrolling
-
-    /// Load another page of history when the user scrolls near the top.
-    private func loadMoreAbove() {
-        visibleTailCount += Self.pageSize
-    }
 
     private func scrollToBottom(proxy: ScrollViewProxy, animated: Bool) {
         guard !lines.isEmpty else { return }
@@ -482,18 +457,11 @@ struct ConversationView: View {
             onSendInput?(String(repeating: "\u{7f}", count: deleteCount))
         } else {
             // Complex edit (autocorrect, paste, etc.) — clear old, send new.
-            // Combine into a single send so the backspaces and replacement text
-            // travel in one WebSocket message, avoiding a race where two separate
-            // Task-per-send calls can arrive out of order and corrupt the terminal.
-            var combined = ""
             if !oldText.isEmpty {
-                combined += String(repeating: "\u{7f}", count: oldText.count)
+                onSendInput?(String(repeating: "\u{7f}", count: oldText.count))
             }
             if !newText.isEmpty {
-                combined += newText
-            }
-            if !combined.isEmpty {
-                onSendInput?(combined)
+                onSendInput?(newText)
             }
         }
     }
@@ -621,22 +589,10 @@ struct ConversationView: View {
         line.markerRole == .user || line.markerRole == .assistant
     }
 
-    /// Lines to display — paginated from the tail and with AskUserQuestion TUI
-    /// stripped when the native card is showing.
+    /// Lines to display, with AskUserQuestion TUI stripped when the native card is showing.
     private var displayLines: [TerminalLine] {
-        let source = pendingAskUserQuestion != nil
-            ? Self.stripAskUserQuestionTUI(from: lines)
-            : lines
-        // Show only the last `visibleTailCount` lines (infinite scroll from bottom).
-        if source.count > visibleTailCount {
-            return Array(source.suffix(visibleTailCount))
-        }
-        return source
-    }
-
-    /// Whether there are more lines above the currently visible set.
-    private var hasMoreAbove: Bool {
-        lines.count > visibleTailCount
+        guard pendingAskUserQuestion != nil else { return lines }
+        return Self.stripAskUserQuestionTUI(from: lines)
     }
 
     /// Strip the AskUserQuestion TUI chrome from terminal lines.
@@ -772,7 +728,6 @@ struct ConversationView: View {
             if segment.style.isBold { text = text.bold() }
             if segment.style.isItalic { text = text.italic() }
             if segment.style.isUnderline { text = text.underline() }
-            if segment.style.isStrikethrough { text = text.strikethrough() }
             result = result + text
         }
         return result
@@ -993,7 +948,6 @@ struct TerminalLineView: View {
             if segment.style.isBold { text = text.bold() }
             if segment.style.isItalic { text = text.italic() }
             if segment.style.isUnderline { text = text.underline() }
-            if segment.style.isStrikethrough { text = text.strikethrough() }
             result = result + text
         }
         return result

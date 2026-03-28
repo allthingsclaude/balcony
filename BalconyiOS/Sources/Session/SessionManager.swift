@@ -42,7 +42,6 @@ final class SessionManager: ObservableObject {
     /// Text currently in the Mac's input box (after ❯). Used to pre-fill the iOS input.
     @Published var pendingInputText: String = ""
 
-
     /// Available sessions for native session picker (/resume command).
     @Published var availableSessions: [SessionInfo] = []
 
@@ -401,8 +400,6 @@ final class SessionManager: ObservableObject {
             handleSessionUpdate(message)
         case .terminalData:
             handleTerminalData(message)
-        case .terminalResize:
-            handleTerminalResize(message)
         case .slashCommands:
             handleSlashCommands(message)
         case .fileList:
@@ -491,7 +488,7 @@ final class SessionManager: ObservableObject {
                 pendingInputCancellable = nil
                 parser = nil
                 conversationLines = []
-                    activePrompt = nil
+                activePrompt = nil
                 pendingHookData = nil
                 pendingIdlePrompt = nil
                 pendingAskUserQuestion = nil
@@ -537,17 +534,6 @@ final class SessionManager: ObservableObject {
             logger.debug("Terminal data for \(payload.sessionId): \(payload.data.count) bytes")
         } catch {
             logger.error("Failed to decode terminal data: \(error.localizedDescription)")
-        }
-    }
-
-    private func handleTerminalResize(_ message: BalconyMessage) {
-        do {
-            let payload = try message.decodePayload(TerminalResizePayload.self)
-            guard payload.sessionId == activeSession?.id else { return }
-            parser?.resize(cols: Int(payload.cols), rows: Int(payload.rows))
-            logger.info("Terminal resized to \(payload.cols)x\(payload.rows)")
-        } catch {
-            logger.error("Failed to decode terminal resize: \(error.localizedDescription)")
         }
     }
 

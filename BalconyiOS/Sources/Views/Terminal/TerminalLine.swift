@@ -34,7 +34,6 @@ struct SegmentStyle: Equatable {
     var isBold: Bool = false
     var isItalic: Bool = false
     var isUnderline: Bool = false
-    var isStrikethrough: Bool = false
     var isDim: Bool = false
 }
 
