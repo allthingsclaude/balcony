@@ -36,6 +36,17 @@ final class SocketClient {
     private let readQueue = DispatchQueue(label: "com.balcony.cli.socket.read")
     private var readSource: DispatchSourceRead?
 
+    /// Serial queue for all writes — preserves frame ordering and lets us
+    /// reason about pendingBytes from a single thread.
+    private let writeQueue = DispatchQueue(label: "com.balcony.cli.socket.write", qos: .utility)
+    /// Bytes currently queued but not yet handed to the kernel.
+    private var pendingBytes = 0
+    /// Drop new PTY-output frames if pending exceeds this. The user still sees
+    /// output locally; only the remote mirror skips ahead.
+    private static let maxPendingBytes = 4 * 1024 * 1024
+    /// True after we've dropped at least one chunk in the current congestion episode.
+    private var dropping = false
+
     /// Called when data arrives from the Mac agent (e.g. iOS input, resize).
     var onMessage: ((SocketMessageType, Data) -> Void)?
 
@@ -92,6 +103,15 @@ final class SocketClient {
             return false
         }
 
+        // Non-blocking writes — combined with the writeQueue + pendingBytes
+        // budget, this prevents a slow Mac agent from hanging the CLI.
+        let flags = fcntl(socketFD, F_GETFL)
+        _ = fcntl(socketFD, F_SETFL, flags | O_NONBLOCK)
+
+        writeQueue.sync {
+            pendingBytes = 0
+            dropping = false
+        }
         connected = true
         startReading()
         return true
@@ -135,26 +155,10 @@ final class SocketClient {
         disconnect()
     }
 
-    /// Send a framed message to the Mac agent.
+    /// Send a framed message to the Mac agent. Always-deliver: blocks the write
+    /// queue until the kernel accepts the bytes (used for control messages).
     func send(type: SocketMessageType, data: Data) {
-        guard connected, socketFD >= 0 else { return }
-
-        // Header: [1-byte type][4-byte big-endian length]
-        var header = Data(count: 5)
-        header[0] = type.rawValue
-        let len = UInt32(data.count).bigEndian
-        withUnsafeBytes(of: len) { header.replaceSubrange(1..<5, with: $0) }
-
-        let fullMessage = header + data
-        fullMessage.withUnsafeBytes { bufPtr in
-            guard let base = bufPtr.baseAddress else { return }
-            var sent = 0
-            while sent < fullMessage.count {
-                let n = write(socketFD, base + sent, fullMessage.count - sent)
-                if n <= 0 { break }
-                sent += n
-            }
-        }
+        enqueue(type: type, data: data, droppable: false)
     }
 
     /// Send session info JSON.
@@ -168,9 +172,85 @@ final class SocketClient {
         send(type: .sessionEnded, data: Data())
     }
 
-    /// Send raw PTY output bytes.
+    /// Send raw PTY output bytes. Droppable when the send queue is saturated —
+    /// the local terminal already shows the output, so a slow Mac agent must
+    /// not back-pressure into a hang.
     func sendPTYOutput(_ data: Data) {
-        send(type: .ptyOutput, data: data)
+        enqueue(type: .ptyOutput, data: data, droppable: true)
+    }
+
+    private func enqueue(type: SocketMessageType, data: Data, droppable: Bool) {
+        guard connected, socketFD >= 0 else { return }
+
+        let frameSize = 5 + data.count
+        writeQueue.async { [weak self] in
+            guard let self, self.connected, self.socketFD >= 0 else { return }
+
+            if droppable {
+                if self.pendingBytes + frameSize > Self.maxPendingBytes {
+                    if !self.dropping {
+                        self.dropping = true
+                        fputs("[balcony] Mac agent slow — pausing remote mirror\n", stderr)
+                    }
+                    return
+                } else if self.dropping && self.pendingBytes == 0 {
+                    self.dropping = false
+                    fputs("[balcony] Mac agent caught up — resuming remote mirror\n", stderr)
+                }
+            }
+
+            self.pendingBytes += frameSize
+
+            var header = Data(count: 5)
+            header[0] = type.rawValue
+            let len = UInt32(data.count).bigEndian
+            withUnsafeBytes(of: len) { header.replaceSubrange(1..<5, with: $0) }
+            let frame = header + data
+
+            frame.withUnsafeBytes { bufPtr in
+                guard let base = bufPtr.bindMemory(to: UInt8.self).baseAddress else { return }
+                self.writeFrame(base, count: frame.count, droppable: droppable)
+            }
+
+            self.pendingBytes -= frameSize
+            if self.pendingBytes < 0 { self.pendingBytes = 0 }
+        }
+    }
+
+    /// Drain a frame to socketFD. Loops on EINTR; on EAGAIN, polls briefly.
+    /// For droppable frames, gives up after a short stall instead of blocking
+    /// the writeQueue forever.
+    private func writeFrame(_ ptr: UnsafePointer<UInt8>, count: Int, droppable: Bool) {
+        var sent = 0
+        var stalls = 0
+        let maxStalls = droppable ? 4 : 100   // ~200ms vs ~5s
+        while sent < count {
+            let n = write(socketFD, ptr + sent, count - sent)
+            if n > 0 { sent += n; stalls = 0; continue }
+            if n < 0 && errno == EINTR { continue }
+            if n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK) {
+                stalls += 1
+                if stalls > maxStalls {
+                    // Frame is half-written — the stream is now desynced.
+                    // Drop the connection so the reconnect loop re-handshakes.
+                    fputs("[balcony] Socket write stalled — disconnecting\n", stderr)
+                    let fd = socketFD
+                    socketFD = -1
+                    connected = false
+                    if fd >= 0 { close(fd) }
+                    return
+                }
+                var pfd = pollfd(fd: socketFD, events: Int16(POLLOUT), revents: 0)
+                _ = poll(&pfd, 1, 50)
+                continue
+            }
+            // EPIPE / ECONNRESET / other fatal — disconnect.
+            let fd = socketFD
+            socketFD = -1
+            connected = false
+            if fd >= 0 { close(fd) }
+            return
+        }
     }
 
     /// Notify Mac agent that the user typed in the local terminal.

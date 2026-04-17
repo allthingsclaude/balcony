@@ -15,8 +15,6 @@ final class IOBridge {
     // Separate queues to prevent one blocking the other
     private let masterQueue = DispatchQueue(label: "com.balcony.cli.master", qos: .userInteractive)
     private let stdinQueue = DispatchQueue(label: "com.balcony.cli.stdin", qos: .userInteractive)
-    private let socketQueue = DispatchQueue(label: "com.balcony.cli.socket", qos: .utility)
-
     private var masterReadSource: DispatchSourceRead?
     private var stdinReadSource: DispatchSourceRead?
 
@@ -78,11 +76,8 @@ final class IOBridge {
             if n > 0 {
                 // Mirror to local stdout (stdout is blocking, which is fine)
                 _ = write(STDOUT_FILENO, &buf, n)
-                // Forward to Mac agent socket on a separate queue to avoid blocking
-                let data = Data(buf[..<n])
-                self.socketQueue.async {
-                    self.socketClient?.sendPTYOutput(data)
-                }
+                // Forward to Mac agent — droppable under backpressure.
+                self.socketClient?.sendPTYOutput(Data(buf[..<n]))
             }
             if n <= 0 && errno != EAGAIN && errno != EINTR {
                 // EIO or EOF: PTY slave was closed (child exited).
@@ -106,9 +101,7 @@ final class IOBridge {
                 // Terminal focus events (\e[I, \e[O), arrow keys, function keys
                 // all start with ESC (0x1B) — skip those.
                 if buf[0] != 0x1B {
-                    self.socketQueue.async {
-                        self.socketClient?.sendStdinActivity()
-                    }
+                    self.socketClient?.sendStdinActivity()
                 }
             }
         }
