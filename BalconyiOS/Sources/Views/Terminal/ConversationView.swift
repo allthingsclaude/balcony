@@ -748,6 +748,7 @@ struct TerminalLineView: View {
                 .frame(height: 18)
         } else {
             let parsed = parseLine()
+            let pinned = isStatusIndicator(parsed: parsed)
 
             ZStack(alignment: .topLeading) {
                 // Marker — overlaid at leading edge with fixed frame.
@@ -761,18 +762,52 @@ struct TerminalLineView: View {
                     .frame(width: 14, height: 18, alignment: .leading)
 
                 // Content — always starts at fixed 18pt offset (14 marker + 4 gap).
-                buildAttributedText(
+                // Status-indicator lines (spinners, tool-in-progress rows) have
+                // dynamic text that changes second-to-second. If we let them
+                // wrap, the wrap boundary toggles each frame and every row
+                // below shifts vertically. Pin them to a single row.
+                let content = buildAttributedText(
                     from: parsed.content,
                     adaptiveColor: parsed.marker == .user
                 )
                 .font(.system(size: 13, design: .monospaced))
-                .frame(minHeight: 18, alignment: .topLeading)
+
+                Group {
+                    if pinned {
+                        content
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                            .frame(height: 18, alignment: .topLeading)
+                    } else {
+                        content
+                            .frame(minHeight: 18, alignment: .topLeading)
+                    }
+                }
                 .padding(.leading, 18)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityElement(children: .combine)
             .accessibilityLabel(accessibilityText(parsed: parsed))
         }
+    }
+
+    /// True for "status indicator" rows whose content updates frame-by-frame
+    /// (spinners, tool-in-progress lines). These are pinned to one visual row
+    /// so text like `(42s · ↓ 177 tokens · thought for 14s)` growing past the
+    /// wrap threshold can't push every following row up and down.
+    ///
+    /// Rules:
+    /// - `.spinner` marker — always (✱ Spinning…, ✶ Thinking…)
+    /// - Line starts with ⎿ (U+23BF) — tool-result continuation row
+    /// - `.assistant` marker + content contains … (U+2026) — Claude's
+    ///   in-progress tool status convention (● Reading 4 files…)
+    private func isStatusIndicator(parsed: (marker: LineMarker, content: [StyledSegment])) -> Bool {
+        if case .spinner = parsed.marker { return true }
+
+        let text = parsed.content.map(\.text).joined()
+        if text.first == "\u{23BF}" { return true }   // ⎿
+        if parsed.marker == .assistant && text.contains("\u{2026}") { return true }
+        return false
     }
 
     /// Color for the marker column character.
