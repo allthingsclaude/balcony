@@ -102,6 +102,7 @@ struct ConversationView: View {
 
             // Conversation scroll area
             ScrollViewReader { proxy in
+                ZStack(alignment: .bottom) {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 0) {
                         ForEach(groupedBlocks, id: \.id) { block in
@@ -139,13 +140,12 @@ struct ConversationView: View {
                             }
                         }
 
-                        // Invisible anchor to detect proximity to bottom.
-                        // onDisappear uses a brief delay so rapid content
-                        // changes (spinner frames) don't cause isNearBottom
-                        // to oscillate and break auto-scroll.
+                        // "Near bottom" detector — sits just above the input-bar
+                        // spacer so it becomes visible when the last content
+                        // line is visible above the input bar. Drives the
+                        // auto-scroll-on-new-content logic.
                         Color.clear
                             .frame(height: 1)
-                            .id("bottom-anchor")
                             .onAppear {
                                 isNearBottom = true
                                 needsInitialScroll = false
@@ -156,10 +156,21 @@ struct ConversationView: View {
                                     isNearBottom = false
                                 }
                             }
+
+                        // Spacer for the floating input bar + fade gradient —
+                        // kept INSIDE the VStack so the scroll target below it
+                        // is the true last element.
+                        Color.clear.frame(height: 100)
+
+                        // True bottom — scrollTo aligns this to viewport bottom
+                        // for a complete scroll to end. With anchor: .bottom
+                        // this lands on the max scroll offset no matter how
+                        // content above it is still laying out.
+                        Color.clear
+                            .frame(height: 1)
+                            .id("bottom-anchor")
                     }
                     .padding(.top, 8)
-                    // Bottom padding so content scrolls above the input bar + fade
-                    .padding(.bottom, 100)
                     // Suppress implicit animations to prevent layout jitter
                     // during rapid content updates (spinner, streaming).
                     .animation(nil, value: lines.count)
@@ -185,24 +196,28 @@ struct ConversationView: View {
                         scrollToBottom(proxy: proxy, animated: true)
                     }
                 }
-                .overlay(alignment: .bottom) {
-                    if !isNearBottom {
-                        Button {
-                            BalconyTheme.hapticLight()
-                            scrollToBottom(proxy: proxy, animated: true)
-                        } label: {
-                            Image(systemName: "chevron.down")
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundStyle(BalconyTheme.textPrimary)
-                                .frame(width: 36, height: 36)
-                        }
-                        .modifier(LiquidGlassCapsule())
-                        .shadow(color: .black.opacity(0.15), radius: 8, y: 2)
-                        .padding(.bottom, 80)
-                        .transition(.scale.combined(with: .opacity))
-                        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isNearBottom)
+                // End of ScrollView. The scroll-to-bottom button lives as a
+                // ZStack sibling (below) rather than an overlay on the
+                // ScrollView — otherwise UIScrollView's pan gesture captures
+                // taps during deceleration and the first tap only stops the
+                // scroll instead of invoking the button.
+                if !isNearBottom {
+                    Button {
+                        BalconyTheme.hapticLight()
+                        scrollToBottom(proxy: proxy, animated: true)
+                    } label: {
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(BalconyTheme.textPrimary)
+                            .frame(width: 36, height: 36)
                     }
+                    .modifier(LiquidGlassCapsule())
+                    .shadow(color: .black.opacity(0.15), radius: 8, y: 2)
+                    .padding(.bottom, 80)
+                    .transition(.scale.combined(with: .opacity))
+                    .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isNearBottom)
                 }
+                } // end ZStack
             }
 
             // Bottom fade + input bar — move together with keyboard
@@ -431,13 +446,21 @@ struct ConversationView: View {
 
     private func scrollToBottom(proxy: ScrollViewProxy, animated: Bool) {
         guard !lines.isEmpty else { return }
-        if animated {
-            withAnimation(.easeOut(duration: 0.15)) {
-                proxy.scrollTo("bottom-anchor", anchor: .top)
+        let go = {
+            if animated {
+                withAnimation(.easeOut(duration: 0.15)) {
+                    proxy.scrollTo("bottom-anchor", anchor: .bottom)
+                }
+            } else {
+                proxy.scrollTo("bottom-anchor", anchor: .bottom)
             }
-        } else {
-            proxy.scrollTo("bottom-anchor", anchor: .top)
         }
+        go()
+        // Retry once on the next runloop tick: LazyVStack only lays out rows
+        // near the viewport, so the first scrollTo runs before rows further
+        // down are measured. The second call catches the new content size
+        // and lands on the true bottom.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { go() }
     }
 
     // MARK: - Live Input
