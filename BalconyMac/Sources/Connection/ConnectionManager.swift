@@ -360,13 +360,23 @@ final class ConnectionManager: ObservableObject {
                 let sessionId = payload.sessionId
                 logger.info("Client subscribed to PTY session \(sessionId)")
 
-                // Send buffered PTY history so iOS gets the full conversation.
-                // Chunk large buffers to avoid exceeding WebSocket message size limits.
-                if let buffer = await ptySessionManager.getSessionBuffer(sessionId), !buffer.isEmpty {
-                    let chunkSize = 512 * 1024 // 512 KB raw → ~750 KB after base64/JSON encoding
-                    var offset = 0
-                    while offset < buffer.count {
-                        let end = min(offset + chunkSize, buffer.count)
+                // Send buffered PTY history so iOS can reconstruct the current
+                // screen. The ring buffer is capped at 4 MB, but sending that
+                // much on every subscribe froze iOS for seconds while the
+                // parser chewed through it on the main thread. Cap the initial
+                // handoff to the last 512 KB — enough for the current screen
+                // plus a few pages of scrollback context. Deeper history will
+                // come via a future "load earlier" request.
+                //
+                // Chunk so no single WebSocket frame exceeds the size limit.
+                if let fullBuffer = await ptySessionManager.getSessionBuffer(sessionId), !fullBuffer.isEmpty {
+                    let initialReplayCap = 512 * 1024
+                    let startOffset = max(0, fullBuffer.count - initialReplayCap)
+                    let buffer = fullBuffer[startOffset...]
+                    let chunkSize = 256 * 1024 // 256 KB raw → ~350 KB after base64/JSON
+                    var offset = buffer.startIndex
+                    while offset < buffer.endIndex {
+                        let end = min(offset + chunkSize, buffer.endIndex)
                         let chunk = buffer[offset..<end]
                         let historyPayload = TerminalDataPayload(sessionId: sessionId, data: Data(chunk))
                         let historyMsg = try BalconyMessage.create(type: .terminalData, payload: historyPayload)

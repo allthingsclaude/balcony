@@ -20,14 +20,24 @@ final class HeadlessTerminalParser: ObservableObject {
     private let terminal: Terminal
     private let delegate: MinimalTerminalDelegate
 
-    /// Throttle extraction to ~20fps.
-    private var extractionScheduled = false
+    /// Debounced extraction. Each feed() resets the timer (quietDelay), but
+    /// the extraction is forced to run no later than maxDelay after the first
+    /// unextracted feed. A 4 MB replay arriving as 8 chunks back-to-back
+    /// produces one extraction at the end instead of eight during the burst,
+    /// while steady streaming still updates within maxDelay.
+    private var extractionWorkItem: DispatchWorkItem?
+    private var firstPendingFeed: Date?
+    private static let quietDelay: TimeInterval = 0.05
+    private static let maxDelay: TimeInterval = 0.4
 
     init(cols: Int, rows: Int) {
         var options = TerminalOptions()
         options.cols = cols
         options.rows = rows
-        options.scrollback = 5000
+        // Scrollback bounds worst-case extractLines() cost (O(rows)).
+        // 2000 rows is enough for several screens of context; deeper history
+        // will arrive via a future "load earlier" request.
+        options.scrollback = 2000
         // Keep the delegate alive — Terminal holds it weakly.
         self.delegate = MinimalTerminalDelegate()
         self.terminal = Terminal(delegate: delegate, options: options)
@@ -42,12 +52,21 @@ final class HeadlessTerminalParser: ObservableObject {
     }
 
     private func scheduleExtraction() {
-        guard !extractionScheduled else { return }
-        extractionScheduled = true
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
-            self?.extractionScheduled = false
+        let now = Date()
+        if firstPendingFeed == nil { firstPendingFeed = now }
+
+        // Time left before the hard deadline fires.
+        let elapsed = now.timeIntervalSince(firstPendingFeed ?? now)
+        let remainingMax = max(0, Self.maxDelay - elapsed)
+        let delay = min(Self.quietDelay, remainingMax)
+
+        extractionWorkItem?.cancel()
+        let item = DispatchWorkItem { [weak self] in
+            self?.firstPendingFeed = nil
             self?.extractLines()
         }
+        extractionWorkItem = item
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: item)
     }
 
     // MARK: - Line Extraction
