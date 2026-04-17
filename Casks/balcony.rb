@@ -1,8 +1,8 @@
 cask "balcony" do
-  version "0.1.21"
-  sha256 "b055141bd0cfa63abc9b59e66f53ad83f987df2f3a32284af9f590a8f9cfd5dc"
+  version "0.1.22"
+  sha256 "b9833645107af057d4ce0a761befc707139e9183e3caac858e12a08dbf5a6b98"
 
-  url "https://github.com/allthingsclaude/balcony/releases/download/v0.1.21/Balcony-0.1.21.dmg"
+  url "https://github.com/allthingsclaude/balcony/releases/download/v0.1.22/Balcony-0.1.22.dmg"
   name "Balcony"
   desc "Monitor and interact with Claude Code sessions from your iPhone"
   homepage "https://github.com/allthingsclaude/balcony"
