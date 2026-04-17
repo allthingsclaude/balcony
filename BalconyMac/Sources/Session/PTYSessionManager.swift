@@ -22,6 +22,8 @@ actor PTYSessionManager {
     private static let maxBufferSize = 4 * 1024 * 1024
     private var acceptSource: DispatchSourceRead?
     private let ioQueue = DispatchQueue(label: "com.balcony.mac.pty.io", qos: .userInteractive)
+    /// Per-fd parse state, owned exclusively by `ioQueue` (no actor hops).
+    private nonisolated(unsafe) let parser = FrameParser()
 
     /// Called when a PTY session is discovered, updated, or ended.
     private var onSessionEvent: (@Sendable (SessionEvent) -> Void)?
@@ -156,13 +158,26 @@ actor PTYSessionManager {
         logger.info("CLI client connected (fd=\(clientFD))")
 
         let state = PTYClientState()
+        let parser = self.parser
 
-        // Set up read source for this client
+        // Read on ioQueue: drain + parse synchronously, then hand the batch to
+        // the actor in a single Task. Avoids spawning one Task per packet, which
+        // serialised every read on the actor and back-pressured the CLI under
+        // bursty PTY output.
         let readSource = DispatchSource.makeReadSource(fileDescriptor: clientFD, queue: ioQueue)
         readSource.setEventHandler { [weak self] in
-            Task { await self?.readFromClient(fd: clientFD) }
+            guard let self else { return }
+            let outcome = parser.drain(fd: clientFD)
+            if !outcome.messages.isEmpty {
+                let msgs = outcome.messages
+                Task { await self.handleMessages(fd: clientFD, messages: msgs) }
+            }
+            if outcome.disconnected {
+                Task { await self.clientDisconnected(fd: clientFD) }
+            }
         }
         readSource.setCancelHandler { [weak self] in
+            parser.remove(fd: clientFD)
             Task { await self?.clientDisconnected(fd: clientFD) }
         }
         readSource.resume()
@@ -171,47 +186,11 @@ actor PTYSessionManager {
         clientFDs[clientFD] = state
     }
 
-    private func readFromClient(fd: Int32) {
-        var buf = [UInt8](repeating: 0, count: 65536)
-        let n = read(fd, &buf, buf.count)
-
-        if n == 0 {
-            // EOF — client disconnected
-            clientDisconnected(fd: fd)
-            return
-        }
-        if n < 0 {
-            if errno == EAGAIN || errno == EWOULDBLOCK {
-                // No data available right now — dispatch source will fire again
-                return
-            }
-            // Real error
-            clientDisconnected(fd: fd)
-            return
-        }
-
-        guard let state = clientFDs[fd] else { return }
-        state.buffer.append(contentsOf: buf[..<n])
-
-        // Parse framed messages: [1-byte type][4-byte big-endian length][payload]
-        // Use startIndex-relative subscripts to avoid copying the entire buffer each iteration.
-        while state.buffer.count >= 5 {
-            let s = state.buffer.startIndex
-            let msgType = state.buffer[s]
-            let len = UInt32(state.buffer[s + 1]) << 24
-                    | UInt32(state.buffer[s + 2]) << 16
-                    | UInt32(state.buffer[s + 3]) << 8
-                    | UInt32(state.buffer[s + 4])
-            let totalLen = 5 + Int(len)
-
-            guard state.buffer.count >= totalLen else { break }
-
-            let payloadStart = s + 5
-            let payloadEnd = s + totalLen
-            let payload = state.buffer[payloadStart..<payloadEnd]
-            state.buffer = state.buffer[payloadEnd...]
-
-            handleClientMessage(fd: fd, type: msgType, payload: Data(payload))
+    /// Apply a batch of parsed messages from one client. One actor hop per
+    /// dispatch wakeup, not one per packet.
+    private func handleMessages(fd: Int32, messages: [(UInt8, Data)]) {
+        for (type, payload) in messages {
+            handleClientMessage(fd: fd, type: type, payload: payload)
         }
     }
 
@@ -444,11 +423,78 @@ actor PTYSessionManager {
 
 // MARK: - Supporting Types
 
-/// Mutable state for a connected CLI client.
+/// Mutable state for a connected CLI client. Lives on the actor.
 private final class PTYClientState {
     var readSource: DispatchSourceRead?
     var sessionId: String?
-    var buffer = Data()
+}
+
+/// Per-fd frame parser. All methods must be called on a single serial queue
+/// (the `ioQueue`). Owns the inbound byte buffers — keeping them off the actor
+/// means a busy actor can't stall socket reads.
+final class FrameParser: @unchecked Sendable {
+    private var buffers: [Int32: Data] = [:]
+
+    struct DrainOutcome {
+        var messages: [(UInt8, Data)] = []
+        var disconnected = false
+    }
+
+    /// Read everything available on `fd`, parse complete frames, and return
+    /// them in order. Sets `disconnected` if the peer closed or the read failed.
+    func drain(fd: Int32) -> DrainOutcome {
+        var outcome = DrainOutcome()
+        var scratch = [UInt8](repeating: 0, count: 65536)
+
+        // Drain the kernel buffer in one go — the read source is edge-triggered
+        // by GCD so we want to consume everything that's currently available.
+        while true {
+            let n = read(fd, &scratch, scratch.count)
+            if n > 0 {
+                if buffers[fd] == nil {
+                    buffers[fd] = Data(scratch[..<n])
+                } else {
+                    buffers[fd]!.append(contentsOf: scratch[..<n])
+                }
+                if n < scratch.count { break }
+                continue
+            }
+            if n == 0 {
+                outcome.disconnected = true
+                break
+            }
+            if errno == EAGAIN || errno == EWOULDBLOCK { break }
+            if errno == EINTR { continue }
+            outcome.disconnected = true
+            break
+        }
+
+        // Parse complete frames: [1-byte type][4-byte BE length][payload].
+        guard var buf = buffers[fd] else { return outcome }
+        while buf.count >= 5 {
+            let s = buf.startIndex
+            let msgType = buf[s]
+            let len = UInt32(buf[s + 1]) << 24
+                    | UInt32(buf[s + 2]) << 16
+                    | UInt32(buf[s + 3]) << 8
+                    | UInt32(buf[s + 4])
+            let totalLen = 5 + Int(len)
+            guard buf.count >= totalLen else { break }
+            let payload = Data(buf[(s + 5)..<(s + totalLen)])
+            buf = buf[(s + totalLen)...]
+            outcome.messages.append((msgType, payload))
+        }
+        if buf.isEmpty {
+            buffers.removeValue(forKey: fd)
+        } else {
+            buffers[fd] = buf
+        }
+        return outcome
+    }
+
+    func remove(fd: Int32) {
+        buffers.removeValue(forKey: fd)
+    }
 }
 
 /// Session info JSON sent from CLI to Mac.
