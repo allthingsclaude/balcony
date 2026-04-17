@@ -47,10 +47,11 @@ final class IOBridge {
             guard let self else { return }
             switch type {
             case .ptyInput:
-                // Write remote input to PTY master
+                // Write remote input to PTY master (loop with poll on EAGAIN —
+                // pasting more than the PTY input queue holds would otherwise drop bytes).
                 data.withUnsafeBytes { bufPtr in
-                    guard let base = bufPtr.baseAddress else { return }
-                    _ = write(self.masterFD, base, data.count)
+                    guard let base = bufPtr.bindMemory(to: UInt8.self).baseAddress else { return }
+                    Self.writeAll(self.masterFD, base, data.count)
                 }
             case .resize:
                 // Parse cols/rows and resize PTY
@@ -100,7 +101,7 @@ final class IOBridge {
             var buf = [UInt8](repeating: 0, count: 4096)
             let n = read(STDIN_FILENO, &buf, buf.count)
             if n > 0 {
-                _ = write(self.masterFD, &buf, n)
+                Self.writeAll(self.masterFD, &buf, n)
                 // Notify Mac agent on actual user input (not escape sequences).
                 // Terminal focus events (\e[I, \e[O), arrow keys, function keys
                 // all start with ESC (0x1B) — skip those.
@@ -139,5 +140,25 @@ final class IOBridge {
         guard var saved = savedTermios else { return }
         tcsetattr(STDIN_FILENO, TCSAFLUSH, &saved)
         savedTermios = nil
+    }
+
+    // MARK: - Write helper
+
+    /// Drain a buffer to a (possibly non-blocking) fd, retrying on EAGAIN/EINTR.
+    /// Without this, pastes larger than the PTY input queue (~1–8 KB on macOS)
+    /// are silently truncated.
+    static func writeAll(_ fd: Int32, _ ptr: UnsafePointer<UInt8>, _ count: Int) {
+        var sent = 0
+        while sent < count {
+            let n = write(fd, ptr + sent, count - sent)
+            if n > 0 { sent += n; continue }
+            if n < 0 && errno == EINTR { continue }
+            if n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK) {
+                var pfd = pollfd(fd: fd, events: Int16(POLLOUT), revents: 0)
+                _ = poll(&pfd, 1, 1000)
+                continue
+            }
+            break
+        }
     }
 }

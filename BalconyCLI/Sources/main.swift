@@ -64,6 +64,9 @@ func cleanup(status: Int32) -> Never {
 
 // MARK: - Main
 
+// Ignore SIGPIPE — broken socket writes return EPIPE instead of terminating us.
+signal(SIGPIPE, SIG_IGN)
+
 guard let claudePath = findClaude() else {
     fputs("Error: Could not find 'claude' executable. Make sure Claude Code CLI is installed.\n", stderr)
     exit(1)
