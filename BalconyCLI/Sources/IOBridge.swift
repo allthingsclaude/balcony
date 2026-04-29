@@ -15,6 +15,11 @@ final class IOBridge {
     // Separate queues to prevent one blocking the other
     private let masterQueue = DispatchQueue(label: "com.balcony.cli.master", qos: .userInteractive)
     private let stdinQueue = DispatchQueue(label: "com.balcony.cli.stdin", qos: .userInteractive)
+    /// Dedicated queue for mirroring PTY output to the local terminal. Isolating
+    /// this from `masterQueue` means a momentarily-slow Terminal.app can't stall
+    /// draining the PTY master — which would otherwise back-pressure claude's
+    /// stdout writes and freeze the whole tty during pastes.
+    private let stdoutQueue = DispatchQueue(label: "com.balcony.cli.stdout", qos: .userInteractive)
     private var masterReadSource: DispatchSourceRead?
     private var stdinReadSource: DispatchSourceRead?
 
@@ -74,10 +79,25 @@ final class IOBridge {
             var buf = [UInt8](repeating: 0, count: 16384)
             let n = read(self.masterFD, &buf, buf.count)
             if n > 0 {
-                // Mirror to local stdout (stdout is blocking, which is fine)
-                _ = write(STDOUT_FILENO, &buf, n)
+                let chunk = Data(buf[..<n])
+                // Mirror to local stdout on a dedicated queue. write() to
+                // STDOUT can block briefly when the terminal emulator is busy
+                // rendering a paste burst; doing it here would also stall PTY
+                // draining and back-pressure claude.
+                self.stdoutQueue.async {
+                    chunk.withUnsafeBytes { bufPtr in
+                        guard let base = bufPtr.bindMemory(to: UInt8.self).baseAddress else { return }
+                        var sent = 0
+                        while sent < chunk.count {
+                            let w = write(STDOUT_FILENO, base + sent, chunk.count - sent)
+                            if w > 0 { sent += w; continue }
+                            if w < 0 && errno == EINTR { continue }
+                            break
+                        }
+                    }
+                }
                 // Forward to Mac agent — droppable under backpressure.
-                self.socketClient?.sendPTYOutput(Data(buf[..<n]))
+                self.socketClient?.sendPTYOutput(chunk)
             }
             if n <= 0 && errno != EAGAIN && errno != EINTR {
                 // EIO or EOF: PTY slave was closed (child exited).
@@ -93,7 +113,10 @@ final class IOBridge {
         let stdinSource = DispatchSource.makeReadSource(fileDescriptor: STDIN_FILENO, queue: stdinQueue)
         stdinSource.setEventHandler { [weak self] in
             guard let self else { return }
-            var buf = [UInt8](repeating: 0, count: 4096)
+            // Larger buffer amortizes per-event overhead during pastes —
+            // each writeAll to the PTY master is still gated by claude's
+            // drain rate, but we make fewer round-trips.
+            var buf = [UInt8](repeating: 0, count: 65536)
             let n = read(STDIN_FILENO, &buf, buf.count)
             if n > 0 {
                 Self.writeAll(self.masterFD, &buf, n)
