@@ -1,10 +1,7 @@
 # State
 
-**Active**: 00_PROMPT_ROUTING
-**File**: tasks/plans/PLAN_00_PROMPT_ROUTING.md
-**Phase**: 1
-**Status**: 🚧 In Progress
-**Updated**: 2026-02-26T12:00:00Z
+**Active**: None — PLAN_00 complete; PLAN_01 drafted, awaiting decisions (see plan doc)
+**Updated**: 2026-06-11
 
 ---
 
@@ -12,65 +9,43 @@
 
 | # | Plan | File | Status | Progress |
 |---|------|------|--------|----------|
-| 00 | PROMPT_ROUTING | PLAN_00_PROMPT_ROUTING.md | 🚧 In Progress | 0/17 tasks |
+| 00 | PROMPT_ROUTING | PLAN_00_PROMPT_ROUTING.md | ✅ Complete | 17/17 tasks (+ Phase 6 implemented despite "future" label) |
+| 01 | CLOUD_RELAY | PLAN_01_CLOUD_RELAY.md | 📝 Draft | Needs 4 infrastructure decisions before kickoff |
+| 02 | IOS_POLISH | PLAN_02_IOS_POLISH.md | 📝 Draft | 7 phases from 5-lens UX/UI/perf audit (2026-06-11); Phase 1 = fluidity fixes |
 
 ---
 
 ## Plans
 
-### PLAN_00_PROMPT_ROUTING
+### PLAN_00_PROMPT_ROUTING ✅ Complete
 
-#### Phase 1: Hook Listener Infrastructure 🚧
+Shipped between 2026-02-26 and 2026-03-24, polished through v0.1.25 (2026-04-29). Status audit on 2026-06-11 verified every task against code. Summary:
 
-| Task | Status |
-|------|--------|
-| Create `HookEvent` model in BalconyShared | ⏳ |
-| Add `hookEvent` and `hookDismiss` to `MessageType` | ⏳ |
-| Create `HookListener` actor in BalconyMac | ⏳ |
-| Create `HookEventHandler` in BalconyMac | ⏳ |
-| Wire `HookListener` into `AppDelegate` | ⏳ |
-| Create hook handler script | ⏳ |
-| Document Claude Code hook configuration | ⏳ |
+| Phase | Status | Notes |
+|-------|--------|-------|
+| 1: Hook Listener Infrastructure | ✅ | `HookListener`/`HookEventHandler` (BalconyMac/Sources/Hooks/), `HookEvent`/`HookEventPayload` (BalconyShared), `Scripts/hook-handler`, auto-setup via `SetupManager.patchHooks()` first-launch wizard |
+| 2: Mac Prompt Panel UI | ✅ | `PromptPanelController`/`PromptPanelView` + beyond plan: "Always" button, keyboard shortcuts, double-Cmd hotkey, focus-terminal action, sounds, markdown rendering, appearance prefs |
+| 3: iOS Prompt Enrichment | ✅ | `SessionManager.pendingHookData`, enriched `PromptOverlayView` (tool icon, command preview, risk badge), wired through `TerminalContainerView`/`ConversationView` |
+| 4: Coordination & Lifecycle | ✅ | `PromptLifecycleState` machine, per-session FIFO `SessionPromptQueue`, timing-mismatch buffering, reconnect resync (`resendPendingHookEvent` et al.) |
+| 5: PromptDetector Improvements | ✅ | Evaluated as planned: stays iOS-only; Mac dismisses via 200-byte PTY-output heuristic |
+| 6: Consult Questions (was "Future") | ✅ | Implemented: idle prompts (Stop+Notification correlation, detected-options parsing), `AskUserQuestionCardView` (iOS) + Mac wizard panel, voice input (Cmd-hold) |
 
-#### Phase 2: BalconyMac Prompt Panel UI ⏳
+### PLAN_01_CLOUD_RELAY 📝 Draft
 
-| Task | Status |
-|------|--------|
-| Create `PromptPanelController` | ⏳ |
-| Create `PromptPanelView` (SwiftUI) | ⏳ |
-| Wire panel to `HookEventHandler` | ⏳ |
-| Implement PTY output monitoring for auto-dismiss | ⏳ |
-| Register NSPanel as a secondary window | ⏳ |
+Remote access (off-LAN) via zero-knowledge Supabase relay + APNs push, including background Live Activity updates. Blocked on four decisions documented in the plan: push provider (APNs vs FCM), auth model, relay payload scope, hosting/secrets.
 
-#### Phase 3: iOS Prompt Enrichment ⏳
+---
 
-| Task | Status |
-|------|--------|
-| Forward hook events to iOS via WebSocket | ⏳ |
-| Handle hook events in iOS `SessionManager` | ⏳ |
-| Add hook metadata to `InteractivePrompt` | ⏳ |
-| Enhance `PromptOverlayView` with hook data | ⏳ |
-| Wire enriched overlay in `TerminalContainerView` | ⏳ |
+## Backlog
 
-#### Phase 4: Coordination & Lifecycle ⏳
+Resolved in the 2026-06-11 cleanup session (see git history):
+- ~~Sparkle appcast~~ — **was a false alarm**: the live feed on the `gh-pages` branch is current through v0.1.25 with EdDSA signatures; `release.yml` updates it on every tag. Removed the stale, empty `docs/appcast.xml` duplicate from main that caused the confusion.
+- ~~No README~~ — root `README.md` added (install, pairing, hook setup, build from source, troubleshooting).
+- ~~MessageType test coverage~~ — round-trip tests now iterate `MessageType.allCases` (CaseIterable added), so new cases are covered automatically; added `BLERSSIReportPayload` round-trip.
+- ~~Hardcoded 0.1.0 in iOS Settings~~ — now reads `CFBundleShortVersionString` from the bundle.
+- ~~Dead protocol surface~~ — removed `.awayStatusUpdate` and `.sessionUpdate` cases, the unreachable iOS `handleSessionUpdate`, and both duplicated `SessionUpdatePayload` structs. `.error` kept, documented as reserved.
+- ~~hook-handler debug log~~ — now opt-in via `BALCONY_HOOK_DEBUG=1`.
 
-| Task | Status |
-|------|--------|
-| Implement prompt lifecycle state machine | ⏳ |
-| Multi-prompt queue | ⏳ |
-| Handle timing mismatches | ⏳ |
-| Connection loss handling | ⏳ |
-
-#### Phase 5: PromptDetector Improvements (Shared) ⏳
-
-| Task | Status |
-|------|--------|
-| Evaluate moving `PromptDetector` to BalconyShared | ⏳ |
-| Add basic prompt-gone detection for Mac PTY monitoring | ⏳ |
-
-#### Phase 6: Consult Questions (Future) ⏳
-
-| Task | Status |
-|------|--------|
-| Investigate `Stop` and `Notification` hooks | ⏳ |
-| Design question detection and response UI | ⏳ |
+Still open:
+- **Cloud relay + Live Activity push** → PLAN_01_CLOUD_RELAY (draft)
+- **No test targets for BalconyMac / BalconyiOS** — only BalconySharedTests exists. The dense hook/PTY-session-mapping logic in `AppDelegate` is the riskiest untested area; would need extracting from AppDelegate into testable types first.

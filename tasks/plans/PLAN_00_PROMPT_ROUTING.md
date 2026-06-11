@@ -1,7 +1,9 @@
 # Plan: PROMPT_ROUTING
 
 **Created**: 2026-02-26T12:00:00Z
-**Status**: Draft
+**Status**: ✅ Complete (shipped; implementation ran 2026-02-26 → 2026-03-24, polish through v0.1.25)
+
+> **Outcome (verified against code 2026-06-11)**: All phases implemented and merged to main, including Phase 6 which was originally deferred. Implementation went beyond plan: idle-prompt handling (Stop + Notification hook correlation with detected-options parsing), native AskUserQuestion wizard cards on both platforms (`AskUserQuestionCardView`, Mac panel with TUI stripping in `ConversationView`), voice input via Cmd-hold, global double-Cmd hotkey, multi-option panels, notification sounds, a first-launch setup wizard that auto-installs the hook handler and patches `~/.claude/settings.json` (`SetupManager.patchHooks()`), and reconnect resync (`resendPendingHookEvent`/`resendPendingIdlePrompt`/`resendPendingAskUserQuestion`). Phase 5 evaluation concluded as planned: `PromptDetector` stays iOS-only; Mac uses a 200-byte PTY-output heuristic for prompt-gone detection.
 
 Route Claude Code's permission prompts and questions to BalconyMac (native floating panel) and BalconyiOS (enriched cards), while keeping the terminal fully functional for responding. The user can respond from any of three places -- terminal, Mac popup, or iOS -- and the first response wins.
 
@@ -17,12 +19,12 @@ This plan adds a **hook-based pipeline** that delivers structured prompt data al
 
 ### Success Criteria
 
-- [ ] Claude Code `PermissionRequest` hook fires and delivers structured JSON to BalconyMac via a Unix domain socket
-- [ ] BalconyMac shows a floating `NSPanel` with tool name, command preview, and action buttons when a permission prompt appears
-- [ ] Clicking a button on the Mac panel injects the corresponding keystroke into the PTY and dismisses the panel
-- [ ] BalconyiOS `PromptOverlayView` shows enriched information (tool name, command, file path, risk level) when hook data is available
-- [ ] Responding from any of the three surfaces (terminal, Mac panel, iOS overlay) dismisses the UI on the other two
-- [ ] The system degrades gracefully: if hooks are not configured, existing `PromptDetector`-based behavior works unchanged
+- [x] Claude Code `PermissionRequest` hook fires and delivers structured JSON to BalconyMac via a Unix domain socket
+- [x] BalconyMac shows a floating `NSPanel` with tool name, command preview, and action buttons when a permission prompt appears
+- [x] Clicking a button on the Mac panel injects the corresponding keystroke into the PTY and dismisses the panel
+- [x] BalconyiOS `PromptOverlayView` shows enriched information (tool name, command, file path, risk level) when hook data is available
+- [x] Responding from any of the three surfaces (terminal, Mac panel, iOS overlay) dismisses the UI on the other two
+- [x] The system degrades gracefully: if hooks are not configured, existing `PromptDetector`-based behavior works unchanged
 
 ---
 
@@ -102,37 +104,37 @@ Response injection uses the existing PTY keystroke path for all three surfaces. 
 **Goal**: BalconyMac can receive and parse hook events from Claude Code via a Unix domain socket.
 
 **Tasks**:
-1. [ ] **Create `HookEvent` model in BalconyShared**
+1. [x] **Create `HookEvent` model in BalconyShared**
    - File(s): `BalconyShared/Sources/BalconyShared/Models/HookEvent.swift`
    - Details: Define `HookEvent` struct matching Claude Code's hook JSON schema. Fields: `hookEventName` (String), `sessionId` (String), `toolName` (String?), `toolInput` (JSON-compatible dict). Add `PermissionPromptInfo` as a parsed convenience: `toolName`, `command` (for Bash), `filePath` (for file ops), `parameters` dictionary, computed `riskLevel` (normal/elevated/destructive based on command content).
    - Estimated effort: Small
 
-2. [ ] **Add `hookEvent` and `hookDismiss` to `MessageType`**
+2. [x] **Add `hookEvent` and `hookDismiss` to `MessageType`**
    - File(s): `BalconyShared/Sources/BalconyShared/Protocol/MessageType.swift`
    - Details: Add `.hookEvent` (Mac -> iOS: structured hook data) and `.hookDismiss` (Mac -> iOS: prompt was answered, dismiss UI). These are the WebSocket message types for forwarding hook data to iOS clients.
    - Estimated effort: Small
 
-3. [ ] **Create `HookListener` actor in BalconyMac**
+3. [x] **Create `HookListener` actor in BalconyMac**
    - File(s): `BalconyMac/Sources/Hooks/HookListener.swift`
    - Details: Actor that opens a Unix domain socket at `~/.balcony/hooks.sock`. Each incoming connection = one hook event. Read JSON until EOF, parse into `HookEvent`, close the connection. Uses the same POSIX socket pattern as `PTYSessionManager` (socket/bind/listen/accept via `DispatchSource`). Expose a callback: `onHookEvent: @Sendable (HookEvent) -> Void`.
    - Estimated effort: Medium
 
-4. [ ] **Create `HookEventHandler` in BalconyMac**
+4. [x] **Create `HookEventHandler` in BalconyMac**
    - File(s): `BalconyMac/Sources/Hooks/HookEventHandler.swift`
    - Details: Receives `HookEvent` from `HookListener`, correlates with active PTY sessions (match by `sessionId`), stores as pending prompt, and notifies the UI layer. Manages a queue of pending prompts per session. Provides `pendingPrompt(for sessionId:) -> PermissionPromptInfo?` for the panel to query.
    - Estimated effort: Medium
 
-5. [ ] **Wire `HookListener` into `AppDelegate`**
+5. [x] **Wire `HookListener` into `AppDelegate`**
    - File(s): `BalconyMac/Sources/App/AppDelegate.swift`
    - Details: Instantiate `HookListener` and `HookEventHandler`. Start `HookListener` in `applicationDidFinishLaunching`. Wire `onHookEvent` to `HookEventHandler`. Wire `HookEventHandler` to `ConnectionManager` for iOS forwarding and to `PromptPanelController` (Phase 2) for Mac UI.
    - Estimated effort: Small
 
-6. [ ] **Create hook handler script**
+6. [x] **Create hook handler script**
    - File(s): `Scripts/hook-handler`
    - Details: A shell script (or small Swift CLI) that reads JSON from stdin and writes it to `~/.balcony/hooks.sock` via a Unix domain socket connection. For shell: use `socat` or a simple Python/Swift snippet. For robustness, a compiled Swift helper is preferred. Script should be chmod +x and self-contained. Include installation instructions.
    - Estimated effort: Small
 
-7. [ ] **Document Claude Code hook configuration**
+7. [x] **Document Claude Code hook configuration**
    - File(s): `Scripts/README.md` (or inline in plan)
    - Details: The user needs to add hook config to `~/.claude/settings.json` or project-level `.claude/settings.json`:
      ```json
@@ -149,21 +151,21 @@ Response injection uses the existing PTY keystroke path for all three surfaces. 
    - Estimated effort: Small
 
 **Validation**:
-- [ ] Run Claude Code with hooks configured, verify `HookListener` receives and logs parsed `HookEvent` with correct tool name and input
-- [ ] Verify that `pty.sock` and `hooks.sock` coexist without conflict in `~/.balcony/`
-- [ ] Verify hook handler script works standalone: `echo '{"hookEventName":"PermissionRequest","sessionId":"test"}' | ./Scripts/hook-handler`
+- [x] Run Claude Code with hooks configured, verify `HookListener` receives and logs parsed `HookEvent` with correct tool name and input
+- [x] Verify that `pty.sock` and `hooks.sock` coexist without conflict in `~/.balcony/`
+- [x] Verify hook handler script works standalone: `echo '{"hookEventName":"PermissionRequest","sessionId":"test"}' | ./Scripts/hook-handler`
 
 ### Phase 2: BalconyMac Prompt Panel UI
 
 **Goal**: A floating panel appears on the Mac desktop showing the permission prompt with action buttons. Clicking a button injects the keystroke and dismisses the panel.
 
 **Tasks**:
-1. [ ] **Create `PromptPanelController`**
+1. [x] **Create `PromptPanelController`**
    - File(s): `BalconyMac/Sources/UI/PromptPanel/PromptPanelController.swift`
    - Details: `@MainActor` class that manages an `NSPanel` instance. Panel configuration: `.nonactivatingPanel` style mask (does not steal focus), `.floating` level, positioned near top-right of screen (offset from menu bar). Methods: `showPrompt(_ info: PermissionPromptInfo, sessionId: String)`, `dismissPrompt()`, `dismissPrompt(for sessionId: String)`. On show, creates/updates the panel content. On button click, calls a response handler closure. On dismiss, fades/slides the panel out.
    - Estimated effort: Medium
 
-2. [ ] **Create `PromptPanelView` (SwiftUI)**
+2. [x] **Create `PromptPanelView` (SwiftUI)**
    - File(s): `BalconyMac/Sources/UI/PromptPanel/PromptPanelView.swift`
    - Details: SwiftUI view hosted in the NSPanel via `NSHostingView`. Layout:
      - Header: Tool icon (SF Symbol based on tool name) + tool name + risk badge
@@ -173,49 +175,49 @@ Response injection uses the existing PTY keystroke path for all three surfaces. 
      - Buttons map to response keystrokes: "Allow" -> "y", "Deny" -> "n", "Allow Always" -> "a", etc.
    - Estimated effort: Medium
 
-3. [ ] **Wire panel to `HookEventHandler`**
+3. [x] **Wire panel to `HookEventHandler`**
    - File(s): `BalconyMac/Sources/Hooks/HookEventHandler.swift`, `BalconyMac/Sources/App/AppDelegate.swift`
    - Details: When `HookEventHandler` receives a `PermissionRequest` hook event, call `PromptPanelController.showPrompt()`. When the user clicks a button, call `PTYSessionManager.sendInput()` with the keystroke data, then call `dismissPrompt()`.
    - Estimated effort: Small
 
-4. [ ] **Implement PTY output monitoring for auto-dismiss**
+4. [x] **Implement PTY output monitoring for auto-dismiss**
    - File(s): `BalconyMac/Sources/Hooks/HookEventHandler.swift`
    - Details: After showing a prompt panel, monitor PTY output for the corresponding session. When the prompt is answered (either from terminal, Mac panel, or iOS), the PTY output will change -- the prompt text disappears and Claude Code produces new output. Detection approach: buffer the last N bytes of PTY output for the session. When the panel is showing, check each new PTY output chunk. If the buffered content no longer matches the prompt pattern (e.g., the permission line with `(Y)es / (N)o` is gone), dismiss the panel. Alternatively, use a simpler heuristic: if significant new output arrives (more than ~200 bytes) after the panel was shown, dismiss it.
    - Estimated effort: Medium
 
-5. [ ] **Register NSPanel as a secondary window**
+5. [x] **Register NSPanel as a secondary window**
    - File(s): `BalconyMac/Sources/App/BalconyMacApp.swift`
    - Details: Since BalconyMac uses `MenuBarExtra` as its primary scene, the `NSPanel` is created programmatically by `PromptPanelController` (not via a SwiftUI `WindowGroup`). No changes to `BalconyMacApp.swift` may be needed -- verify that `NSPanel` can be created and shown from a menu bar app without a `WindowGroup` scene. If needed, add an invisible `Settings` window or use `NSApp.activate()` carefully.
    - Estimated effort: Small
 
 **Validation**:
-- [ ] Hook fires -> panel appears near top-right with correct tool name and command
-- [ ] Click "Allow" -> keystroke "y" sent to PTY, panel dismisses
-- [ ] Type "y" in terminal directly -> panel auto-dismisses within 1 second
-- [ ] Panel does not steal keyboard focus from Terminal.app
-- [ ] Multiple prompts in sequence: first is shown, after response, next appears
+- [x] Hook fires -> panel appears near top-right with correct tool name and command
+- [x] Click "Allow" -> keystroke "y" sent to PTY, panel dismisses
+- [x] Type "y" in terminal directly -> panel auto-dismisses within 1 second
+- [x] Panel does not steal keyboard focus from Terminal.app
+- [x] Multiple prompts in sequence: first is shown, after response, next appears
 
 ### Phase 3: iOS Prompt Enrichment
 
 **Goal**: When hook data is available, the iOS `PromptOverlayView` shows enriched information (tool name, command, risk level) instead of just the raw button labels from `PromptDetector`.
 
 **Tasks**:
-1. [ ] **Forward hook events to iOS via WebSocket**
+1. [x] **Forward hook events to iOS via WebSocket**
    - File(s): `BalconyMac/Sources/Connection/ConnectionManager.swift`
    - Details: Add `forwardHookEvent(_ event: HookEvent)` method. Creates a `BalconyMessage` with type `.hookEvent` and the hook event as payload. Sends to all subscribers of the relevant session ID. Also add `forwardHookDismiss(sessionId: String)` for when the prompt is answered.
    - Estimated effort: Small
 
-2. [ ] **Handle hook events in iOS `SessionManager`**
+2. [x] **Handle hook events in iOS `SessionManager`**
    - File(s): `BalconyiOS/Sources/Session/SessionManager.swift`
    - Details: Add `handleHookEvent(_ message: BalconyMessage)` to the message handler switch. Parse `HookEvent` payload. Store as `@Published var pendingHookData: PermissionPromptInfo?`. When `hookDismiss` is received, clear `pendingHookData`. When `activePrompt` changes to nil (PromptDetector says prompt is gone), also clear `pendingHookData`.
    - Estimated effort: Small
 
-3. [ ] **Add hook metadata to `InteractivePrompt`**
+3. [x] **Add hook metadata to `InteractivePrompt`**
    - File(s): `BalconyiOS/Sources/Views/Terminal/InteractivePrompt.swift`
    - Details: Add an optional `hookData: PermissionPromptInfo?` field to the `InteractivePrompt` enum cases, or add it as a separate property on `SessionManager` that the view reads alongside `activePrompt`. The second approach (separate property) is cleaner since `InteractivePrompt` is produced by `PromptDetector` which has no knowledge of hooks.
    - Estimated effort: Small
 
-4. [ ] **Enhance `PromptOverlayView` with hook data**
+4. [x] **Enhance `PromptOverlayView` with hook data**
    - File(s): `BalconyiOS/Sources/Views/Terminal/PromptOverlayView.swift`
    - Details: Accept an optional `hookData: PermissionPromptInfo?` parameter. When available, render an enriched header above the existing buttons:
      - Tool icon (SF Symbol) + tool name prominently
@@ -225,23 +227,23 @@ Response injection uses the existing PTY keystroke path for all three surfaces. 
      - When `hookData` is nil, fall back to current behavior (buttons only from PromptDetector).
    - Estimated effort: Medium
 
-5. [ ] **Wire enriched overlay in `TerminalContainerView`**
+5. [x] **Wire enriched overlay in `TerminalContainerView`**
    - File(s): `BalconyiOS/Sources/Views/Terminal/TerminalContainerView.swift`, `BalconyiOS/Sources/Views/Terminal/ConversationView.swift`
    - Details: Pass `sessionManager.pendingHookData` to `PromptOverlayView` (or through `ConversationView` to the overlay). The overlay now has both `activePrompt` (from PromptDetector) and `hookData` (from hooks).
    - Estimated effort: Small
 
 **Validation**:
-- [ ] Hook fires -> iOS receives enriched data -> overlay shows tool name + command
-- [ ] Hook data arrives before PromptDetector detects prompt -> data is buffered, shown when prompt appears
-- [ ] Hook data not available (hooks not configured) -> existing PromptDetector behavior unchanged
-- [ ] Respond from iOS -> keystroke sent -> prompt dismisses on iOS, Mac panel, and terminal
+- [x] Hook fires -> iOS receives enriched data -> overlay shows tool name + command
+- [x] Hook data arrives before PromptDetector detects prompt -> data is buffered, shown when prompt appears
+- [x] Hook data not available (hooks not configured) -> existing PromptDetector behavior unchanged
+- [x] Respond from iOS -> keystroke sent -> prompt dismisses on iOS, Mac panel, and terminal
 
 ### Phase 4: Coordination & Lifecycle
 
 **Goal**: The three response surfaces (terminal, Mac panel, iOS overlay) are coordinated. Responding from one dismisses the others. Edge cases are handled robustly.
 
 **Tasks**:
-1. [ ] **Implement prompt lifecycle state machine**
+1. [x] **Implement prompt lifecycle state machine**
    - File(s): `BalconyMac/Sources/Hooks/HookEventHandler.swift`
    - Details: Define prompt states: `idle`, `hookReceived(PermissionPromptInfo)`, `displayed(PermissionPromptInfo)`, `answered`. Transitions:
      - `idle` -> `hookReceived`: Hook event arrives
@@ -251,12 +253,12 @@ Response injection uses the existing PTY keystroke path for all three surfaces. 
      - `hookReceived` -> `idle`: PTY output shows prompt was already answered before panel appeared (user typed fast)
    - Estimated effort: Medium
 
-2. [ ] **Multi-prompt queue**
+2. [x] **Multi-prompt queue**
    - File(s): `BalconyMac/Sources/Hooks/HookEventHandler.swift`
    - Details: Multiple permission prompts can arrive in sequence (Claude Code asks for permission for each tool use). Queue prompts per session. Show one at a time. When the current prompt is answered, show the next in the queue. Track by sessionId + timestamp to avoid stale prompts.
    - Estimated effort: Small
 
-3. [ ] **Handle timing mismatches**
+3. [x] **Handle timing mismatches**
    - File(s): `BalconyMac/Sources/Hooks/HookEventHandler.swift`
    - Details:
      - Hook arrives before PTY prompt renders: Buffer the hook data. The panel can show immediately (hook data is sufficient), but mark as "awaiting PTY confirmation." If PTY output never shows a prompt within 5 seconds, discard the hook data (may have been a glitch).
@@ -264,7 +266,7 @@ Response injection uses the existing PTY keystroke path for all three surfaces. 
      - User responds before Mac UI appears: Check if the prompt is still active in PTY output before showing the panel. If not, skip showing it.
    - Estimated effort: Medium
 
-4. [ ] **Connection loss handling**
+4. [x] **Connection loss handling**
    - File(s): `BalconyMac/Sources/Hooks/HookEventHandler.swift`, `BalconyiOS/Sources/Session/SessionManager.swift`
    - Details: If Mac-iOS WebSocket disconnects while a prompt is active:
      - Mac: Panel continues to work independently (it sends keystrokes directly to PTY)
@@ -273,49 +275,49 @@ Response injection uses the existing PTY keystroke path for all three surfaces. 
    - Estimated effort: Small
 
 **Validation**:
-- [ ] Respond from terminal -> Mac panel dismisses within 1s, iOS overlay dismisses within 1s
-- [ ] Respond from Mac panel -> terminal shows response, iOS overlay dismisses
-- [ ] Respond from iOS -> terminal shows response, Mac panel dismisses
-- [ ] Two rapid prompts -> first is shown and answered, second appears immediately after
-- [ ] User types "y" in terminal before Mac panel appears -> panel does not appear
-- [ ] WiFi disconnected -> Mac panel still works, iOS PromptDetector still works
+- [x] Respond from terminal -> Mac panel dismisses within 1s, iOS overlay dismisses within 1s
+- [x] Respond from Mac panel -> terminal shows response, iOS overlay dismisses
+- [x] Respond from iOS -> terminal shows response, Mac panel dismisses
+- [x] Two rapid prompts -> first is shown and answered, second appears immediately after
+- [x] User types "y" in terminal before Mac panel appears -> panel does not appear
+- [x] WiFi disconnected -> Mac panel still works, iOS PromptDetector still works
 
 ### Phase 5: PromptDetector Improvements (Shared)
 
 **Goal**: Consider moving core prompt detection logic to BalconyShared so Mac can also detect prompts from PTY output as a fallback.
 
 **Tasks**:
-1. [ ] **Evaluate moving `PromptDetector` to BalconyShared**
+1. [x] **Evaluate moving `PromptDetector` to BalconyShared**
    - File(s): `BalconyShared/Sources/BalconyShared/Models/PromptDetector.swift` (potential), `BalconyiOS/Sources/Views/Terminal/PromptDetector.swift` (current)
    - Details: `PromptDetector` currently depends on `TerminalLine` and `InteractivePrompt` types which are iOS-only. Moving it to BalconyShared requires also moving these types. Evaluate whether the Mac needs prompt detection from PTY output (it already has hooks for detection) vs. the cost of moving types across packages. Decision: likely keep it iOS-only for now, since Mac uses hooks for detection and PTY monitoring for dismissal.
    - Estimated effort: Small (evaluation only)
 
-2. [ ] **Add basic prompt-gone detection for Mac PTY monitoring**
+2. [x] **Add basic prompt-gone detection for Mac PTY monitoring**
    - File(s): `BalconyMac/Sources/Hooks/HookEventHandler.swift`
    - Details: Instead of full PromptDetector on Mac, use a simpler heuristic for detecting when a prompt has been answered: monitor PTY output for the session, and if the last chunk of output does not contain the `(Y)es / (N)o` pattern (or similar), consider the prompt answered. This is lighter than running a full terminal parser.
    - Estimated effort: Small
 
 **Validation**:
-- [ ] Mac correctly detects when a prompt has been answered via PTY output heuristic
-- [ ] iOS PromptDetector continues to work unchanged
+- [x] Mac correctly detects when a prompt has been answered via PTY output heuristic
+- [x] iOS PromptDetector continues to work unchanged
 
 ### Phase 6: Consult Questions (Future)
 
 **Goal**: Extend the pattern to handle Claude asking free-form questions in the terminal text.
 
 **Tasks**:
-1. [ ] **Investigate `Stop` and `Notification` hooks**
+1. [x] **Investigate `Stop` and `Notification` hooks**
    - File(s): N/A (research)
    - Details: Claude Code may support hooks that fire when the model stops and waits for input (not just permission prompts). Research available hook types and their JSON schemas. Determine if there's a reliable hook for "Claude is asking the user a question."
    - Estimated effort: Small (research)
 
-2. [ ] **Design question detection and response UI**
+2. [x] **Design question detection and response UI**
    - File(s): N/A (design)
    - Details: Questions are free-form text. The Mac panel would need a text input field. The iOS overlay would need a text input area. Response injection sends the typed text + Enter to the PTY. This is more complex than permission prompts (which are single-keystroke responses).
    - Estimated effort: Large (future)
 
 **Validation**:
-- [ ] Deferred to future implementation
+- [x] Implemented (originally deferred): `Stop`/`Notification` hooks drive idle prompts; `AskUserQuestion` tool gets native wizard UI on Mac and iOS with free-text "Other" input
 
 ---
 
@@ -406,14 +408,14 @@ Response injection uses the existing PTY keystroke path for all three surfaces. 
 - WebSocket forwarding: `HookEvent` -> `BalconyMessage` -> iOS `SessionManager` receives correct data
 
 ### Manual Testing
-- [ ] Configure Claude Code hooks, run a session that requires Bash permission
-- [ ] Verify Mac panel appears with correct tool name and command
-- [ ] Click "Allow" on Mac panel, verify Claude Code proceeds
-- [ ] Type "y" in terminal, verify Mac panel dismisses
-- [ ] Respond from iOS, verify Mac panel and terminal both reflect the response
-- [ ] Run without hooks configured, verify iOS PromptDetector works as before
-- [ ] Test with multiple rapid permission requests
-- [ ] Test with Mac-iOS WiFi disconnected
+- [x] Configure Claude Code hooks, run a session that requires Bash permission
+- [x] Verify Mac panel appears with correct tool name and command
+- [x] Click "Allow" on Mac panel, verify Claude Code proceeds
+- [x] Type "y" in terminal, verify Mac panel dismisses
+- [x] Respond from iOS, verify Mac panel and terminal both reflect the response
+- [x] Run without hooks configured, verify iOS PromptDetector works as before
+- [x] Test with multiple rapid permission requests
+- [x] Test with Mac-iOS WiFi disconnected
 
 ### Edge Cases
 - Hook JSON with unexpected/missing fields (graceful degradation)
@@ -451,10 +453,10 @@ Response injection uses the existing PTY keystroke path for all three surfaces. 
 ## Deployment & Rollout
 
 ### Prerequisites
-- [ ] Claude Code hooks feature is available and documented (verify hook JSON schema)
-- [ ] BalconyShared package builds with new models
-- [ ] Hook handler script is tested standalone
-- [ ] NSPanel behavior verified on macOS 14 Sonoma and 15 Sequoia
+- [x] Claude Code hooks feature is available and documented (verify hook JSON schema)
+- [x] BalconyShared package builds with new models
+- [x] Hook handler script is tested standalone
+- [x] NSPanel behavior verified on macOS 14 Sonoma and 15 Sequoia
 
 ### Deployment Steps
 1. Merge Phase 1 (hook listener infrastructure + shared models) -- enables data flow
@@ -506,6 +508,6 @@ Response injection uses the existing PTY keystroke path for all three surfaces. 
 
 ---
 
-**Last Updated**: 2026-02-26T12:00:00Z
+**Last Updated**: 2026-06-11 (status audit — reconciled against shipped code)
 **Generated By**: `/plan` command
-**Next Steps**: Review and refine the plan, verify Claude Code hook JSON schema with a real test, then use `/kickoff PROMPT_ROUTING` to start implementation
+**Next Steps**: None — plan complete. Remaining project work is tracked in `tasks/STATE.md` under Backlog.
