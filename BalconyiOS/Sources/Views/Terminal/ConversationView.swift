@@ -291,7 +291,7 @@ struct ConversationView: View {
                         onSendInput?(input)
                     }
                     .padding(.bottom, BalconyTheme.spacingSM)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .transition(.menuPanel)
                 }
                 else if showFilePicker, !projectFiles.isEmpty {
                     // File picker menu — floats above the input bar
@@ -440,6 +440,18 @@ struct ConversationView: View {
             guard elapsed > 0.5 else { return }
             previousText = newValue
             inputText = newValue
+        }
+        // Spring choreography for prompt surfaces. Presence-keyed so content
+        // changes within an active prompt (e.g. selection moves) don't
+        // re-trigger the entrance animation.
+        .animation(BalconyTheme.springStandard, value: activePrompt == nil)
+        .animation(BalconyTheme.springStandard, value: pendingAskUserQuestion == nil)
+        // Prompt arrival is the app's attention moment — announce it.
+        .onChange(of: activePrompt == nil) { isNil in
+            if !isNil { BalconyTheme.hapticMedium() }
+        }
+        .onChange(of: pendingAskUserQuestion == nil) { isNil in
+            if !isNil { BalconyTheme.hapticMedium() }
         }
     }
 

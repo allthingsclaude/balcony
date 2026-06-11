@@ -55,7 +55,10 @@ private struct PermissionPromptView: View {
                         .foregroundStyle(optionForeground(option))
                         .clipShape(Capsule())
                         .overlay {
-                            if !option.isDefault && !option.isDestructive {
+                            if option.isDestructive {
+                                Capsule()
+                                    .strokeBorder(BalconyTheme.statusRed.opacity(0.35), lineWidth: 1)
+                            } else if !option.isDefault {
                                 Capsule()
                                     .strokeBorder(BalconyTheme.separator, lineWidth: 1)
                             }
@@ -165,7 +168,7 @@ private struct PermissionPromptView: View {
         if option.isDefault {
             Capsule().fill(BalconyTheme.accent)
         } else if option.isDestructive {
-            Capsule().fill(BalconyTheme.statusRed.opacity(0.15))
+            Capsule().fill(BalconyTheme.statusRed.opacity(0.22))
         } else {
             Capsule().fill(.ultraThinMaterial)
         }
@@ -262,6 +265,11 @@ private struct MultiOptionPromptView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
+        .background(
+            option.index == prompt.selectedIndex
+                ? BalconyTheme.accent.opacity(0.08)
+                : Color.clear
+        )
         .contentShape(Rectangle())
     }
 
@@ -283,51 +291,6 @@ private struct MultiOptionPromptView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
             onSendInput("\r")
         }
-    }
-}
-
-// MARK: - Idle Prompt Card
-
-/// Card showing Claude's last message when it's waiting for user input.
-/// The user responds using the normal input bar below (no inline text field needed).
-struct IdlePromptCard: View {
-    let message: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
-                Image(systemName: "bubble.left.and.text.bubble.right")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(.blue)
-
-                Text("Claude is waiting")
-                    .font(BalconyTheme.bodyFont(14))
-                    .fontWeight(.semibold)
-                    .foregroundStyle(BalconyTheme.textPrimary)
-
-                Spacer()
-            }
-
-            Text(displayMessage)
-                .font(BalconyTheme.bodyFont(13))
-                .foregroundStyle(BalconyTheme.textSecondary)
-                .lineLimit(4)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .padding(12)
-        .background {
-            RoundedRectangle(cornerRadius: BalconyTheme.radiusMD)
-                .fill(.ultraThinMaterial)
-                .shadow(color: .black.opacity(0.1), radius: 8, y: -2)
-        }
-        .clipShape(RoundedRectangle(cornerRadius: BalconyTheme.radiusMD))
-    }
-
-    private var displayMessage: String {
-        let msg = message
-        return msg.count > 300
-            ? String(msg.suffix(300))
-            : msg
     }
 }
 

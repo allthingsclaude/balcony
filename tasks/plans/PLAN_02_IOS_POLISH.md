@@ -19,15 +19,15 @@ Audit lenses: core terminal experience, native cards/pickers, app shell & naviga
 
 ---
 
-## Phase 1: Fluidity Foundation (highest frame-time payoff)
+## Phase 1: Fluidity Foundation (highest frame-time payoff) ✅ (2026-06-11)
 
-The app currently drops frames during fast output (>10KB/s): every PTY chunk batch triggers a full-array `@Published` replacement on `SessionManager`, re-rendering the entire view tree (~30 full re-evals/sec at burst; ~150k uncached ANSI color lookups/sec).
+The app dropped frames during fast output (>10KB/s): every PTY chunk batch triggered a full-array `@Published` replacement on `SessionManager`, re-rendering the entire view tree.
 
-1. [ ] **Isolate hot terminal state into a child ObservableObject** — move `conversationLines`, `activePrompt`, `pendingInputText` out of `SessionManager` into a `TerminalContentManager`; only `ConversationView` observes it. Single biggest win — restores 120Hz during streaming. (`SessionManager.swift:16,118-120`, `TerminalContainerView.swift:26`)
-2. [ ] **Memoize per-line text construction** — make `StyledSegment` Equatable (text+style, ignore UUID), cache built `Text` per line; skip rebuild when segments unchanged. (`ConversationView.swift:999-1012`, `TerminalLine.swift`)
-3. [ ] **Display-link-aligned update coalescing** — align `extractLines()` firing to CADisplayLink instead of wall-clock `asyncAfter`; keep the 50ms quiet window. (`HeadlessTerminalParser.swift:54-70`)
-4. [ ] **ANSI color cache** — static `[ANSIColor: Color]` dict, cleared on theme change. (`ANSIColorMapper.swift:6-33`)
-5. [ ] **Dirty-region line updates (stretch)** — mark "last N lines changed" so `groupedBlocks` (O(N) per update, `ConversationView.swift:674-705`) invalidates only affected blocks.
+1. [x] **Per-property observation** — implemented via `@Observable` migration of `SessionManager` (cleaner than the child-object split, enabled by the iOS 26 floor): views re-render only for properties they read.
+2. [x] **Memoize per-line rendering** — `TerminalLine`/`StyledSegment` content equality (ignoring regenerated UUIDs) + `TerminalLineView: Equatable` with `.equatable()`; unchanged lines skip body re-eval.
+3. [x] **Update coalescing** — change-gated publishes (skip when lines/prompt/input unchanged; also fixed a race where hook enrichment was wiped by no-change `nil` re-emissions); `maxDelay` 400ms → 150ms for livelier streaming. CADisplayLink alignment deliberately skipped — debounce already bounds rate; revisit only if on-device profiling shows need.
+4. [x] **ANSI color cache** — memoized; theme entries are dynamic UIColors so no invalidation needed.
+5. [ ] **Dirty-region line updates (stretch)** — not needed unless profiling shows `groupedBlocks` (O(N) per update) matters after the above.
 
 ## Phase 2: Terminal Experience Gaps
 
@@ -41,14 +41,16 @@ The app currently drops frames during fast output (>10KB/s): every PTY chunk bat
 8. [ ] **Code block scroll affordance** — horizontal scroll is invisible; add `.scrollIndicators(.visible)` / edge hint. (`ConversationView.swift:127-139`)
 9. [ ] **Dim/ANSI contrast** — dim opacity 0.6 too low; some ANSI colors (red 0.67/0/0) illegible on dark; theme-aware palette + `BalconyTheme.dimOpacity`. (`ANSIColorMapper.swift:25-77`)
 
-## Phase 3: Signature Moments (prompt surfaces)
+## Phase 3: Signature Moments (prompt surfaces) ✅ (2026-06-11)
 
-1. [ ] **Haptic on prompt arrival** — THE attention moment currently has no haptic; fire `hapticMedium()` when `activePrompt`/`pendingHookData`/question becomes non-nil (guard against re-fire).
-2. [ ] **Spring entrance choreography** — cards use linear `.move+.opacity`; add spring animation to PromptOverlay, AskUserQuestion card, and `.menuPanel` transition; add missing entrance transition to IdlePromptCard (`PromptOverlayView.swift:293-332`).
-3. [ ] **Destructive affordance** — Deny/destructive buttons at `statusRed.opacity(0.15)` are under-emphasized at the riskiest moment; strengthen bg, consider warning glyph for `destructive` risk level. (`PromptOverlayView.swift:38-65,167-168`)
-4. [ ] **Wizard polish** — AskUserQuestion: add progress bar, back navigation between steps, selection flash before advancing, `.textInputAutocapitalization(.never)` on "Other" field. (`AskUserQuestionCardView.swift`)
-5. [ ] **Multi-option selection indicator** — 3pt bar too subtle; use accent background fill on selected row. (`PromptOverlayView.swift:239-241`)
-6. [ ] **Verify `MenuBlurModifier` iOS 16 compatibility** (`ConversationView.swift:1017-1033`).
+1. [x] **Haptic on prompt arrival** — presence-keyed `onChange` in ConversationView fires `hapticMedium()` when a permission prompt or question appears (content changes within an active prompt don't re-fire).
+2. [x] **Spring entrance choreography** — root-caused deeper than the audit: the declared `.transition`s had **no animation driver at all** (prompt state is assigned outside `withAnimation`), so cards popped in with zero animation. Added presence-keyed `.animation(BalconyTheme.springStandard, value:)` drivers; unified PromptOverlay on the `.menuPanel` (move+fade+blur) transition. `IdlePromptCard` was dead code (defined, never instantiated) — removed.
+3. [x] **Destructive affordance** — destructive fill 0.15 → 0.22 + dedicated red stroke border.
+4. [x] **Wizard polish** — animated progress bar, back navigation (chevron when past step 1), 160ms selection flash with double-tap guard, "Other" field gets auto-focus + `.textInputAutocapitalization(.never)` + `.autocorrectionDisabled()`.
+5. [x] **Multi-option selection indicator** — accent fill (8%) on the selected row alongside the bar.
+6. [x] **`MenuBlurModifier` compatibility** — moot since the iOS 26 floor.
+
+Also seeded the Phase 6 motion vocabulary early: `BalconyTheme.springSnappy/springStandard/springGentle`.
 
 ## Phase 4: Pickers & Menus Consistency
 

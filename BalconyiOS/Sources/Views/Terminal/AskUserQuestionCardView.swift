@@ -12,6 +12,9 @@ struct AskUserQuestionCardView: View {
     @State private var answers: [String: String] = [:]
     @State private var otherText = ""
     @State private var showOtherField = false
+    /// Index of the option briefly highlighted between tap and advance.
+    @State private var flashedIndex: Int?
+    @FocusState private var otherFieldFocused: Bool
 
     private var questions: [AskUserQuestionPayload.Question] {
         payload.questions
@@ -29,6 +32,11 @@ struct AskUserQuestionCardView: View {
         VStack(alignment: .leading, spacing: 0) {
             // Header
             header
+
+            // Wizard progress
+            if questions.count > 1 {
+                progressBar
+            }
 
             Divider()
                 .background(BalconyTheme.separator)
@@ -61,6 +69,24 @@ struct AskUserQuestionCardView: View {
 
     private var header: some View {
         HStack(spacing: 8) {
+            if currentIndex > 0 {
+                Button {
+                    BalconyTheme.hapticLight()
+                    withAnimation(BalconyTheme.springSnappy) {
+                        showOtherField = false
+                        otherText = ""
+                        currentIndex -= 1
+                    }
+                } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(BalconyTheme.textSecondary)
+                        .frame(width: 28, height: 28)
+                        .background(BalconyTheme.textSecondary.opacity(0.1), in: Circle())
+                }
+                .transition(.scale.combined(with: .opacity))
+            }
+
             Image(systemName: "questionmark.bubble")
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(BalconyTheme.accent)
@@ -98,6 +124,23 @@ struct AskUserQuestionCardView: View {
         .padding(.vertical, 10)
     }
 
+    /// Thin accent bar filling left-to-right as the wizard advances.
+    private var progressBar: some View {
+        GeometryReader { geo in
+            Capsule()
+                .fill(BalconyTheme.accentSubtle)
+                .overlay(alignment: .leading) {
+                    Capsule()
+                        .fill(BalconyTheme.accent)
+                        .frame(width: geo.size.width * CGFloat(currentIndex + 1) / CGFloat(questions.count))
+                }
+        }
+        .frame(height: 3)
+        .padding(.horizontal, 16)
+        .padding(.bottom, 10)
+        .animation(BalconyTheme.springSnappy, value: currentIndex)
+    }
+
     // MARK: - Question
 
     private var questionContent: some View {
@@ -117,8 +160,17 @@ struct AskUserQuestionCardView: View {
             LazyVStack(spacing: 0) {
                 ForEach(Array(currentQuestion.options.enumerated()), id: \.offset) { index, option in
                     Button {
+                        // Flash the selected row briefly before advancing so the
+                        // choice reads as acknowledged. Guard blocks double-taps
+                        // while the flash is in flight.
+                        guard flashedIndex == nil else { return }
                         BalconyTheme.hapticMedium()
-                        selectOption(option.label)
+                        flashedIndex = index
+                        Task { @MainActor in
+                            try? await Task.sleep(nanoseconds: 160_000_000)
+                            flashedIndex = nil
+                            selectOption(option.label)
+                        }
                     } label: {
                         optionRow(option, index: index)
                     }
@@ -128,9 +180,10 @@ struct AskUserQuestionCardView: View {
                 // "Other" option
                 Button {
                     BalconyTheme.hapticMedium()
-                    withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                    withAnimation(BalconyTheme.springSnappy) {
                         showOtherField = true
                     }
+                    otherFieldFocused = true
                 } label: {
                     otherRow
                 }
@@ -165,6 +218,7 @@ struct AskUserQuestionCardView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
+        .background(flashedIndex == index ? BalconyTheme.accent.opacity(0.1) : Color.clear)
         .contentShape(Rectangle())
     }
 
@@ -198,6 +252,9 @@ struct AskUserQuestionCardView: View {
                 TextField("Type your answer...", text: $otherText)
                     .textFieldStyle(.plain)
                     .font(BalconyTheme.bodyFont(14))
+                    .focused($otherFieldFocused)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
                     .onSubmit { submitOther() }
 
                 Button {
@@ -236,7 +293,7 @@ struct AskUserQuestionCardView: View {
             BalconyTheme.hapticSuccess()
             onComplete(answers)
         } else {
-            withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+            withAnimation(BalconyTheme.springSnappy) {
                 currentIndex += 1
             }
         }

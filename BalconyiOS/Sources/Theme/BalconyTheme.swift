@@ -122,6 +122,17 @@ enum BalconyTheme {
     static let radiusLG: CGFloat = 16
     static let radiusPill: CGFloat = 24
 
+    // MARK: - Motion
+
+    /// Snappy spring for button-driven state changes.
+    static let springSnappy = Animation.spring(response: 0.25, dampingFraction: 0.85)
+
+    /// Standard spring for card and overlay entrances.
+    static let springStandard = Animation.spring(response: 0.35, dampingFraction: 0.8)
+
+    /// Gentle spring for large surfaces (sheets, sidebars).
+    static let springGentle = Animation.spring(response: 0.45, dampingFraction: 0.85)
+
     // MARK: - Haptics
 
     static func hapticLight() {
