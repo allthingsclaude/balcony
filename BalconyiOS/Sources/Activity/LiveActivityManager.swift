@@ -4,7 +4,6 @@ import Foundation
 import os
 
 /// Manages a single Live Activity that shows an aggregate dashboard of all sessions.
-@available(iOS 16.2, *)
 @MainActor
 final class LiveActivityManager {
     static let shared = LiveActivityManager()

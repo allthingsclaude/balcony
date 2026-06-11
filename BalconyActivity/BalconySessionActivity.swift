@@ -7,7 +7,6 @@ import ActivityKit
 
 /// Defines the data model for Balcony's Live Activity — an aggregate dashboard
 /// showing counts of sessions in each state.
-@available(iOS 16.1, *)
 public struct BalconySessionAttributes: ActivityAttributes {
     public struct ContentState: Codable, Hashable {
         /// Sessions where Claude is actively running.

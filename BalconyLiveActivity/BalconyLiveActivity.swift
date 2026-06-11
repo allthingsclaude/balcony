@@ -4,7 +4,6 @@ import WidgetKit
 
 // MARK: - Live Activity Configuration
 
-@available(iOS 16.1, *)
 struct BalconyLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: BalconySessionAttributes.self) { context in
@@ -53,7 +52,6 @@ struct BalconyLiveActivity: Widget {
 
 // MARK: - Lock Screen View
 
-@available(iOS 16.1, *)
 private struct LockScreenLiveActivityView: View {
     let state: BalconySessionAttributes.ContentState
 
@@ -147,7 +145,6 @@ private struct CountColumn: View {
 
 // MARK: - Dynamic Island Expanded Row
 
-@available(iOS 16.1, *)
 private struct ExpandedCountsRow: View {
     let state: BalconySessionAttributes.ContentState
 
@@ -206,7 +203,6 @@ private struct CompactCountPill: View {
 
 // MARK: - Compact Trailing
 
-@available(iOS 16.1, *)
 private struct CompactTrailingView: View {
     let state: BalconySessionAttributes.ContentState
 

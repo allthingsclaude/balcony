@@ -2,8 +2,22 @@ import SwiftUI
 
 /// Maps `ANSIColor` values to SwiftUI `Color`.
 enum ANSIColorMapper {
+    /// Memoized colors. Accessed only from the main thread (view rendering).
+    /// Theme-backed entries are dynamic UIColors, so they adapt to light/dark
+    /// without invalidation.
+    private static var cache: [ANSIColor: Color] = [:]
+
     /// Convert an ANSIColor to a SwiftUI Color.
     static func color(for ansi: ANSIColor) -> Color {
+        if let cached = cache[ansi] {
+            return cached
+        }
+        let resolved = resolve(ansi)
+        cache[ansi] = resolved
+        return resolved
+    }
+
+    private static func resolve(_ ansi: ANSIColor) -> Color {
         switch ansi {
         case .defaultFg:
             return BalconyTheme.textPrimary

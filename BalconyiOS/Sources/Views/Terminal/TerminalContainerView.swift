@@ -4,7 +4,7 @@ import BalconyShared
 
 struct TerminalContainerView: View {
     let session: Session
-    @EnvironmentObject var sessionManager: SessionManager
+    @Environment(SessionManager.self) var sessionManager
     @EnvironmentObject var connectionManager: ConnectionManager
     @State private var isLoading = true
 

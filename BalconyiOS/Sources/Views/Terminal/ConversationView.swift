@@ -112,6 +112,7 @@ struct ConversationView: View {
                                     .frame(height: 18)
                             case .line(let line):
                                 TerminalLineView(line: line)
+                                    .equatable()
                                     .padding(.horizontal, 12)
                                     .padding(.vertical, line.markerRole == .user ? 6 : 0)
                                     .background(line.markerRole == .user ? BalconyTheme.surfaceSecondary : Color.clear)
@@ -760,7 +761,11 @@ struct ConversationView: View {
 // MARK: - Terminal Line View
 
 /// Renders a single terminal line with a marker column (›/·) and indented content.
-struct TerminalLineView: View {
+///
+/// Equatable so SwiftUI can skip body re-evaluation for unchanged lines when
+/// the conversation array is republished — only lines whose content actually
+/// changed (typically the last few) pay the attributed-text rebuild cost.
+struct TerminalLineView: View, Equatable {
     let line: TerminalLine
 
     var body: some View {

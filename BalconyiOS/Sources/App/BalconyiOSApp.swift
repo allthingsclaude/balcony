@@ -4,7 +4,7 @@ import BalconyShared
 @main
 struct BalconyiOSApp: App {
     @StateObject private var connectionManager = ConnectionManager()
-    @StateObject private var sessionManager = SessionManager()
+    @State private var sessionManager = SessionManager()
     @AppStorage("appearance") private var appearance: String = "system"
     @AppStorage("appIcon") private var appIcon: String = "light"
 
@@ -16,7 +16,7 @@ struct BalconyiOSApp: App {
         WindowGroup {
             ContentView()
                 .environmentObject(connectionManager)
-                .environmentObject(sessionManager)
+                .environment(sessionManager)
                 .tint(BalconyTheme.accent)
                 .onAppear {
                     sessionManager.configure(connectionManager: connectionManager)
@@ -24,9 +24,7 @@ struct BalconyiOSApp: App {
                     applyIcon(appIcon)
                     // Clean up any stale Live Activities from previous launches
                     #if canImport(ActivityKit)
-                    if #available(iOS 16.2, *) {
-                        LiveActivityManager.shared.cleanupStaleActivities()
-                    }
+                    LiveActivityManager.shared.cleanupStaleActivities()
                     #endif
                 }
                 .task {
@@ -100,9 +98,7 @@ struct ContentView: View {
             showConnected = connected
             if !connected {
                 #if canImport(ActivityKit)
-                if #available(iOS 16.2, *) {
-                    LiveActivityManager.shared.endActivity()
-                }
+                LiveActivityManager.shared.endActivity()
                 #endif
             }
         }

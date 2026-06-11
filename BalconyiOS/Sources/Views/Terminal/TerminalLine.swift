@@ -9,7 +9,7 @@ enum MarkerRole: Equatable {
 }
 
 /// A single line of parsed terminal output with styled segments.
-struct TerminalLine: Identifiable {
+struct TerminalLine: Identifiable, Equatable {
     let id: Int
     let segments: [StyledSegment]
     let isWrapped: Bool
@@ -21,10 +21,17 @@ struct TerminalLine: Identifiable {
 }
 
 /// A contiguous run of text sharing the same style.
-struct StyledSegment: Identifiable {
+struct StyledSegment: Identifiable, Equatable {
     let id = UUID()
     let text: String
     let style: SegmentStyle
+
+    /// Content equality. The `id` is regenerated on every parser extraction,
+    /// so it must not participate — equal text + style means the segment is
+    /// unchanged and its rendered view can be reused.
+    static func == (lhs: StyledSegment, rhs: StyledSegment) -> Bool {
+        lhs.text == rhs.text && lhs.style == rhs.style
+    }
 }
 
 /// Visual style attributes for a terminal text segment.

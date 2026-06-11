@@ -25,10 +25,14 @@ final class HeadlessTerminalParser: ObservableObject {
     /// unextracted feed. A 4 MB replay arriving as 8 chunks back-to-back
     /// produces one extraction at the end instead of eight during the burst,
     /// while steady streaming still updates within maxDelay.
+    ///
+    /// maxDelay bounds sustained-streaming refresh at ~6.7 Hz. Publishing is
+    /// change-gated and line views are Equatable-memoized, so each refresh
+    /// costs only the lines that actually changed.
     private var extractionWorkItem: DispatchWorkItem?
     private var firstPendingFeed: Date?
     private static let quietDelay: TimeInterval = 0.05
-    private static let maxDelay: TimeInterval = 0.4
+    private static let maxDelay: TimeInterval = 0.15
 
     init(cols: Int, rows: Int) {
         var options = TerminalOptions()
@@ -371,8 +375,9 @@ final class HeadlessTerminalParser: ObservableObject {
             if lines.isEmpty { break }
         }
 
+        let detectedPrompt: InteractivePrompt?
         if let result = PromptDetector.detect(in: lines) {
-            activePrompt = result.prompt
+            detectedPrompt = result.prompt
             // Strip the prompt lines — they're shown natively via PromptOverlayView.
             lines = Array(lines.prefix(result.stripFromIndex))
             // Trim trailing empty lines left after stripping.
@@ -382,14 +387,27 @@ final class HeadlessTerminalParser: ObservableObject {
                 if lines.isEmpty { break }
             }
         } else {
-            activePrompt = nil
+            detectedPrompt = nil
         }
 
-        conversationLines = lines
+        // Publish only on change. Beyond skipping redundant view updates, the
+        // prompt guard makes downstream nil-handling transition-based: hook
+        // enrichment that arrives before the prompt renders is no longer wiped
+        // by a no-change extraction re-emitting nil.
+        if detectedPrompt != activePrompt {
+            activePrompt = detectedPrompt
+        }
+
+        if lines != conversationLines {
+            conversationLines = lines
+        }
 
         // Update chrome input — re-extract since the terminal may have changed
         // between the early extraction and now (e.g. prompt detection stripped lines).
-        pendingInputText = extractChromeInputText(allRows: allRows, chromeStart: chromeStart)
+        let chromeInput = extractChromeInputText(allRows: allRows, chromeStart: chromeStart)
+        if chromeInput != pendingInputText {
+            pendingInputText = chromeInput
+        }
     }
 
     // MARK: - Chrome Detection

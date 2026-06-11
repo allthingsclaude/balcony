@@ -3,7 +3,7 @@ import BalconyShared
 
 /// Main connected view with a sliding sidebar and terminal content area.
 struct SidebarContainerView: View {
-    @EnvironmentObject var sessionManager: SessionManager
+    @Environment(SessionManager.self) var sessionManager
     @EnvironmentObject var connectionManager: ConnectionManager
     @ObservedObject private var notificationManager = NotificationManager.shared
     @Environment(\.colorScheme) private var colorScheme

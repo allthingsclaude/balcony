@@ -1,79 +1,94 @@
 import Foundation
 import SwiftUI
+import Observation
 import BalconyShared
 import Combine
 import os
 
 /// Manages Claude Code sessions received from the connected Mac.
+///
+/// `@Observable` gives per-property observation: views re-render only when a
+/// property they actually read changes. This keeps high-frequency terminal
+/// updates (`conversationLines`) from re-rendering the sidebar, session list,
+/// and app shell on every PTY chunk.
 @MainActor
-final class SessionManager: ObservableObject {
+@Observable
+final class SessionManager {
+    @ObservationIgnored
     private let logger = Logger(subsystem: "com.balcony.ios", category: "SessionManager")
 
-    @Published var sessions: [Session] = []
-    @Published var activeSession: Session?
+    var sessions: [Session] = []
+    var activeSession: Session?
 
     /// Parsed conversation lines from the headless terminal parser.
-    @Published var conversationLines: [TerminalLine] = []
+    var conversationLines: [TerminalLine] = []
 
     /// Slash commands available for the active session.
-    @Published var slashCommands: [SlashCommandInfo] = []
+    var slashCommands: [SlashCommandInfo] = []
 
     /// Project files for the active session (@ file picker).
-    @Published var projectFiles: [String] = []
+    var projectFiles: [String] = []
 
     /// Detected interactive prompt (permission or multi-option) from terminal output.
-    @Published var activePrompt: InteractivePrompt?
+    var activePrompt: InteractivePrompt?
 
     /// Structured hook data for the current permission prompt (from Mac hook listener).
-    @Published var pendingHookData: HookEventPayload?
+    var pendingHookData: HookEventPayload?
 
     /// Idle prompt data (Claude waiting for user input, from Mac hook listener).
-    @Published var pendingIdlePrompt: IdlePromptPayload?
+    var pendingIdlePrompt: IdlePromptPayload?
 
     /// Structured AskUserQuestion data (from Mac hook listener).
-    @Published var pendingAskUserQuestion: AskUserQuestionPayload?
+    var pendingAskUserQuestion: AskUserQuestionPayload?
 
     /// Session IDs that have a pending permission or question prompt (needs user action).
-    @Published var sessionsNeedingAttention: Set<String> = []
+    var sessionsNeedingAttention: Set<String> = []
 
     /// Session IDs where AI is idle and waiting for the user's next prompt.
-    @Published var sessionsAwaitingInput: Set<String> = []
+    var sessionsAwaitingInput: Set<String> = []
 
     /// Text currently in the Mac's input box (after ❯). Used to pre-fill the iOS input.
-    @Published var pendingInputText: String = ""
+    var pendingInputText: String = ""
 
     /// Available sessions for native session picker (/resume command).
-    @Published var availableSessions: [SessionInfo] = []
+    var availableSessions: [SessionInfo] = []
 
     /// Show the native session picker UI.
-    @Published var showSessionPicker: Bool = false
+    var showSessionPicker: Bool = false
 
     /// The PTY session ID that triggered the session picker (for routing selection back).
+    @ObservationIgnored
     private var pickerPTYSessionId: String?
 
     /// Available models for native model picker (/model command).
-    @Published var availableModels: [ModelInfo] = []
+    var availableModels: [ModelInfo] = []
 
     /// The currently active model ID (detected from session JSONL).
-    @Published var currentModelId: String?
+    var currentModelId: String?
 
     /// Show the native model picker UI.
-    @Published var showModelPicker: Bool = false
+    var showModelPicker: Bool = false
 
     /// The PTY session ID that triggered the model picker (for routing selection back).
+    @ObservationIgnored
     private var modelPickerPTYSessionId: String?
 
     /// Computed rewind turns for native rewind picker (/rewind command).
-    @Published var rewindTurns: [RewindTurnInfo] = []
+    var rewindTurns: [RewindTurnInfo] = []
 
     /// Show the native rewind picker UI.
-    @Published var showRewindPicker: Bool = false
+    var showRewindPicker: Bool = false
 
+    @ObservationIgnored
     private var parser: HeadlessTerminalParser?
+    @ObservationIgnored
     private var parserCancellable: AnyCancellable?
+    @ObservationIgnored
     private var promptCancellable: AnyCancellable?
+    @ObservationIgnored
     private var pendingInputCancellable: AnyCancellable?
 
+    @ObservationIgnored
     private weak var connectionManager: ConnectionManager?
 
     // MARK: - Configuration
@@ -355,38 +370,36 @@ final class SessionManager: ObservableObject {
     /// Sync the Live Activity with aggregate session counts.
     private func syncLiveActivity() {
         #if canImport(ActivityKit)
-        if #available(iOS 16.2, *) {
-            let manager = LiveActivityManager.shared
+        let manager = LiveActivityManager.shared
 
-            guard !sessions.isEmpty else {
-                manager.endActivity()
-                return
-            }
-
-            var working = 0
-            var done = 0
-            var attention = 0
-
-            for session in sessions {
-                let needsAttention = session.needsAttention || sessionsNeedingAttention.contains(session.id)
-                let awaitingInput = session.awaitingInput || sessionsAwaitingInput.contains(session.id)
-
-                if needsAttention {
-                    attention += 1
-                } else if awaitingInput {
-                    done += 1
-                } else {
-                    working += 1
-                }
-            }
-
-            manager.syncActivity(
-                workingCount: working,
-                doneCount: done,
-                attentionCount: attention,
-                totalCount: sessions.count
-            )
+        guard !sessions.isEmpty else {
+            manager.endActivity()
+            return
         }
+
+        var working = 0
+        var done = 0
+        var attention = 0
+
+        for session in sessions {
+            let needsAttention = session.needsAttention || sessionsNeedingAttention.contains(session.id)
+            let awaitingInput = session.awaitingInput || sessionsAwaitingInput.contains(session.id)
+
+            if needsAttention {
+                attention += 1
+            } else if awaitingInput {
+                done += 1
+            } else {
+                working += 1
+            }
+        }
+
+        manager.syncActivity(
+            workingCount: working,
+            doneCount: done,
+            attentionCount: attention,
+            totalCount: sessions.count
+        )
         #endif
     }
 

@@ -7,16 +7,11 @@ struct DeviceManagementView: View {
     var body: some View {
         List {
             if connectionManager.pairedDevices.isEmpty {
-                if #available(iOS 17.0, *) {
-                    ContentUnavailableView(
-                        "No Paired Devices",
-                        systemImage: "desktopcomputer",
-                        description: Text("Scan a QR code on your Mac to pair.")
-                    )
-                } else {
-                    Text("No Paired Devices")
-                        .foregroundStyle(BalconyTheme.textSecondary)
-                }
+                ContentUnavailableView(
+                    "No Paired Devices",
+                    systemImage: "desktopcomputer",
+                    description: Text("Scan a QR code on your Mac to pair.")
+                )
             } else {
                 ForEach(connectionManager.pairedDevices, id: \.id) { device in
                     HStack {

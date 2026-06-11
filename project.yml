@@ -3,7 +3,7 @@ options:
   bundleIdPrefix: com.balcony
   deploymentTarget:
     macOS: "14.0"
-    iOS: "16.0"
+    iOS: "26.0"
   xcodeVersion: "15.0"
   createIntermediateGroups: true
   generateEmptyDirectories: true
@@ -103,7 +103,7 @@ targets:
   BalconyiOS:
     type: application
     platform: iOS
-    deploymentTarget: "16.0"
+    deploymentTarget: "26.0"
     sources:
       - path: BalconyiOS/Sources
       - path: BalconyActivity
@@ -118,7 +118,7 @@ targets:
         INFOPLIST_FILE: BalconyiOS/Resources/Info.plist
         CODE_SIGN_ENTITLEMENTS: BalconyiOS/Resources/BalconyiOS.entitlements
         PRODUCT_NAME: Balcony
-        IPHONEOS_DEPLOYMENT_TARGET: "16.0"
+        IPHONEOS_DEPLOYMENT_TARGET: "26.0"
         TARGETED_DEVICE_FAMILY: 1
         LD_RUNPATH_SEARCH_PATHS:
           - $(inherited)
@@ -133,7 +133,7 @@ targets:
   BalconyLiveActivity:
     type: app-extension
     platform: iOS
-    deploymentTarget: "16.1"
+    deploymentTarget: "26.0"
     sources:
       - path: BalconyLiveActivity
         excludes:
@@ -144,7 +144,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.balcony.ios.liveactivity
         INFOPLIST_FILE: BalconyLiveActivity/Info.plist
         PRODUCT_NAME: BalconyLiveActivity
-        IPHONEOS_DEPLOYMENT_TARGET: "16.1"
+        IPHONEOS_DEPLOYMENT_TARGET: "26.0"
         TARGETED_DEVICE_FAMILY: 1
         LD_RUNPATH_SEARCH_PATHS:
           - $(inherited)

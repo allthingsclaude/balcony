@@ -2,7 +2,7 @@ import SwiftUI
 import BalconyShared
 
 struct SessionListView: View {
-    @EnvironmentObject var sessionManager: SessionManager
+    @Environment(SessionManager.self) var sessionManager
     @EnvironmentObject var connectionManager: ConnectionManager
     @State private var showingSettings = false
     @State private var showDisconnectConfirm = false

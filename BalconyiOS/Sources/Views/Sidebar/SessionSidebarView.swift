@@ -3,7 +3,7 @@ import BalconyShared
 
 /// The sidebar content panel showing sessions, connected Mac header, and actions.
 struct SessionSidebarView: View {
-    @EnvironmentObject var sessionManager: SessionManager
+    @Environment(SessionManager.self) var sessionManager
     @EnvironmentObject var connectionManager: ConnectionManager
     @AppStorage("notificationsEnabled") private var notificationsEnabled = false
     let selectedSessionId: String?
