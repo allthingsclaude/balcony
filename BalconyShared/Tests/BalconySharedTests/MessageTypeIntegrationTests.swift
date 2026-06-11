@@ -25,22 +25,6 @@ final class MessageTypeIntegrationTests: XCTestCase {
         XCTAssertEqual(result[2].messageCount, 100)
     }
 
-    func testSessionUpdateMessage() throws {
-        let session = Session(
-            id: "sess-99",
-            projectPath: "/Users/dev/big-project",
-            status: .active,
-            messageCount: 15
-        )
-        let msg = try BalconyMessage.create(type: .sessionUpdate, payload: session)
-        let decoded = try decoder.decode(try encoder.encode(msg))
-
-        XCTAssertEqual(decoded.type, .sessionUpdate)
-        let result = try decoded.decodePayload(Session.self)
-        XCTAssertEqual(result.status, .active)
-        XCTAssertEqual(result.projectName, "big-project")
-    }
-
     func testSessionSubscribeMessage() throws {
         let payload = ["sessionId": "sess-42"]
         let msg = try BalconyMessage.create(type: .sessionSubscribe, payload: payload)
@@ -94,20 +78,14 @@ final class MessageTypeIntegrationTests: XCTestCase {
 
     // MARK: - Presence Messages
 
-    func testAwayStatusUpdateMessage() throws {
-        let signals = AwaySignals(
-            bleRSSI: -45,
-            idleSeconds: 30,
-            screenLocked: false,
-            onLocalNetwork: true
-        )
-        let msg = try BalconyMessage.create(type: .awayStatusUpdate, payload: signals)
+    func testBLERSSIReportMessage() throws {
+        let payload = BLERSSIReportPayload(rssi: -52)
+        let msg = try BalconyMessage.create(type: .bleRSSIReport, payload: payload)
         let decoded = try decoder.decode(try encoder.encode(msg))
 
-        XCTAssertEqual(decoded.type, .awayStatusUpdate)
-        let result = try decoded.decodePayload(AwaySignals.self)
-        XCTAssertEqual(result.computeStatus(), .present)
-        XCTAssertEqual(result.bleRSSI, -45)
+        XCTAssertEqual(decoded.type, .bleRSSIReport)
+        let result = try decoded.decodePayload(BLERSSIReportPayload.self)
+        XCTAssertEqual(result.rssi, -52)
     }
 
     // MARK: - Connection Messages
@@ -170,15 +148,9 @@ final class MessageTypeIntegrationTests: XCTestCase {
     // MARK: - Exhaustive Type Coverage
 
     /// Every MessageType must survive string-based encode/decode.
+    /// Iterates `allCases` so new cases are covered automatically.
     func testAllTypesViaStringEncoding() throws {
-        let allTypes: [MessageType] = [
-            .handshake, .handshakeAck, .ping, .pong, .error,
-            .sessionList, .sessionUpdate, .sessionSubscribe, .sessionUnsubscribe,
-            .terminalData, .terminalResize, .userInput,
-            .awayStatusUpdate,
-        ]
-
-        for type in allTypes {
+        for type in MessageType.allCases {
             let payload = "test".data(using: .utf8)!
             let msg = BalconyMessage(type: type, payload: payload)
             let string = try encoder.encodeToString(msg)
@@ -188,15 +160,9 @@ final class MessageTypeIntegrationTests: XCTestCase {
     }
 
     /// Every MessageType must survive data-based encode/decode.
+    /// Iterates `allCases` so new cases are covered automatically.
     func testAllTypesViaDataEncoding() throws {
-        let allTypes: [MessageType] = [
-            .handshake, .handshakeAck, .ping, .pong, .error,
-            .sessionList, .sessionUpdate, .sessionSubscribe, .sessionUnsubscribe,
-            .terminalData, .terminalResize, .userInput,
-            .awayStatusUpdate,
-        ]
-
-        for type in allTypes {
+        for type in MessageType.allCases {
             let payload = "test".data(using: .utf8)!
             let msg = BalconyMessage(type: type, payload: payload)
             let data = try encoder.encode(msg)

@@ -1,10 +1,12 @@
 #!/bin/bash
 # Balcony Hook Handler — bidirectional for PermissionRequest
+# Set BALCONY_HOOK_DEBUG=1 to enable debug logging to /tmp/balcony-hook-debug.log
 
 SOCKET_PATH="$HOME/.balcony/hooks.sock"
 DEBUG_LOG="/tmp/balcony-hook-debug.log"
 
 debug() {
+    [ -n "$BALCONY_HOOK_DEBUG" ] || return 0
     echo "[$(date '+%H:%M:%S')] hook-handler: $1" >> "$DEBUG_LOG"
 }
 
@@ -64,26 +66,27 @@ if [ "$IS_PERMISSION" = "yes" ]; then
     RESPONSE=$(echo "$INPUT" | python3 -c "
 import socket, sys, os
 
+def dbg(msg):
+    if os.environ.get('BALCONY_HOOK_DEBUG'):
+        with open('/tmp/balcony-hook-debug.log', 'a') as f:
+            f.write('[python] ' + msg + '\n')
+
 data = sys.stdin.buffer.read()
 if not data:
     sys.exit(0)
 
-debug_fd = open('/tmp/balcony-hook-debug.log', 'a')
-debug_fd.write(f'[python] Sending {len(data)} bytes to socket\n')
-debug_fd.flush()
+dbg(f'Sending {len(data)} bytes to socket')
 
 s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
 try:
     s.connect(os.path.expanduser('~/.balcony/hooks.sock'))
     s.sendall(data)
-    debug_fd.write('[python] Data sent, shutting down write side\n')
-    debug_fd.flush()
+    dbg('Data sent, shutting down write side')
 
     # Signal end of request
     s.shutdown(socket.SHUT_WR)
 
-    debug_fd.write('[python] Waiting for response...\n')
-    debug_fd.flush()
+    dbg('Waiting for response...')
 
     # Wait indefinitely — Claude Code is blocked until the user responds
     s.settimeout(None)
@@ -95,23 +98,19 @@ try:
                 break
             response += chunk
         except socket.timeout:
-            debug_fd.write('[python] Timeout waiting for response\n')
-            debug_fd.flush()
+            dbg('Timeout waiting for response')
             break
 
-    debug_fd.write(f'[python] Got response: {response}\n')
-    debug_fd.flush()
+    dbg(f'Got response: {response}')
 
     if response:
         # Output to stdout for Claude Code
         sys.stdout.buffer.write(response)
         sys.stdout.buffer.flush()
 except Exception as e:
-    debug_fd.write(f'[python] Error: {e}\n')
-    debug_fd.flush()
+    dbg(f'Error: {e}')
 finally:
     s.close()
-    debug_fd.close()
 " 2>/dev/null)
 
     debug "Response from python: '$RESPONSE'"
@@ -127,21 +126,23 @@ else
     # Other events: fire and forget
     echo "$INPUT" | python3 -c "
 import socket, sys, os
+
+def dbg(msg):
+    if os.environ.get('BALCONY_HOOK_DEBUG'):
+        with open('/tmp/balcony-hook-debug.log', 'a') as f:
+            f.write('[python] ' + msg + '\n')
+
 data = sys.stdin.buffer.read()
-debug_fd = open('/tmp/balcony-hook-debug.log', 'a')
 if data:
     s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     try:
         s.connect(os.path.expanduser('~/.balcony/hooks.sock'))
         s.sendall(data)
         s.shutdown(socket.SHUT_WR)
-        debug_fd.write(f'[python] fire-and-forget: sent {len(data)} bytes OK\n')
+        dbg(f'fire-and-forget: sent {len(data)} bytes OK')
     except Exception as e:
-        debug_fd.write(f'[python] fire-and-forget ERROR: {e}\n')
-    finally:
-        s.close()
+        dbg(f'fire-and-forget ERROR: {e}')
 else:
-    debug_fd.write('[python] fire-and-forget: no data to send\n')
-debug_fd.close()
+    dbg('fire-and-forget: no data to send')
 " 2>/dev/null
 fi

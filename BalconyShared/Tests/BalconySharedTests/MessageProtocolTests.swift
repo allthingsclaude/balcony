@@ -8,12 +8,12 @@ final class MessageProtocolTests: XCTestCase {
         let decoder = MessageDecoder()
 
         let session = Session(id: "s1", projectPath: "/test")
-        let message = try BalconyMessage.create(type: .sessionUpdate, payload: session)
+        let message = try BalconyMessage.create(type: .sessionList, payload: session)
 
         let encoded = try encoder.encode(message)
         let decoded = try decoder.decode(encoded)
 
-        XCTAssertEqual(decoded.type, .sessionUpdate)
+        XCTAssertEqual(decoded.type, .sessionList)
         XCTAssertEqual(decoded.id, message.id)
 
         let decodedSession = try decoded.decodePayload(Session.self)

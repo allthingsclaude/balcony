@@ -707,10 +707,6 @@ struct SessionListPayload: Codable, Sendable {
     let sessions: [Session]
 }
 
-struct SessionUpdatePayload: Codable, Sendable {
-    let session: Session
-}
-
 struct SessionSubscribePayload: Codable, Sendable {
     let sessionId: String
 }

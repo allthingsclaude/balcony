@@ -10,6 +10,10 @@ struct SettingsView: View {
     @AppStorage(SoundManager.doneSoundKey) private var doneSound: String = NotificationSound.breeze.rawValue
     @State private var showResetConfirmation = false
 
+    private var appVersion: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Unknown"
+    }
+
     var body: some View {
         NavigationStack {
             List {
@@ -78,7 +82,7 @@ struct SettingsView: View {
                     HStack {
                         Text("Version")
                         Spacer()
-                        Text("0.1.0")
+                        Text(appVersion)
                             .foregroundStyle(BalconyTheme.textSecondary)
                     }
                 }

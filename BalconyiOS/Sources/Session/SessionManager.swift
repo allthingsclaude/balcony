@@ -396,8 +396,6 @@ final class SessionManager: ObservableObject {
         switch message.type {
         case .sessionList:
             handleSessionList(message)
-        case .sessionUpdate:
-            handleSessionUpdate(message)
         case .terminalData:
             handleTerminalData(message)
         case .slashCommands:
@@ -505,24 +503,6 @@ final class SessionManager: ObservableObject {
             syncLiveActivity()
         } catch {
             logger.error("Failed to decode session list: \(error.localizedDescription)")
-        }
-    }
-
-    private func handleSessionUpdate(_ message: BalconyMessage) {
-        do {
-            let payload = try message.decodePayload(SessionUpdatePayload.self)
-            if let index = sessions.firstIndex(where: { $0.id == payload.session.id }) {
-                sessions[index] = payload.session
-            } else {
-                sessions.append(payload.session)
-            }
-            if activeSession?.id == payload.session.id {
-                activeSession = payload.session
-                syncLiveActivity()
-            }
-            logger.debug("Session updated: \(payload.session.id)")
-        } catch {
-            logger.error("Failed to decode session update: \(error.localizedDescription)")
         }
     }
 
@@ -711,10 +691,6 @@ struct EmptyPayload: Codable, Sendable {}
 
 struct SessionListPayload: Codable, Sendable {
     let sessions: [Session]
-}
-
-struct SessionUpdatePayload: Codable, Sendable {
-    let session: Session
 }
 
 struct SessionSubscribePayload: Codable, Sendable {

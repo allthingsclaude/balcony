@@ -31,7 +31,7 @@ final class EncryptedPipelineIntegrationTests: XCTestCase {
             status: .active,
             messageCount: 5
         )
-        let message = try BalconyMessage.create(type: .sessionUpdate, payload: session)
+        let message = try BalconyMessage.create(type: .sessionList, payload: session)
 
         // Mac side: encode → encrypt
         let encrypted = try await mac.encrypt(try encoder.encode(message))
@@ -39,7 +39,7 @@ final class EncryptedPipelineIntegrationTests: XCTestCase {
         // iOS side: decrypt → decode
         let received = try decoder.decode(try await ios.decrypt(encrypted))
 
-        XCTAssertEqual(received.type, .sessionUpdate)
+        XCTAssertEqual(received.type, .sessionList)
         XCTAssertEqual(received.id, message.id)
         let s = try received.decodePayload(Session.self)
         XCTAssertEqual(s.id, "sess-001")
@@ -208,7 +208,7 @@ final class EncryptedPipelineIntegrationTests: XCTestCase {
         let (mac, ios) = try await makePairedCrypto()
 
         let session = Session(id: "s1", projectPath: "/test", status: .active)
-        let msg = try BalconyMessage.create(type: .sessionUpdate, payload: session)
+        let msg = try BalconyMessage.create(type: .sessionList, payload: session)
         let encrypted = try await mac.encrypt(try encoder.encode(msg))
 
         // Simulate text-mode WebSocket: convert to base64 string and back
@@ -216,7 +216,7 @@ final class EncryptedPipelineIntegrationTests: XCTestCase {
         let restored = Data(base64Encoded: base64)!
 
         let received = try decoder.decode(try await ios.decrypt(restored))
-        XCTAssertEqual(received.type, .sessionUpdate)
+        XCTAssertEqual(received.type, .sessionList)
         XCTAssertEqual(try received.decodePayload(Session.self).id, "s1")
     }
 }

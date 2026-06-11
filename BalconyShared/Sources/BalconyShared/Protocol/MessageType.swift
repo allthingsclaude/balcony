@@ -1,17 +1,17 @@
 import Foundation
 
 /// All possible message types in the Balcony WebSocket protocol.
-public enum MessageType: String, Codable, Sendable {
+public enum MessageType: String, Codable, Sendable, CaseIterable {
     // Connection lifecycle
     case handshake
     case handshakeAck
     case ping
     case pong
+    /// Reserved for protocol-level error reporting; not currently emitted by either peer.
     case error
 
     // Session management
     case sessionList
-    case sessionUpdate
     case sessionSubscribe
     case sessionUnsubscribe
 
@@ -40,7 +40,6 @@ public enum MessageType: String, Codable, Sendable {
     case rewindSelection
 
     // Presence
-    case awayStatusUpdate
     case bleRSSIReport
 
     // Hook events (permission prompts routed from Claude Code hooks)
