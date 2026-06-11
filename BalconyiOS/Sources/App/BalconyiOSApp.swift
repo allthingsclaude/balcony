@@ -7,6 +7,7 @@ struct BalconyiOSApp: App {
     @State private var sessionManager = SessionManager()
     @AppStorage("appearance") private var appearance: String = "system"
     @AppStorage("appIcon") private var appIcon: String = "light"
+    @Environment(\.scenePhase) private var scenePhase
 
     init() {
         SoundManager.migrateOldSoundPreference()
@@ -35,6 +36,23 @@ struct BalconyiOSApp: App {
                 }
                 .onChange(of: appIcon) { newValue in
                     applyIcon(newValue)
+                }
+                .onChange(of: scenePhase) { phase in
+                    // Bonjour browsing + BLE scanning have no value in the
+                    // background when nothing is connected — stop them to save
+                    // battery, resume when the app returns.
+                    switch phase {
+                    case .background:
+                        if !connectionManager.isConnected {
+                            connectionManager.stopDiscovery()
+                        }
+                    case .active:
+                        if !connectionManager.isConnected {
+                            connectionManager.startDiscovery()
+                        }
+                    default:
+                        break
+                    }
                 }
         }
     }
@@ -95,11 +113,24 @@ struct ContentView: View {
         .background(BalconyTheme.background.ignoresSafeArea())
         .animation(.spring(response: 0.5, dampingFraction: 0.85), value: showConnected)
         .onChange(of: connectionManager.isConnected) { connected in
-            showConnected = connected
-            if !connected {
+            if connected {
+                showConnected = true
+            } else {
                 #if canImport(ActivityKit)
                 LiveActivityManager.shared.endActivity()
                 #endif
+                // Unexpected drops keep the session view mounted — the banner
+                // and dimmed conversation communicate the state, and the user
+                // keeps reading their terminal. Only a deliberate disconnect
+                // (or abandoned reconnection) returns to discovery.
+                if !connectionManager.isReconnecting {
+                    showConnected = false
+                }
+            }
+        }
+        .onChange(of: connectionManager.isReconnecting) { reconnecting in
+            if !reconnecting && !connectionManager.isConnected {
+                showConnected = false
             }
         }
     }
@@ -163,17 +194,32 @@ private struct ReconnectingOverlay: View {
                         .foregroundStyle(BalconyTheme.textSecondary)
                 }
 
-                Button {
-                    Task { await connectionManager.disconnect() }
-                } label: {
-                    Text("Disconnect")
-                        .font(BalconyTheme.bodyFont(15))
-                        .fontWeight(.medium)
-                        .foregroundStyle(BalconyTheme.statusRed)
-                        .padding(.vertical, 10)
-                        .padding(.horizontal, 24)
+                HStack(spacing: BalconyTheme.spacingMD) {
+                    Button {
+                        BalconyTheme.hapticLight()
+                        Task { await connectionManager.reconnectNow() }
+                    } label: {
+                        Text("Retry Now")
+                            .font(BalconyTheme.bodyFont(15))
+                            .fontWeight(.medium)
+                            .foregroundStyle(BalconyTheme.accent)
+                            .padding(.vertical, 10)
+                            .padding(.horizontal, 24)
+                    }
+                    .modifier(LiquidGlassCapsule())
+
+                    Button {
+                        Task { await connectionManager.disconnect() }
+                    } label: {
+                        Text("Disconnect")
+                            .font(BalconyTheme.bodyFont(15))
+                            .fontWeight(.medium)
+                            .foregroundStyle(BalconyTheme.statusRed)
+                            .padding(.vertical, 10)
+                            .padding(.horizontal, 24)
+                    }
+                    .modifier(LiquidGlassCapsule())
                 }
-                .modifier(LiquidGlassCapsule())
             }
             .padding(BalconyTheme.spacingXL)
             .background(

@@ -36,6 +36,7 @@ final class ConnectionManager: ObservableObject {
     }
 
     private var autoConnectTask: Task<Void, Never>?
+    private var reconnectLoopTask: Task<Void, Never>?
     private var rssiCancellable: AnyCancellable?
     private var rssiDisplayCancellable: AnyCancellable?
     private var awayCancellable: AnyCancellable?
@@ -143,12 +144,7 @@ final class ConnectionManager: ObservableObject {
             // Set up disconnect handler
             await webSocketClient.setOnDisconnect { [weak self] unexpected in
                 Task { @MainActor [weak self] in
-                    guard let self else { return }
-                    self.isConnected = false
-                    if unexpected {
-                        self.isReconnecting = true
-                        self.logger.warning("Connection lost unexpectedly, WebSocket will auto-reconnect")
-                    }
+                    await self?.handleUnexpectedDisconnect(unexpected: unexpected)
                 }
             }
 
@@ -202,12 +198,7 @@ final class ConnectionManager: ObservableObject {
             // Set up disconnect handler
             await webSocketClient.setOnDisconnect { [weak self] unexpected in
                 Task { @MainActor [weak self] in
-                    guard let self else { return }
-                    self.isConnected = false
-                    if unexpected {
-                        self.isReconnecting = true
-                        self.logger.warning("Connection lost unexpectedly, WebSocket will auto-reconnect")
-                    }
+                    await self?.handleUnexpectedDisconnect(unexpected: unexpected)
                 }
             }
 
@@ -240,6 +231,8 @@ final class ConnectionManager: ObservableObject {
     func disconnect() async {
         autoConnectTask?.cancel()
         autoConnectTask = nil
+        reconnectLoopTask?.cancel()
+        reconnectLoopTask = nil
         stopRSSIReporting()
         await webSocketClient.disconnect()
         isConnected = false
@@ -288,6 +281,84 @@ final class ConnectionManager: ObservableObject {
                 self.autoConnectTask = nil
                 self.logger.info("Auto-connect failed for \(device.name)")
             }
+        }
+    }
+
+    // MARK: - Session Reconnection
+
+    /// Handle a dropped WebSocket. The transport layer cannot restore the E2E
+    /// session (a fresh handshake is required), so we stop its socket-level
+    /// retries and run a full reconnect loop at this layer instead.
+    private func handleUnexpectedDisconnect(unexpected: Bool) async {
+        isConnected = false
+        guard unexpected else { return }
+        // Set before any suspension point so the UI observes the drop and the
+        // reconnecting state together (otherwise it routes to discovery).
+        isReconnecting = true
+        logger.warning("Connection lost unexpectedly — starting session reconnect")
+        await webSocketClient.disconnect() // stop transport-level retries
+        startSessionReconnect()
+    }
+
+    /// Full reconnect loop (handshake included) with exponential backoff.
+    /// Gives up after a few attempts, clearing `isReconnecting` so the UI can
+    /// fall back to discovery (where Bonjour auto-connect takes over).
+    private func startSessionReconnect() {
+        guard reconnectLoopTask == nil else { return }
+        guard let device = connectedDevice else {
+            isReconnecting = false
+            return
+        }
+        isReconnecting = true
+        reconnectLoopTask = Task { [weak self] in
+            defer { self?.reconnectLoopTask = nil }
+            for attempt in 1...5 {
+                let delay = min(pow(2.0, Double(attempt - 1)), 8.0)
+                try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+                guard let self, !Task.isCancelled, !self.isConnected else { return }
+                self.logger.info("Session reconnect attempt \(attempt)/5")
+                await self.attemptFullReconnect(to: device)
+                if self.isConnected { return }
+                // connect() clears these on failure — restore so the banner's
+                // retry affordance and reconnecting state survive the loop.
+                self.connectedDevice = device
+                self.connectionError = nil
+                self.isReconnecting = true
+            }
+            guard let self, !self.isConnected else { return }
+            self.logger.warning("Session reconnect gave up after 5 attempts")
+            self.isReconnecting = false
+        }
+    }
+
+    /// User-initiated reconnect to the device whose connection dropped.
+    /// Keeps `connectedDevice` on failure so the retry affordance survives.
+    func reconnectNow() async {
+        guard !isConnected, !isConnecting, let device = connectedDevice else { return }
+        logger.info("Manual reconnect to \(device.name)")
+        // Take over from the automatic loop.
+        reconnectLoopTask?.cancel()
+        reconnectLoopTask = nil
+        await attemptFullReconnect(to: device)
+        if !isConnected {
+            connectedDevice = device
+            connectionError = nil // banner communicates the state; no alert
+            isReconnecting = false // show "Connection lost" + Retry, not a spinner
+        }
+    }
+
+    /// One full reconnect attempt via the appropriate path for the device.
+    private func attemptFullReconnect(to device: DeviceInfo) async {
+        if discoveredEndpoints[device.id] != nil {
+            await connect(to: device)
+        } else if let colon = device.id.lastIndex(of: ":"),
+                  let port = Int(device.id[device.id.index(after: colon)...]) {
+            // QR-paired device ids are "host:port".
+            await connectDirect(host: String(device.id[..<colon]), port: port, publicKeyBase64: nil)
+        } else {
+            // Bonjour endpoint not currently known — restart discovery so the
+            // device reappears; the next loop attempt may find it.
+            startDiscovery()
         }
     }
 

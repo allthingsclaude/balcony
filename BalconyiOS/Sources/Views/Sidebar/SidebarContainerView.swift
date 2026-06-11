@@ -9,6 +9,8 @@ struct SidebarContainerView: View {
     @Environment(\.colorScheme) private var colorScheme
     @State private var isSidebarOpen = false
     @State private var selectedSession: Session?
+    /// Last viewed session, restored across launches and reconnects.
+    @AppStorage("lastSelectedSessionId") private var lastSelectedSessionId: String?
     @State private var isLoading = false
     @State private var showingSettings = false
     @State private var showDisconnectConfirm = false
@@ -146,6 +148,10 @@ struct SidebarContainerView: View {
                   let session = sessionManager.sessions.first(where: { $0.id == sessionId }) else { return }
             notificationManager.tappedSessionId = nil
             selectSession(session)
+        }
+        .onChange(of: connectionManager.isConnected) { connected in
+            // Connection restored while staying in the session view.
+            if connected { BalconyTheme.hapticSuccess() }
         }
     }
 
@@ -326,14 +332,31 @@ struct SidebarContainerView: View {
                     .foregroundStyle(.white)
             } else {
                 Circle()
-                    .fill(BalconyTheme.statusRed)
+                    .fill(.white)
                     .frame(width: 8, height: 8)
                 Text("Connection lost")
                     .font(BalconyTheme.bodyFont(13))
                     .fontWeight(.medium)
                     .foregroundStyle(.white)
             }
+
+            Spacer()
+
+            Button {
+                BalconyTheme.hapticLight()
+                Task { await connectionManager.reconnectNow() }
+            } label: {
+                Text("Retry")
+                    .font(BalconyTheme.bodyFont(13))
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 4)
+                    .background(.white.opacity(0.22), in: Capsule())
+            }
+            .disabled(connectionManager.isConnecting)
         }
+        .padding(.horizontal, BalconyTheme.spacingLG)
         .frame(maxWidth: .infinity)
         .padding(.vertical, 8)
         .background(BalconyTheme.statusRed.opacity(0.9))
@@ -469,6 +492,7 @@ struct SidebarContainerView: View {
 
         // Set session first so sidebarWidthFraction updates, then close
         selectedSession = session
+        lastSelectedSessionId = session.id
         isLoading = true
         closeSidebar()
 
@@ -479,10 +503,16 @@ struct SidebarContainerView: View {
         }
     }
 
-    /// Auto-select a session only when there's exactly one.
-    /// When multiple sessions exist, leave the sidebar open for the user to choose.
+    /// Auto-select the last viewed session when it still exists; otherwise a
+    /// lone session. With multiple sessions and no history, leave the sidebar
+    /// open for the user to choose.
     private func autoSelectSession() {
         guard selectedSession == nil, !sessionManager.sessions.isEmpty else { return }
+        if let lastId = lastSelectedSessionId,
+           let last = sessionManager.sessions.first(where: { $0.id == lastId }) {
+            selectSession(last)
+            return
+        }
         if sessionManager.sessions.count == 1, let only = sessionManager.sessions.first {
             selectSession(only)
         }

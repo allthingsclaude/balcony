@@ -442,14 +442,18 @@ final class SessionManager {
             let oldSessions = sessions
 
             // Check for session state transitions before replacing
-            let notificationsOn = UserDefaults.standard.bool(forKey: "notificationsEnabled")
+            let defaults = UserDefaults.standard
+            let notificationsOn = defaults.bool(forKey: "notificationsEnabled")
             if notificationsOn {
+                // Per-type gates from Settings ▸ Notifications (default on).
+                let toolApprovalsOn = defaults.object(forKey: "notify.toolApprovals") as? Bool ?? true
+                let sessionCompleteOn = defaults.object(forKey: "notify.sessionComplete") as? Bool ?? true
                 let appIsInactive = UIApplication.shared.applicationState != .active
 
                 for newSession in payload.sessions {
                     if let old = oldSessions.first(where: { $0.id == newSession.id }) {
-                        let attentionTransition = !old.needsAttention && newSession.needsAttention
-                        let inputTransition = !old.awaitingInput && newSession.awaitingInput
+                        let attentionTransition = !old.needsAttention && newSession.needsAttention && toolApprovalsOn
+                        let inputTransition = !old.awaitingInput && newSession.awaitingInput && sessionCompleteOn
                         let isBackground = newSession.id != activeSession?.id
 
                         if attentionTransition {

@@ -60,15 +60,20 @@ Also seeded the Phase 6 motion vocabulary early: `BalconyTheme.springSnappy/spri
 4. [ ] **Search parity** — only SessionPicker has search; add to Rewind (by preview text), consider Model.
 5. [ ] **Unify dimensions** — icons 24×24, row padding 12×10, maxHeight 320 everywhere.
 
-## Phase 5: Connection Lifecycle Trust
+## Phase 5: Connection Lifecycle Trust ✅ (2026-06-11)
 
-1. [ ] **Reconnect button on the connection-lost banner** + success haptic on restore. (`SidebarContainerView.swift:314-339`)
-2. [ ] **Non-blocking reconnect overlay** — full-screen "Reconnecting…" currently traps the user (only Disconnect). Make dismissible / inline. (`BalconyiOSApp.swift:141-192`)
-3. [ ] **Discovery timeout state** — discovery spins forever on isolated networks; after ~20s show troubleshooting card (Mac running? same Wi-Fi? firewall?) + QR fallback CTA. (`DiscoveryView.swift`)
-4. [ ] **Session restoration** — `@AppStorage` last selected session; auto-reopen on launch when still present. (`SidebarContainerView.swift:119-125`)
-5. [ ] **Fix orphaned notification toggles** — Settings defines `notify.sessionEvents/toolApprovals/sessionComplete` but `SessionManager` never reads them. Wire or remove. (`SettingsView.swift:6-8`, `SessionManager.swift:432`)
-6. [ ] **Exponential backoff** for reconnect attempts (battery).
-7. [ ] **Scene phase handling** — no `\.scenePhase` usage anywhere; pause discovery/BLE appropriately in background.
+Root-caused deeper than the audit: on an unexpected drop the app ejected the user to discovery (`ContentView` flipped on `isConnected`), the transport-level WebSocket auto-reconnect couldn't restore the E2E session anyway (no re-handshake), and its give-up path re-signaled "unexpected" — leaving `isReconnecting` true forever.
+
+1. [x] **Session-level reconnect loop** — `ConnectionManager.startSessionReconnect()`: full reconnect (handshake included) with exponential backoff, 5 attempts; transport-level socket retries are stopped on drop since they can't restore E2E. Gives up cleanly → UI falls back to discovery where Bonjour auto-connect takes over.
+2. [x] **Stay in the session during drops** — unexpected disconnects keep the session view mounted (dimmed conversation + banner); only deliberate disconnect or abandoned reconnection returns to discovery. `isReconnecting` is set before any suspension point so the UI never races to discovery.
+3. [x] **Retry affordances** — Retry button on the connection banner (`reconnectNow()`, preserves `connectedDevice` on failure), Retry Now added to the now-rare reconnecting overlay, success haptic on restore.
+4. [x] **Discovery timeout** — after 20s with no devices, the how-it-works cards swap for a troubleshooting checklist (Mac running, same Wi-Fi, **Local Network permission** — the usual culprit, hotspot/VPN) + QR fallback CTA. Resets when a device appears.
+5. [x] **Session restoration** — `lastSelectedSessionId` in `@AppStorage`; restored on launch/reconnect when the session still exists.
+6. [x] **Notification toggles wired** — `notify.toolApprovals` gates attention notifications, `notify.sessionComplete` gates done notifications; dead "Session Events" toggle removed; footnote explains the sidebar master switch (auto-arms on away).
+7. [x] **Exponential backoff** — already existed at the transport layer (audit miss); the new session-level loop uses its own capped backoff.
+8. [x] **Scene phase** — Bonjour/BLE discovery stops in background when disconnected, resumes on active.
+
+Also from this phase's investigation: `TerminalContainerView`, `SessionListView`, `SessionCardView` were dead pre-sidebar code — removed (commit c710245).
 
 ## Phase 6: Design System & Accessibility
 

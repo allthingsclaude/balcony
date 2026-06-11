@@ -7,6 +7,9 @@ struct DiscoveryView: View {
     @State private var showingError = false
     @State private var showConnectingBadge = false
     @State private var connectingDelayTask: Task<Void, Never>?
+    /// True after discovery has run for a while with no devices found —
+    /// switches the guidance from "how it works" to troubleshooting.
+    @State private var searchTimedOut = false
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -80,14 +83,24 @@ struct DiscoveryView: View {
                         .modifier(LiquidGlassCapsule())
                     }
 
-                    // How It Works (when no devices)
+                    // Guidance (when no devices): how-it-works first, then
+                    // troubleshooting once the search has come up empty.
                     if connectionManager.discoveredDevices.isEmpty && !connectionManager.isAutoConnecting {
-                        HowItWorksSection()
+                        if searchTimedOut {
+                            TroubleshootingCard {
+                                BalconyTheme.hapticLight()
+                                showingQRScanner = true
+                            }
                             .padding(.horizontal, BalconyTheme.spacingLG)
+                            .transition(.opacity.combined(with: .move(edge: .bottom)))
+                        } else {
+                            HowItWorksSection()
+                                .padding(.horizontal, BalconyTheme.spacingLG)
 
-                        // Tip card
-                        TipCardView()
-                            .padding(.horizontal, BalconyTheme.spacingLG)
+                            // Tip card
+                            TipCardView()
+                                .padding(.horizontal, BalconyTheme.spacingLG)
+                        }
                     }
                 }
                 .padding(.bottom, 120)
@@ -150,6 +163,16 @@ struct DiscoveryView: View {
         .onAppear {
             connectionManager.startDiscovery()
         }
+        .animation(.easeInOut(duration: 0.3), value: searchTimedOut)
+        .task(id: connectionManager.discoveredDevices.isEmpty) {
+            if connectionManager.discoveredDevices.isEmpty {
+                try? await Task.sleep(nanoseconds: 20_000_000_000)
+                guard !Task.isCancelled else { return }
+                searchTimedOut = connectionManager.discoveredDevices.isEmpty
+            } else {
+                searchTimedOut = false
+            }
+        }
         .onChange(of: connectionManager.isConnecting) { connecting in
             connectingDelayTask?.cancel()
             if connecting {
@@ -181,6 +204,69 @@ struct DiscoveryView: View {
         .sheet(isPresented: $showingQRScanner) {
             QRScannerView { scannedURL in
                 handleScannedURL(scannedURL)
+            }
+        }
+    }
+
+    // MARK: - Troubleshooting
+
+    /// Shown after discovery runs dry: actionable checks instead of marketing.
+    private struct TroubleshootingCard: View {
+        let onScanQR: () -> Void
+
+        var body: some View {
+            VStack(alignment: .leading, spacing: BalconyTheme.spacingMD) {
+                HStack(spacing: 8) {
+                    Image(systemName: "wifi.exclamationmark")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(BalconyTheme.statusYellow)
+                    Text("No Macs found yet")
+                        .font(BalconyTheme.headingFont(16))
+                        .foregroundStyle(BalconyTheme.textPrimary)
+                }
+
+                Text("Still searching — in the meantime, check:")
+                    .font(BalconyTheme.bodyFont(13))
+                    .foregroundStyle(BalconyTheme.textSecondary)
+
+                VStack(alignment: .leading, spacing: BalconyTheme.spacingSM) {
+                    checkRow("Balcony is running on your Mac (menu bar icon)")
+                    checkRow("Both devices are on the same Wi-Fi network")
+                    checkRow("iPhone Settings ▸ Privacy ▸ Local Network allows Balcony")
+                    checkRow("Personal Hotspot is off; VPNs can block local discovery")
+                }
+
+                Button(action: onScanQR) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "qrcode.viewfinder")
+                            .font(.system(size: 13, weight: .medium))
+                        Text("Pair with QR code instead")
+                            .font(BalconyTheme.bodyFont(14))
+                            .fontWeight(.medium)
+                    }
+                    .foregroundStyle(BalconyTheme.accent)
+                }
+                .padding(.top, 2)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(BalconyTheme.spacingLG)
+            .background(
+                RoundedRectangle(cornerRadius: BalconyTheme.radiusMD)
+                    .fill(BalconyTheme.surface)
+                    .shadow(color: .black.opacity(0.06), radius: 8, y: 2)
+            )
+        }
+
+        private func checkRow(_ text: String) -> some View {
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: "checkmark.circle")
+                    .font(.system(size: 12))
+                    .foregroundStyle(BalconyTheme.textSecondary)
+                    .padding(.top, 2)
+                Text(text)
+                    .font(BalconyTheme.bodyFont(13))
+                    .foregroundStyle(BalconyTheme.textPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
     }

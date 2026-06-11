@@ -3,7 +3,6 @@ import SwiftUI
 struct SettingsView: View {
     @AppStorage("appearance") private var appearance: String = "system"
     @AppStorage("appIcon") private var appIcon: String = "light"
-    @AppStorage("notify.sessionEvents") private var notifySessionEvents = true
     @AppStorage("notify.toolApprovals") private var notifyToolApprovals = true
     @AppStorage("notify.sessionComplete") private var notifySessionComplete = true
     @AppStorage(SoundManager.attentionSoundKey) private var attentionSound: String = NotificationSound.signal.rawValue
@@ -37,9 +36,11 @@ struct SettingsView: View {
                 }
 
                 Section("Notifications") {
-                    Toggle("Session Events", isOn: $notifySessionEvents)
                     Toggle("Tool Approvals", isOn: $notifyToolApprovals)
                     Toggle("Session Complete", isOn: $notifySessionComplete)
+                    Text("Delivered when the notifications switch in the sidebar is on (it arms automatically when you walk away from your Mac).")
+                        .font(.caption)
+                        .foregroundStyle(BalconyTheme.textSecondary)
                 }
 
                 Section("Notification Sounds") {
