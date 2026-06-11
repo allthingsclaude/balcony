@@ -29,17 +29,17 @@ The app dropped frames during fast output (>10KB/s): every PTY chunk batch trigg
 4. [x] **ANSI color cache** — memoized; theme entries are dynamic UIColors so no invalidation needed.
 5. [ ] **Dirty-region line updates (stretch)** — not needed unless profiling shows `groupedBlocks` (O(N) per update) matters after the above.
 
-## Phase 2: Terminal Experience Gaps
+## Phase 2: Terminal Experience Gaps ✅ (2026-06-11)
 
-1. [ ] **Text selection / copy** — terminal output is currently uncopyable (0 `.textSelection` in app). Add long-press context menu (Copy line / Copy block / Share) on `TerminalLineView`; `.textSelection(.enabled)` where feasible. (`ConversationView.swift:764-815`)
-2. [ ] **Multiline input** — `TextField` never grows; pasted/long prompts unreadable. Use iOS 16 `TextField(axis: .vertical)` with `.lineLimit(1...6)`. (`ConversationView.swift:355-375`)
-3. [ ] **Autocorrect policy** — currently default-on (a disable was tried and reverted in b506235). Decide deliberately: `.autocorrectionDisabled()` + `.textInputAutocapitalization(.never)` with a Settings toggle.
-4. [ ] **ESC ergonomics** — `EscButton` is 30×30 (below 44pt target) in top-right with double-tap latency. Make hit target ≥44pt, consider input-bar placement, instant single-tap + medium haptic. (`EscButton.swift:33`, `TerminalContainerView.swift:125-133`)
-5. [ ] **Paste feedback + batching** — large pastes stream as raw keystrokes with no feedback; show transient "Pasting…" indicator and chunk transmission. (`ConversationView.swift:469-490`)
-6. [ ] **Slash/@ false positives** — typing `path/to/file` opens the slash menu; require start-of-line or preceding whitespace. (`ConversationView.swift:368-372`)
-7. [ ] **Stale spinner handling** — frozen status lines after disconnect look like hangs; dim + badge spinner rows not updated for >30s. (`ConversationView.swift:819-834`)
-8. [ ] **Code block scroll affordance** — horizontal scroll is invisible; add `.scrollIndicators(.visible)` / edge hint. (`ConversationView.swift:127-139`)
-9. [ ] **Dim/ANSI contrast** — dim opacity 0.6 too low; some ANSI colors (red 0.67/0/0) illegible on dark; theme-aware palette + `BalconyTheme.dimOpacity`. (`ANSIColorMapper.swift:25-77`)
+1. [x] **Copy / share** — long-press context menu on every line: Copy Line, Copy Message (walks to the containing ❯/⏺ marker block), Share Message; Copy Block on code blocks/tables.
+2. [x] **Multiline input** — `TextField(axis: .vertical)` + `.lineLimit(1...5)` + `.submitLabel(.send)` (return still sends; newlines arrive via paste). Multiline content reaching the PTY is wrapped in bracketed-paste sequences so the terminal preserves newlines instead of submitting at each one.
+3. [x] **Autocorrect policy** — off by default (autocapitalization too), `input.autocorrect` toggle in Settings ▸ Input. The b506235 revert bundled unrelated text-extraction changes; the toggle de-risks re-enabling.
+4. [x] **ESC ergonomics** — 44pt hit target, instant single-tap ESC + medium haptic (no double-tap latency); rewind moved to long-press. Kept in the toolbar.
+5. [x] **Slash/@ false positives** — shared `menuQuery(trigger:)` requires start-of-word; `path/to/file` and `user@host` no longer open menus; the "/" button inserts a leading space mid-word so it still triggers.
+6. [x] **Stale-reads-as-stale** — conversation dims (opacity 0.8 + desaturation) while disconnected, instead of per-spinner timestamps (which would have broken the Equatable line memoization from Phase 1).
+7. [x] **Code block scroll affordance** — `showsIndicators: true` on horizontal code-block scroll.
+8. [x] **Dim/ANSI contrast** — dim opacity 0.6 → 0.7; ANSI base colors 1–6 now trait-adaptive (brightened on dark; the classic 0.67-channel values were below readable contrast).
+9. [ ] **Paste progress indicator** — deferred: transmission batching already exists Mac-side (v0.1.21–25 backpressure work); a "Pasting…" badge is cosmetic and can ride along with a later phase.
 
 ## Phase 3: Signature Moments (prompt surfaces) ✅ (2026-06-11)
 

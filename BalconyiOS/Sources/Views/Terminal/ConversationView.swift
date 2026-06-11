@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import BalconyShared
 
 /// Renders parsed terminal conversation lines with a native input bar.
@@ -48,6 +49,10 @@ struct ConversationView: View {
     @State private var showBashMode = false
     @State private var showBackgroundMode = false
     @State private var promptJustAnswered = false
+
+    /// Autocorrect/autocapitalization in the input field. Off by default —
+    /// commands and file paths are the common case. Toggle lives in Settings.
+    @AppStorage("input.autocorrect") private var autocorrectEnabled = false
     @FocusState private var inputFocused: Bool
 
     /// Whether the input starts with "!" (bash mode prefix).
@@ -76,21 +81,27 @@ struct ConversationView: View {
     /// Find the last "/" in the input and return the text after it as the filter query.
     /// Returns nil if no "/" is present (meaning the menu should be hidden).
     private var slashQuery: String? {
-        guard let slashIndex = inputText.lastIndex(of: "/") else { return nil }
-        let afterSlash = inputText[inputText.index(after: slashIndex)...]
-        // Only treat it as a command query if there's no space after the slash yet
-        // (once a space appears, the user is done picking a command).
-        if afterSlash.contains(" ") { return nil }
-        return String(afterSlash)
+        menuQuery(trigger: "/")
     }
 
     /// Find the last "@" in the input and return the text after it as the file filter query.
     /// Returns nil if no "@" is present (meaning the file picker should be hidden).
     private var atQuery: String? {
-        guard let atIndex = inputText.lastIndex(of: "@") else { return nil }
-        let afterAt = inputText[inputText.index(after: atIndex)...]
-        if afterAt.contains(" ") { return nil }
-        return String(afterAt)
+        menuQuery(trigger: "@")
+    }
+
+    /// Shared trigger detection for the slash and @ menus. The trigger only
+    /// counts at the start of a word — "path/to/file" or "user@host" must not
+    /// open a menu — and the query ends at the first space.
+    private func menuQuery(trigger: Character) -> String? {
+        guard let triggerIndex = inputText.lastIndex(of: trigger) else { return nil }
+        if triggerIndex > inputText.startIndex {
+            let before = inputText[inputText.index(before: triggerIndex)]
+            guard before == " " || before == "\n" else { return nil }
+        }
+        let after = inputText[inputText.index(after: triggerIndex)...]
+        if after.contains(" ") { return nil }
+        return String(after)
     }
 
     var body: some View {
@@ -124,8 +135,23 @@ struct ConversationView: View {
                                         }
                                     }
                                     .id(line.id)
+                                    .contextMenu {
+                                        Button {
+                                            UIPasteboard.general.string = plainText(of: line)
+                                        } label: {
+                                            Label("Copy Line", systemImage: "doc.on.doc")
+                                        }
+                                        Button {
+                                            UIPasteboard.general.string = messageText(containing: line)
+                                        } label: {
+                                            Label("Copy Message", systemImage: "text.quote")
+                                        }
+                                        ShareLink(item: messageText(containing: line)) {
+                                            Label("Share Message", systemImage: "square.and.arrow.up")
+                                        }
+                                    }
                             case .table(let rows):
-                                ScrollView(.horizontal, showsIndicators: false) {
+                                ScrollView(.horizontal, showsIndicators: true) {
                                     VStack(alignment: .leading, spacing: 0) {
                                         ForEach(rows) { row in
                                             buildStyledText(from: row.segments)
@@ -138,6 +164,15 @@ struct ConversationView: View {
                                 }
                                 .overlay(codeBlockFadeOverlay)
                                 .id(rows.first?.id ?? -1)
+                                .contextMenu {
+                                    Button {
+                                        UIPasteboard.general.string = rows
+                                            .map { $0.segments.map(\.text).joined() }
+                                            .joined(separator: "\n")
+                                    } label: {
+                                        Label("Copy Block", systemImage: "doc.on.doc")
+                                    }
+                                }
                             }
                         }
 
@@ -342,9 +377,11 @@ struct ConversationView: View {
                 // Input bar — glass pill
                 HStack(spacing: BalconyTheme.spacingSM) {
                     // Slash command button — inserts "/" to trigger the menu
+                    // (with a leading space if mid-word, so the trigger counts).
                     Button {
                         BalconyTheme.hapticLight()
-                        inputText += "/"
+                        let needsSpace = !(inputText.isEmpty || inputText.hasSuffix(" ") || inputText.hasSuffix("\n"))
+                        inputText += needsSpace ? " /" : "/"
                     } label: {
                         Text("/")
                             .font(.system(size: 18, weight: .semibold, design: .monospaced))
@@ -353,9 +390,13 @@ struct ConversationView: View {
                             .contentShape(Rectangle())
                     }
 
-                    TextField(inputPlaceholder, text: $inputText)
+                    TextField(inputPlaceholder, text: $inputText, axis: .vertical)
                         .textFieldStyle(.plain)
                         .font(BalconyTheme.monoFont(15))
+                        .lineLimit(1...5)
+                        .submitLabel(.send)
+                        .autocorrectionDisabled(!autocorrectEnabled)
+                        .textInputAutocapitalization(autocorrectEnabled ? .sentences : .never)
                         .focused($inputFocused)
                         .onSubmit { submitInput() }
                         .onChange(of: inputText) { newValue in
@@ -486,7 +527,7 @@ struct ConversationView: View {
         if newText.hasPrefix(oldText) && newText.count > oldText.count {
             // Characters added at end — send just the new ones.
             let added = String(newText.dropFirst(oldText.count))
-            onSendInput?(added)
+            onSendInput?(bracketingPasteIfMultiline(added))
         } else if oldText.hasPrefix(newText) && newText.count < oldText.count {
             // Characters deleted from end — send DEL (backspace).
             let deleteCount = oldText.count - newText.count
@@ -497,9 +538,16 @@ struct ConversationView: View {
                 onSendInput?(String(repeating: "\u{7f}", count: oldText.count))
             }
             if !newText.isEmpty {
-                onSendInput?(newText)
+                onSendInput?(bracketingPasteIfMultiline(newText))
             }
         }
+    }
+
+    /// Multiline content (a paste, now that the field grows vertically) must
+    /// reach the PTY as a bracketed paste — otherwise the terminal submits at
+    /// every newline instead of preserving them in the input box.
+    private func bracketingPasteIfMultiline(_ text: String) -> String {
+        text.contains("\n") ? "\u{1b}[200~" + text + "\u{1b}[201~" : text
     }
 
     /// Submit the current input (send carriage return and clear).
@@ -541,6 +589,29 @@ struct ConversationView: View {
             showBashMode = false
             showBackgroundMode = false
         }
+    }
+
+    // MARK: - Copy Helpers
+
+    /// Plain text of a single line, marker chrome trimmed.
+    private func plainText(of line: TerminalLine) -> String {
+        line.segments.map(\.text).joined().trimmingCharacters(in: .whitespaces)
+    }
+
+    /// Full text of the message block containing `line`: from its marker line
+    /// (❯/⏺) through the last continuation line before the next marker.
+    private func messageText(containing line: TerminalLine) -> String {
+        guard let idx = lines.firstIndex(where: { $0.id == line.id }) else {
+            return plainText(of: line)
+        }
+        var start = idx
+        while start > 0, lines[start].markerRole == .none { start -= 1 }
+        var end = idx + 1
+        while end < lines.count, lines[end].markerRole == .none { end += 1 }
+        return lines[start..<end]
+            .map { $0.segments.map(\.text).joined() }
+            .joined(separator: "\n")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     /// Handle tapping outside the input bar / menus.
@@ -760,7 +831,7 @@ struct ConversationView: View {
         for segment in segments {
             let fgColor = ANSIColorMapper.color(for: segment.style.fgColor)
             var text = Text(segment.text)
-                .foregroundColor(segment.style.isDim ? fgColor.opacity(0.6) : fgColor)
+                .foregroundColor(segment.style.isDim ? fgColor.opacity(0.7) : fgColor)
             if segment.style.isBold { text = text.bold() }
             if segment.style.isItalic { text = text.italic() }
             if segment.style.isUnderline { text = text.underline() }
@@ -1019,7 +1090,7 @@ struct TerminalLineView: View, Equatable {
             // Adaptive: use theme primary so text is readable in both light/dark mode.
             let fgColor = adaptiveColor ? BalconyTheme.textPrimary : ANSIColorMapper.color(for: segment.style.fgColor)
             var text = Text(segment.text)
-                .foregroundColor(segment.style.isDim ? fgColor.opacity(0.6) : fgColor)
+                .foregroundColor(segment.style.isDim ? fgColor.opacity(0.7) : fgColor)
             if segment.style.isBold { text = text.bold() }
             if segment.style.isItalic { text = text.italic() }
             if segment.style.isUnderline { text = text.underline() }

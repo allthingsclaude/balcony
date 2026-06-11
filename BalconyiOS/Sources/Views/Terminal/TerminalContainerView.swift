@@ -86,6 +86,9 @@ struct TerminalContainerView: View {
                         sessionManager.dismissRewindPicker()
                     }
                 )
+                // Stale data reads as stale: dim slightly while disconnected.
+                .opacity(connectionManager.isConnected ? 1 : 0.8)
+                .saturation(connectionManager.isConnected ? 1 : 0.85)
                 .transition(.opacity)
             }
         }
@@ -127,7 +130,7 @@ struct TerminalContainerView: View {
                         await sessionManager.sendInput("\u{1B}", to: session)
                     }
                     UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-                } onDoubleTap: {
+                } onLongPress: {
                     sessionManager.showRewind()
                 }
             }

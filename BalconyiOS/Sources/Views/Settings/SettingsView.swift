@@ -8,6 +8,7 @@ struct SettingsView: View {
     @AppStorage("notify.sessionComplete") private var notifySessionComplete = true
     @AppStorage(SoundManager.attentionSoundKey) private var attentionSound: String = NotificationSound.signal.rawValue
     @AppStorage(SoundManager.doneSoundKey) private var doneSound: String = NotificationSound.breeze.rawValue
+    @AppStorage("input.autocorrect") private var autocorrectEnabled = false
     @State private var showResetConfirmation = false
 
     private var appVersion: String {
@@ -67,6 +68,13 @@ struct SettingsView: View {
                         }
                     }
                     Text("Played when Claude finishes and is ready for input.")
+                        .font(.caption)
+                        .foregroundStyle(BalconyTheme.textSecondary)
+                }
+
+                Section("Input") {
+                    Toggle("Autocorrect", isOn: $autocorrectEnabled)
+                    Text("When off, autocapitalization is also disabled — safer for commands and file paths.")
                         .font(.caption)
                         .foregroundStyle(BalconyTheme.textSecondary)
                 }

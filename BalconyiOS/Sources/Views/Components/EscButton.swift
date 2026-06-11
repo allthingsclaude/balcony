@@ -1,39 +1,27 @@
 import SwiftUI
 
+/// Interrupt button: instant ESC on tap (no double-tap latency), rewind picker
+/// on long-press. Hit target is 44pt per HIG.
 struct EscButton: View {
     let onTap: () -> Void
-    var onDoubleTap: (() -> Void)?
-
-    /// Timestamp of the last tap for double-tap detection.
-    @State private var lastTapTime: Date = .distantPast
-
-    /// Double-tap window in seconds.
-    private let doubleTapInterval: TimeInterval = 0.35
+    var onLongPress: (() -> Void)?
 
     var body: some View {
-        Button {
-            BalconyTheme.hapticLight()
-            let now = Date()
-            let elapsed = now.timeIntervalSince(lastTapTime)
-
-            if elapsed < doubleTapInterval, let onDoubleTap {
-                // Double-tap detected — reset timer and fire callback
-                lastTapTime = .distantPast
+        Text("esc")
+            .font(.system(size: 10, weight: .bold, design: .monospaced))
+            .foregroundStyle(BalconyTheme.textPrimary)
+            .frame(width: 44, height: 44)
+            .contentShape(Rectangle())
+            .onTapGesture {
                 BalconyTheme.hapticMedium()
-                onDoubleTap()
-            } else {
-                // First tap — record time and fire single-tap
-                lastTapTime = now
                 onTap()
             }
-        } label: {
-            Text("esc")
-                .font(.system(size: 10, weight: .bold, design: .monospaced))
-                .foregroundStyle(BalconyTheme.textPrimary)
-                .frame(width: 30, height: 30)
-                .background(Circle().fill(BalconyTheme.textSecondary.opacity(0)))
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Escape")
+            .onLongPressGesture(minimumDuration: 0.4) {
+                BalconyTheme.hapticMedium()
+                onLongPress?()
+            }
+            .accessibilityLabel("Escape")
+            .accessibilityHint("Interrupts Claude. Long-press to rewind.")
+            .accessibilityAddTraits(.isButton)
     }
 }

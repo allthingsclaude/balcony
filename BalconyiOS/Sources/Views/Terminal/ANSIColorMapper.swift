@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// Maps `ANSIColor` values to SwiftUI `Color`.
 enum ANSIColorMapper {
@@ -46,16 +47,18 @@ enum ANSIColorMapper {
         }
     }
 
-    /// Standard 16 ANSI colors (0-15).
+    /// Standard 16 ANSI colors (0-15). The base colors (1-6) are dynamic:
+    /// their classic dark values (0.67 channel) drop below readable contrast
+    /// on the dark background, so dark mode gets brightened variants.
     private static func standardColor(_ code: UInt8) -> Color {
         switch code {
         case 0:  return Color(red: 0.0, green: 0.0, blue: 0.0)           // Black
-        case 1:  return Color(red: 0.67, green: 0.0, blue: 0.0)          // Red
-        case 2:  return Color(red: 0.0, green: 0.67, blue: 0.0)          // Green
-        case 3:  return Color(red: 0.67, green: 0.67, blue: 0.0)         // Yellow
-        case 4:  return Color(red: 0.0, green: 0.0, blue: 0.67)          // Blue
-        case 5:  return Color(red: 0.67, green: 0.0, blue: 0.67)         // Magenta
-        case 6:  return Color(red: 0.0, green: 0.67, blue: 0.67)         // Cyan
+        case 1:  return dynamicColor(light: (0.67, 0.0, 0.0), dark: (0.85, 0.36, 0.36))   // Red
+        case 2:  return dynamicColor(light: (0.0, 0.67, 0.0), dark: (0.38, 0.78, 0.45))   // Green
+        case 3:  return dynamicColor(light: (0.67, 0.67, 0.0), dark: (0.83, 0.76, 0.38))  // Yellow
+        case 4:  return dynamicColor(light: (0.0, 0.0, 0.67), dark: (0.42, 0.56, 0.92))   // Blue
+        case 5:  return dynamicColor(light: (0.67, 0.0, 0.67), dark: (0.82, 0.45, 0.82))  // Magenta
+        case 6:  return dynamicColor(light: (0.0, 0.67, 0.67), dark: (0.38, 0.78, 0.78))  // Cyan
         case 7:  return BalconyTheme.textSecondary                            // White (warm adaptive)
         case 8:  return Color(red: 0.33, green: 0.33, blue: 0.33)        // Bright Black
         case 9:  return Color(red: 1.0, green: 0.33, blue: 0.33)         // Bright Red
@@ -87,5 +90,16 @@ enum ANSIColorMapper {
         let level = Double(Int(code) - 232) * 10.0 + 8.0
         let value = level / 255.0
         return Color(red: value, green: value, blue: value)
+    }
+
+    /// Trait-adaptive color from light/dark RGB triples.
+    private static func dynamicColor(
+        light: (Double, Double, Double),
+        dark: (Double, Double, Double)
+    ) -> Color {
+        Color(uiColor: UIColor { traits in
+            let c = traits.userInterfaceStyle == .dark ? dark : light
+            return UIColor(red: c.0, green: c.1, blue: c.2, alpha: 1)
+        })
     }
 }
