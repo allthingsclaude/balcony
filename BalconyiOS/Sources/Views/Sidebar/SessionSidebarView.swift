@@ -34,16 +34,29 @@ struct SessionSidebarView: View {
                 ScrollView {
                     LazyVStack(spacing: 2) {
                         ForEach(sortedSessions) { session in
+                            let isMuted = sessionManager.mutedSessionIds.contains(session.id)
                             SidebarSessionRow(
                                 session: session,
                                 isSelected: session.id == selectedSessionId,
                                 needsAttention: session.needsAttention,
-                                awaitingInput: session.awaitingInput
+                                awaitingInput: session.awaitingInput,
+                                isMuted: isMuted
                             )
                             .contentShape(Rectangle())
                             .onTapGesture {
                                 BalconyTheme.hapticLight()
                                 onSelectSession(session)
+                            }
+                            .contextMenu {
+                                Button {
+                                    BalconyTheme.hapticLight()
+                                    sessionManager.toggleMute(for: session.id)
+                                } label: {
+                                    Label(
+                                        isMuted ? "Unmute Notifications" : "Mute Notifications",
+                                        systemImage: isMuted ? "bell" : "bell.slash"
+                                    )
+                                }
                             }
                         }
                     }
@@ -277,6 +290,7 @@ struct SidebarSessionRow: View {
     let isSelected: Bool
     let needsAttention: Bool
     let awaitingInput: Bool
+    var isMuted: Bool = false
 
     @State private var isPulsing = false
 
@@ -301,6 +315,11 @@ struct SidebarSessionRow: View {
                         .opacity(isDimmed ? 0.5 : 1)
                         .lineLimit(1)
                     Spacer(minLength: 4)
+                    if isMuted {
+                        Image(systemName: "bell.slash.fill")
+                            .font(.system(size: 8))
+                            .foregroundStyle(BalconyTheme.textSecondary.opacity(0.6))
+                    }
                     statusDot
                 }
 
@@ -325,7 +344,7 @@ struct SidebarSessionRow: View {
                 .fill(isSelected ? BalconyTheme.accent.opacity(0.15) : Color.clear)
         )
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(session.projectName), \(session.status.rawValue)")
+        .accessibilityLabel("\(session.projectName), \(session.status.rawValue)\(isMuted ? ", muted" : "")")
         .accessibilityAddTraits(isSelected ? .isSelected : [])
         .onChange(of: needsAttention) { newValue in
             if newValue {

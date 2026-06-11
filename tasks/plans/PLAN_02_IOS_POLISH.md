@@ -84,15 +84,15 @@ Also from this phase's investigation: `TerminalContainerView`, `SessionListView`
 5. [x] **Hardcoded colors — resolved by audit review**: the `.blue` hyperlink died with IdlePromptCard; remaining `.white` uses are deliberate contrast-on-red-banner / camera-overlay and correct as-is.
 6. [ ] **Spacing scale cleanup** — deferred, cosmetic; fold into the type-scale pass.
 
-## Phase 7: Award-Level Delights (after foundations)
+## Phase 7: Award-Level Delights 🔶 Ungated items done (2026-06-11)
 
-1. [ ] Per-session Live Activity (named project, not aggregate counts) — pairs with PLAN_01 push
-2. [ ] Foreground notification banner (currently suppressed entirely → sound only)
-3. [ ] Per-session notification muting (long-press sidebar row)
-4. [ ] Swipe actions on session rows; app icon badge count
-5. [ ] iPad layout (`NavigationSplitView` / size-class aware sidebar — currently fixed 69% drawer)
-6. [ ] `matchedGeometryEffect` session card → terminal transition; `.contentTransition(.numericText())` on counters (iOS 17)
-7. [ ] Deep link to session on cold launch from notification
+1. [ ] Per-session Live Activity (named project, not aggregate counts) — **gated on PLAN_01** push decisions
+2. [x] In-app attention toast — tappable banner when a non-active session needs attention or finishes while the app is open; navigates on tap, auto-dismisses after 4s. Gating restructured: the sidebar master switch now governs only system notifications; in-app cues (sound + toast) fire whenever the app is active, still respecting per-type toggles and mutes.
+3. [x] Per-session notification muting — long-press a sidebar row to mute/unmute; bell-slash icon on muted rows; persists; gates notifications, sounds, and toasts.
+4. [x] App icon badge mirrors sessions needing a decision (updated at every attention-set mutation). Swipe actions skipped — the sidebar list is a custom LazyVStack; long-press context menu covers the need.
+5. [ ] iPad layout — **skipped deliberately**: `TARGETED_DEVICE_FAMILY: 1` (iPhone-only app today); going iPad is a product decision + its own layout project, not polish.
+6. [ ] `matchedGeometryEffect` sidebar→terminal transition — skipped: cross-hierarchy matched geometry is high-risk without on-device iteration; revisit after a testing round.
+7. [x] Cold-launch deep link — a notification tap that arrives before connection/sessions is consumed once the session list lands.
 
 ---
 

@@ -96,6 +96,28 @@ struct SidebarContainerView: View {
             .gesture(edgeSwipeGesture(sidebarWidth: sidebarWidth))
             .animation(BalconyTheme.springStandard, value: isSidebarOpen)
             .animation(BalconyTheme.springStandard, value: dragOffset)
+            .overlay(alignment: .top) {
+                if let toast = sessionManager.attentionToast {
+                    AttentionToastView(toast: toast) {
+                        BalconyTheme.hapticLight()
+                        if let session = sessionManager.sessions.first(where: { $0.id == toast.sessionId }) {
+                            selectSession(session)
+                            closeSidebar()
+                        }
+                        sessionManager.attentionToast = nil
+                    }
+                    .padding(.top, safeTop + 8)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .task(id: toast.id) {
+                        try? await Task.sleep(nanoseconds: 4_000_000_000)
+                        guard !Task.isCancelled else { return }
+                        withAnimation(BalconyTheme.springStandard) {
+                            sessionManager.attentionToast = nil
+                        }
+                    }
+                }
+            }
+            .animation(BalconyTheme.springStandard, value: sessionManager.attentionToast)
         }
         .ignoresSafeArea()
         .sheet(isPresented: $showingSettings) {
@@ -118,6 +140,13 @@ struct SidebarContainerView: View {
             }
         }
         .onChange(of: sessionManager.sessions) { _ in
+            // Consume a notification tap that arrived before sessions loaded
+            // (cold launch: the tap fires before connection + session list).
+            if let pendingId = notificationManager.tappedSessionId,
+               let session = sessionManager.sessions.first(where: { $0.id == pendingId }) {
+                notificationManager.tappedSessionId = nil
+                selectSession(session)
+            }
             // Auto-select if nothing selected yet, or update the selected session's data
             if selectedSession == nil {
                 autoSelectSession()
@@ -517,6 +546,46 @@ struct SidebarContainerView: View {
         case .completed: return 2
         case .error: return 3
         }
+    }
+}
+
+// MARK: - Attention Toast
+
+/// Tappable in-app banner for activity on a session the user isn't viewing.
+private struct AttentionToastView: View {
+    let toast: AttentionToast
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: BalconyTheme.spacingSM) {
+                Image(systemName: toast.isAttention ? "exclamationmark.bubble.fill" : "checkmark.bubble.fill")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(toast.isAttention ? BalconyTheme.accent : BalconyTheme.statusGreen)
+
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(toast.sessionName)
+                        .font(BalconyTheme.headingFont(13))
+                        .foregroundStyle(BalconyTheme.textPrimary)
+                        .lineLimit(1)
+                    Text(toast.message)
+                        .font(BalconyTheme.bodyFont(12))
+                        .foregroundStyle(BalconyTheme.textSecondary)
+                        .lineLimit(1)
+                }
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(BalconyTheme.textSecondary.opacity(0.6))
+            }
+            .padding(.horizontal, BalconyTheme.spacingLG)
+            .padding(.vertical, 10)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .modifier(LiquidGlassCapsule())
+        .shadow(color: .black.opacity(0.15), radius: 12, y: 4)
+        .accessibilityLabel("\(toast.sessionName): \(toast.message). Double-tap to open.")
     }
 }
 

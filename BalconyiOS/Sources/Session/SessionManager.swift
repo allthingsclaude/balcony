@@ -1,9 +1,20 @@
 import Foundation
 import SwiftUI
 import Observation
+import UserNotifications
 import BalconyShared
 import Combine
 import os
+
+/// In-app banner for activity on a session the user isn't currently viewing.
+struct AttentionToast: Equatable, Identifiable {
+    let id = UUID()
+    let sessionId: String
+    let sessionName: String
+    let message: String
+    /// True for needs-a-decision (permission/question); false for finished/awaiting input.
+    let isAttention: Bool
+}
 
 /// Manages Claude Code sessions received from the connected Mac.
 ///
@@ -79,6 +90,14 @@ final class SessionManager {
     /// Show the native rewind picker UI.
     var showRewindPicker: Bool = false
 
+    /// In-app banner for activity on a non-active session while the app is open.
+    var attentionToast: AttentionToast?
+
+    /// Session IDs with notifications muted (persisted across launches).
+    var mutedSessionIds: Set<String> = SessionManager.loadMutedSessionIds() {
+        didSet { SessionManager.saveMutedSessionIds(mutedSessionIds) }
+    }
+
     @ObservationIgnored
     private var parser: HeadlessTerminalParser?
     @ObservationIgnored
@@ -90,6 +109,27 @@ final class SessionManager {
 
     @ObservationIgnored
     private weak var connectionManager: ConnectionManager?
+
+    // MARK: - Muting
+
+    /// Toggle notification muting for a session.
+    func toggleMute(for sessionId: String) {
+        if mutedSessionIds.contains(sessionId) {
+            mutedSessionIds.remove(sessionId)
+        } else {
+            mutedSessionIds.insert(sessionId)
+        }
+    }
+
+    private static let mutedSessionIdsKey = "mutedSessionIds"
+
+    private static func loadMutedSessionIds() -> Set<String> {
+        Set(UserDefaults.standard.stringArray(forKey: mutedSessionIdsKey) ?? [])
+    }
+
+    private static func saveMutedSessionIds(_ ids: Set<String>) {
+        UserDefaults.standard.set(Array(ids), forKey: mutedSessionIdsKey)
+    }
 
     // MARK: - Configuration
 
@@ -365,6 +405,16 @@ final class SessionManager {
         return Array(result.reversed().prefix(20))
     }
 
+    // MARK: - Badge
+
+    /// App icon badge mirrors the number of sessions needing a decision.
+    private func updateBadgeCount() {
+        let attentionCount = sessions.filter {
+            $0.needsAttention || sessionsNeedingAttention.contains($0.id)
+        }.count
+        UNUserNotificationCenter.current().setBadgeCount(attentionCount)
+    }
+
     // MARK: - Live Activity
 
     /// Sync the Live Activity with aggregate session counts.
@@ -441,47 +491,65 @@ final class SessionManager {
             let payload = try message.decodePayload(SessionListPayload.self)
             let oldSessions = sessions
 
-            // Check for session state transitions before replacing
+            // Check for session state transitions before replacing.
+            // The master switch (sidebar, auto-arms when away) gates system
+            // notifications only; in-app cues (sound + toast) fire whenever
+            // the app is active so background sessions stay visible.
             let defaults = UserDefaults.standard
             let notificationsOn = defaults.bool(forKey: "notificationsEnabled")
-            if notificationsOn {
-                // Per-type gates from Settings ▸ Notifications (default on).
-                let toolApprovalsOn = defaults.object(forKey: "notify.toolApprovals") as? Bool ?? true
-                let sessionCompleteOn = defaults.object(forKey: "notify.sessionComplete") as? Bool ?? true
-                let appIsInactive = UIApplication.shared.applicationState != .active
+            // Per-type gates from Settings ▸ Notifications (default on).
+            let toolApprovalsOn = defaults.object(forKey: "notify.toolApprovals") as? Bool ?? true
+            let sessionCompleteOn = defaults.object(forKey: "notify.sessionComplete") as? Bool ?? true
+            let appIsInactive = UIApplication.shared.applicationState != .active
 
-                for newSession in payload.sessions {
-                    if let old = oldSessions.first(where: { $0.id == newSession.id }) {
-                        let attentionTransition = !old.needsAttention && newSession.needsAttention && toolApprovalsOn
-                        let inputTransition = !old.awaitingInput && newSession.awaitingInput && sessionCompleteOn
-                        let isBackground = newSession.id != activeSession?.id
+            for newSession in payload.sessions {
+                if let old = oldSessions.first(where: { $0.id == newSession.id }) {
+                    let isMuted = mutedSessionIds.contains(newSession.id)
+                    let attentionTransition = !old.needsAttention && newSession.needsAttention && toolApprovalsOn && !isMuted
+                    let inputTransition = !old.awaitingInput && newSession.awaitingInput && sessionCompleteOn && !isMuted
+                    let isBackground = newSession.id != activeSession?.id
 
-                        if attentionTransition {
-                            if appIsInactive {
+                    if attentionTransition {
+                        if appIsInactive {
+                            if notificationsOn {
                                 NotificationManager.shared.notifySessionEvent(
                                     sessionId: newSession.id,
                                     sessionName: newSession.projectName,
                                     message: "Needs your attention — permission prompt or question",
                                     sound: SoundManager.shared.attentionSound.notificationSound
                                 )
-                            } else if isBackground {
-                                SoundManager.shared.playAttentionSound()
                             }
-                            break
+                        } else if isBackground {
+                            SoundManager.shared.playAttentionSound()
+                            attentionToast = AttentionToast(
+                                sessionId: newSession.id,
+                                sessionName: newSession.projectName,
+                                message: "Needs your attention",
+                                isAttention: true
+                            )
                         }
-                        if inputTransition {
-                            if appIsInactive {
+                        break
+                    }
+                    if inputTransition {
+                        if appIsInactive {
+                            if notificationsOn {
                                 NotificationManager.shared.notifySessionEvent(
                                     sessionId: newSession.id,
                                     sessionName: newSession.projectName,
                                     message: "Claude finished — waiting for your next prompt",
                                     sound: SoundManager.shared.doneSound.notificationSound
                                 )
-                            } else if isBackground {
-                                SoundManager.shared.playDoneSound()
                             }
-                            break
+                        } else if isBackground {
+                            SoundManager.shared.playDoneSound()
+                            attentionToast = AttentionToast(
+                                sessionId: newSession.id,
+                                sessionName: newSession.projectName,
+                                message: "Finished — your turn",
+                                isAttention: false
+                            )
                         }
+                        break
                     }
                 }
             }
@@ -518,6 +586,7 @@ final class SessionManager {
             sessionsAwaitingInput.formIntersection(currentIds)
 
             syncLiveActivity()
+            updateBadgeCount()
         } catch {
             logger.error("Failed to decode session list: \(error.localizedDescription)")
         }
@@ -591,7 +660,7 @@ final class SessionManager {
             guard payload.sessionId == activeSession?.id else { return }
             // Track for sidebar dot using activeSession.id (PTY session ID)
             if let sid = activeSession?.id {
-                sessionsNeedingAttention.insert(sid)
+                sessionsNeedingAttention.insert(sid); updateBadgeCount()
                 sessionsAwaitingInput.remove(sid)
             }
             pendingHookData = payload
@@ -607,7 +676,7 @@ final class SessionManager {
             let payload = try message.decodePayload(HookDismissPayload.self)
             guard payload.sessionId == activeSession?.id else { return }
             if let sid = activeSession?.id {
-                sessionsNeedingAttention.remove(sid)
+                sessionsNeedingAttention.remove(sid); updateBadgeCount()
             }
             pendingHookData = nil
             syncLiveActivity()
@@ -624,7 +693,7 @@ final class SessionManager {
             // Track for sidebar dot — idle means "your turn to type"
             if let sid = activeSession?.id {
                 sessionsAwaitingInput.insert(sid)
-                sessionsNeedingAttention.remove(sid)
+                sessionsNeedingAttention.remove(sid); updateBadgeCount()
             }
             pendingIdlePrompt = payload
             syncLiveActivity()
@@ -655,7 +724,7 @@ final class SessionManager {
             guard payload.ptySessionId == activeSession?.id else { return }
             // Track for sidebar dot
             if let sid = activeSession?.id {
-                sessionsNeedingAttention.insert(sid)
+                sessionsNeedingAttention.insert(sid); updateBadgeCount()
                 sessionsAwaitingInput.remove(sid)
             }
             pendingAskUserQuestion = payload
@@ -671,7 +740,7 @@ final class SessionManager {
             let payload = try message.decodePayload(AskUserQuestionDismissPayload.self)
             guard payload.ptySessionId == activeSession?.id else { return }
             if let sid = activeSession?.id {
-                sessionsNeedingAttention.remove(sid)
+                sessionsNeedingAttention.remove(sid); updateBadgeCount()
             }
             pendingAskUserQuestion = nil
             syncLiveActivity()
