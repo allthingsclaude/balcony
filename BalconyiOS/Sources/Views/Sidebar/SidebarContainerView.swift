@@ -225,6 +225,9 @@ struct SidebarContainerView: View {
                                     sessionManager.dismissRewindPicker()
                                 }
                             )
+                            // Stale data reads as stale: dim while disconnected.
+                            .opacity(connectionManager.isConnected ? 1 : 0.8)
+                            .saturation(connectionManager.isConnected ? 1 : 0.85)
                         }
                     }
                     .safeAreaInset(edge: .top, spacing: 0) {
@@ -245,7 +248,7 @@ struct SidebarContainerView: View {
                                     await sessionManager.sendInput("\u{1B}", to: session)
                                 }
                                 UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-                            } onDoubleTap: {
+                            } onLongPress: {
                                 sessionManager.showRewind()
                             }
                         }
