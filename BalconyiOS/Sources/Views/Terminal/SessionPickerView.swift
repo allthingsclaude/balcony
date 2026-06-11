@@ -11,8 +11,6 @@ struct SessionPickerView: View {
     let onSelect: (SessionInfo) -> Void
     let onDismiss: () -> Void
 
-    @State private var dragOffset: CGFloat = 0
-
     private var filteredSessions: [SessionInfo] {
         if searchQuery.isEmpty {
             return Array(sessions.prefix(50))
@@ -26,16 +24,11 @@ struct SessionPickerView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Drag handle
-            dragHandle
-
-            Divider()
-                .background(BalconyTheme.separator)
-
-            // Session list
+        PickerScaffold(title: "Resume Session", onDismiss: onDismiss) {
             if filteredSessions.isEmpty {
-                emptyState
+                PickerEmptyState(
+                    message: searchQuery.isEmpty ? "No sessions found" : "No matching sessions"
+                )
             } else {
                 ScrollView {
                     LazyVStack(spacing: 0) {
@@ -54,46 +47,6 @@ struct SessionPickerView: View {
                 .frame(maxHeight: 320)
             }
         }
-        .background {
-            RoundedRectangle(cornerRadius: BalconyTheme.radiusMD)
-                .fill(.ultraThinMaterial)
-                .shadow(color: .black.opacity(0.15), radius: 16, y: -4)
-        }
-        .clipShape(RoundedRectangle(cornerRadius: BalconyTheme.radiusMD))
-        .offset(y: max(0, dragOffset))
-        .gesture(
-            DragGesture()
-                .onChanged { value in
-                    dragOffset = value.translation.height
-                }
-                .onEnded { value in
-                    if value.translation.height > 80 || value.predictedEndTranslation.height > 160 {
-                        BalconyTheme.hapticLight()
-                        onDismiss()
-                    } else {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                            dragOffset = 0
-                        }
-                    }
-                }
-        )
-    }
-
-    // MARK: - Drag Handle
-
-    private var dragHandle: some View {
-        VStack(spacing: 6) {
-            Capsule()
-                .fill(BalconyTheme.textSecondary.opacity(0.3))
-                .frame(width: 36, height: 5)
-                .padding(.top, 10)
-
-            Text("Resume Session")
-                .font(BalconyTheme.bodyFont(13))
-                .foregroundStyle(BalconyTheme.textSecondary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.bottom, BalconyTheme.spacingSM)
     }
 
     // MARK: - Session Row
@@ -101,9 +54,9 @@ struct SessionPickerView: View {
     private func sessionRow(_ session: SessionInfo) -> some View {
         HStack(spacing: BalconyTheme.spacingMD) {
             Image(systemName: "ellipsis.bubble")
-                .font(.system(size: 16))
+                .font(.system(size: 14))
                 .foregroundStyle(BalconyTheme.accent)
-                .frame(width: 28, height: 28)
+                .frame(width: 24, height: 24)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(session.title)
@@ -126,23 +79,8 @@ struct SessionPickerView: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
         .contentShape(Rectangle())
-    }
-
-    // MARK: - Empty State
-
-    private var emptyState: some View {
-        VStack(spacing: BalconyTheme.spacingSM) {
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: 32))
-                .foregroundStyle(BalconyTheme.textSecondary)
-                .padding(.top, BalconyTheme.spacingXL)
-
-            Text(searchQuery.isEmpty ? "No sessions found" : "No matching sessions")
-                .font(BalconyTheme.bodyFont(15))
-                .foregroundStyle(BalconyTheme.textSecondary)
-                .padding(.bottom, BalconyTheme.spacingXL)
-        }
-        .frame(maxWidth: .infinity, maxHeight: 200)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(session.title), \(session.displayName)")
     }
 }
 

@@ -74,7 +74,7 @@ struct ConversationView: View {
     private var inputPlaceholder: String {
         if isSessionPickerActive { return "Type to search..." }
         if isModelPickerActive { return "Select a model..." }
-        if isRewindPickerActive { return "Select a turn..." }
+        if isRewindPickerActive { return "Type to search..." }
         return "Type a message..."
     }
 
@@ -247,11 +247,12 @@ struct ConversationView: View {
                             .foregroundStyle(BalconyTheme.textPrimary)
                             .frame(width: 36, height: 36)
                     }
+                    .accessibilityLabel("Scroll to bottom")
                     .modifier(LiquidGlassCapsule())
                     .shadow(color: .black.opacity(0.15), radius: 8, y: 2)
                     .padding(.bottom, 80)
                     .transition(.scale.combined(with: .opacity))
-                    .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isNearBottom)
+                    .animation(BalconyTheme.springSnappy, value: isNearBottom)
                 }
                 } // end ZStack
             }
@@ -301,6 +302,7 @@ struct ConversationView: View {
                 else if showRewindPicker, !rewindTurns.isEmpty {
                     RewindPickerView(
                         turns: rewindTurns,
+                        searchQuery: inputText,
                         onSelect: { turn in onSelectRewind?(turn) },
                         onDismiss: { onDismissRewindPicker?() }
                     )
@@ -389,6 +391,7 @@ struct ConversationView: View {
                             .frame(width: 44, height: 44)
                             .contentShape(Rectangle())
                     }
+                    .accessibilityLabel("Slash commands")
 
                     TextField(inputPlaceholder, text: $inputText, axis: .vertical)
                         .textFieldStyle(.plain)
@@ -406,7 +409,7 @@ struct ConversationView: View {
                             }
                             previousText = newValue
                             let pickerActive = isSessionPickerActive || isModelPickerActive || isRewindPickerActive
-                            withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+                            withAnimation(BalconyTheme.springSnappy) {
                                 showSlashMenu = slashQuery != nil && atQuery == nil && !pickerActive
                                 showFilePicker = atQuery != nil && !pickerActive
                                 showBashMode = isBashMode && !pickerActive
@@ -422,6 +425,7 @@ struct ConversationView: View {
                             .frame(width: 44, height: 44)
                             .contentShape(Rectangle())
                     }
+                    .accessibilityLabel("Send")
                     .disabled(inputText.isEmpty)
                 }
                 .modifier(LiquidGlassCapsule())
@@ -583,7 +587,7 @@ struct ConversationView: View {
         // Set previousText first so onChange doesn't send backspaces for the clear.
         previousText = ""
         inputText = ""
-        withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+        withAnimation(BalconyTheme.springSnappy) {
             showSlashMenu = false
             showFilePicker = false
             showBashMode = false
@@ -618,7 +622,7 @@ struct ConversationView: View {
     /// If a menu is open, close it first. Otherwise dismiss the keyboard.
     private func handleOutsideTap() {
         if showFilePicker || showSlashMenu {
-            withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+            withAnimation(BalconyTheme.springSnappy) {
                 showFilePicker = false
                 showSlashMenu = false
             }
@@ -645,7 +649,7 @@ struct ConversationView: View {
         previousText = newText
         inputText = newText
 
-        withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+        withAnimation(BalconyTheme.springSnappy) {
             showSlashMenu = false
         }
     }
@@ -669,7 +673,7 @@ struct ConversationView: View {
         previousText = newText
         inputText = newText
 
-        withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+        withAnimation(BalconyTheme.springSnappy) {
             showFilePicker = false
         }
     }
@@ -1125,6 +1129,7 @@ extension AnyTransition {
 /// Animated orange glow with a shimmer that sweeps around the capsule border.
 private struct BashModeGlow: View {
     @State private var rotation: Double = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         let accent = BalconyTheme.accent
@@ -1146,6 +1151,7 @@ private struct BashModeGlow: View {
             )
             .shadow(color: accent.opacity(0.4), radius: 6)
             .onAppear {
+                guard !reduceMotion else { return }
                 withAnimation(.linear(duration: 2.0).repeatForever(autoreverses: false)) {
                     rotation = 360
                 }

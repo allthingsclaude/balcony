@@ -17,8 +17,6 @@ struct SidebarContainerView: View {
     @State private var dragOffset: CGFloat = 0
 
     private let sidebarWidthFraction: CGFloat = 0.69
-    private let animationResponse: CGFloat = 0.35
-    private let animationDamping: CGFloat = 0.85
 
     var body: some View {
         GeometryReader { geo in
@@ -96,14 +94,8 @@ struct SidebarContainerView: View {
                 }
             }
             .gesture(edgeSwipeGesture(sidebarWidth: sidebarWidth))
-            .animation(
-                .spring(response: animationResponse, dampingFraction: animationDamping),
-                value: isSidebarOpen
-            )
-            .animation(
-                .spring(response: animationResponse, dampingFraction: animationDamping),
-                value: dragOffset
-            )
+            .animation(BalconyTheme.springStandard, value: isSidebarOpen)
+            .animation(BalconyTheme.springStandard, value: dragOffset)
         }
         .ignoresSafeArea()
         .sheet(isPresented: $showingSettings) {
@@ -241,7 +233,7 @@ struct SidebarContainerView: View {
                             connectionBanner
                         }
                     }
-                    .animation(.spring(response: 0.4, dampingFraction: 0.8), value: connectionManager.isConnected)
+                    .animation(BalconyTheme.springStandard, value: connectionManager.isConnected)
                     .navigationTitle(session.projectName)
                     .navigationBarTitleDisplayMode(.inline)
                     .toolbar {
@@ -361,7 +353,7 @@ struct SidebarContainerView: View {
         .padding(.vertical, 8)
         .background(BalconyTheme.statusRed.opacity(0.9))
         .transition(.move(edge: .top).combined(with: .opacity))
-        .animation(.spring(response: 0.4, dampingFraction: 0.8), value: connectionManager.isConnected)
+        .animation(BalconyTheme.springStandard, value: connectionManager.isConnected)
     }
 
     // MARK: - Loading

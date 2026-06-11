@@ -18,31 +18,38 @@ struct SlashCommandMenu: View {
     }
 
     var body: some View {
-        if filteredCommands.isEmpty {
-            EmptyView()
-        } else {
-            ScrollView {
-                LazyVStack(spacing: 0) {
-                    ForEach(filteredCommands) { command in
-                        Button {
-                            BalconyTheme.hapticLight()
-                            onSelect(command)
-                        } label: {
-                            commandRow(command)
+        Group {
+            if filteredCommands.isEmpty {
+                // Keep the card visible so the user knows the filter is active.
+                Text("No matching commands")
+                    .font(BalconyTheme.bodyFont(13))
+                    .foregroundStyle(BalconyTheme.textSecondary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, BalconyTheme.spacingLG)
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        ForEach(filteredCommands) { command in
+                            Button {
+                                BalconyTheme.hapticLight()
+                                onSelect(command)
+                            } label: {
+                                commandRow(command)
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
                     }
+                    .padding(.vertical, 6)
                 }
-                .padding(.vertical, 6)
+                .frame(maxHeight: 320)
             }
-            .frame(maxHeight: 280)
-            .background {
-                RoundedRectangle(cornerRadius: BalconyTheme.radiusMD)
-                    .fill(.ultraThinMaterial)
-                    .shadow(color: .black.opacity(0.15), radius: 16, y: -4)
-            }
-            .clipShape(RoundedRectangle(cornerRadius: BalconyTheme.radiusMD))
         }
+        .background {
+            RoundedRectangle(cornerRadius: BalconyTheme.radiusMD)
+                .fill(.ultraThinMaterial)
+                .shadow(color: .black.opacity(0.15), radius: 16, y: -4)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: BalconyTheme.radiusMD))
     }
 
     // MARK: - Row

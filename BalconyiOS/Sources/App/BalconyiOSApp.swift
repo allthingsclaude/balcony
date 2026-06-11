@@ -111,7 +111,7 @@ struct ContentView: View {
                 .zIndex(1)
         }
         .background(BalconyTheme.background.ignoresSafeArea())
-        .animation(.spring(response: 0.5, dampingFraction: 0.85), value: showConnected)
+        .animation(BalconyTheme.springGentle, value: showConnected)
         .onChange(of: connectionManager.isConnected) { connected in
             if connected {
                 showConnected = true

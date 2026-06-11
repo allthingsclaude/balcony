@@ -228,7 +228,7 @@ final class SessionManager {
 
     /// Dismiss the session picker without selecting.
     func dismissSessionPicker() {
-        withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+        withAnimation(BalconyTheme.springSnappy) {
             showSessionPicker = false
         }
         availableSessions = []
@@ -243,7 +243,7 @@ final class SessionManager {
             let payload = SessionPickerSelectionPayload(sessionId: session.id, ptySessionId: ptySessionId)
             let msg = try BalconyMessage.create(type: .sessionPickerSelection, payload: payload)
             try await connectionManager.send(msg)
-            withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+            withAnimation(BalconyTheme.springSnappy) {
                 showSessionPicker = false
             }
         } catch {
@@ -273,7 +273,7 @@ final class SessionManager {
 
     /// Dismiss the model picker without selecting.
     func dismissModelPicker() {
-        withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+        withAnimation(BalconyTheme.springSnappy) {
             showModelPicker = false
         }
         availableModels = []
@@ -289,7 +289,7 @@ final class SessionManager {
             let payload = ModelPickerSelectionPayload(modelId: model.id, ptySessionId: ptySessionId)
             let msg = try BalconyMessage.create(type: .modelPickerSelection, payload: payload)
             try await connectionManager.send(msg)
-            withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+            withAnimation(BalconyTheme.springSnappy) {
                 showModelPicker = false
             }
         } catch {
@@ -304,14 +304,14 @@ final class SessionManager {
             logger.info("No turns to rewind")
             return
         }
-        withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+        withAnimation(BalconyTheme.springSnappy) {
             showRewindPicker = true
         }
     }
 
     /// Dismiss the rewind picker without selecting.
     func dismissRewindPicker() {
-        withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+        withAnimation(BalconyTheme.springSnappy) {
             showRewindPicker = false
         }
         rewindTurns = []
@@ -325,7 +325,7 @@ final class SessionManager {
             let payload = RewindSelectionPayload(turnCount: turn.id, ptySessionId: activeSession.id)
             let msg = try BalconyMessage.create(type: .rewindSelection, payload: payload)
             try await connectionManager.send(msg)
-            withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+            withAnimation(BalconyTheme.springSnappy) {
                 showRewindPicker = false
             }
         } catch {
@@ -561,7 +561,7 @@ final class SessionManager {
             let payload = try message.decodePayload(SessionPickerPayload.self)
             availableSessions = payload.sessions
             pickerPTYSessionId = payload.ptySessionId
-            withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+            withAnimation(BalconyTheme.springSnappy) {
                 showSessionPicker = true
             }
             logger.info("Received \(payload.sessions.count) sessions for picker")
@@ -576,7 +576,7 @@ final class SessionManager {
             availableModels = payload.models
             currentModelId = payload.currentModelId
             modelPickerPTYSessionId = payload.ptySessionId
-            withAnimation(.spring(response: 0.25, dampingFraction: 0.85)) {
+            withAnimation(BalconyTheme.springSnappy) {
                 showModelPicker = true
             }
             logger.info("Received \(payload.models.count) models for picker (current: \(payload.currentModelId ?? "none"))")

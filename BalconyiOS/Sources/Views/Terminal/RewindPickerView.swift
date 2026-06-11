@@ -3,81 +3,43 @@ import BalconyShared
 
 /// Native rewind picker popup for /rewind command.
 ///
-/// Displays user turn checkpoints computed locally from parsed terminal output.
-/// Each entry represents a user input that can be rewound to.
-/// Drag the handle down to dismiss.
+/// Displays user turn checkpoints computed locally from parsed terminal output,
+/// filtered by an external search query. Each entry represents a user input
+/// that can be rewound to. Drag the handle down to dismiss.
 struct RewindPickerView: View {
     let turns: [RewindTurnInfo]
+    let searchQuery: String
     let onSelect: (RewindTurnInfo) -> Void
     let onDismiss: () -> Void
 
-    @State private var dragOffset: CGFloat = 0
-
-    var body: some View {
-        VStack(spacing: 0) {
-            // Drag handle
-            dragHandle
-
-            Divider()
-                .background(BalconyTheme.separator)
-
-            // Turn list
-            ScrollView {
-                LazyVStack(spacing: 0) {
-                    ForEach(turns) { turn in
-                        Button {
-                            BalconyTheme.hapticLight()
-                            onSelect(turn)
-                        } label: {
-                            turnRow(turn)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .padding(.vertical, 6)
-            }
-            .frame(maxHeight: 320)
-        }
-        .background {
-            RoundedRectangle(cornerRadius: BalconyTheme.radiusMD)
-                .fill(.ultraThinMaterial)
-                .shadow(color: .black.opacity(0.15), radius: 16, y: -4)
-        }
-        .clipShape(RoundedRectangle(cornerRadius: BalconyTheme.radiusMD))
-        .offset(y: max(0, dragOffset))
-        .gesture(
-            DragGesture()
-                .onChanged { value in
-                    dragOffset = value.translation.height
-                }
-                .onEnded { value in
-                    if value.translation.height > 80 || value.predictedEndTranslation.height > 160 {
-                        BalconyTheme.hapticLight()
-                        onDismiss()
-                    } else {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                            dragOffset = 0
-                        }
-                    }
-                }
-        )
+    private var filteredTurns: [RewindTurnInfo] {
+        if searchQuery.isEmpty { return turns }
+        let lower = searchQuery.lowercased()
+        return turns.filter { $0.preview.lowercased().contains(lower) }
     }
 
-    // MARK: - Drag Handle
-
-    private var dragHandle: some View {
-        VStack(spacing: 6) {
-            Capsule()
-                .fill(BalconyTheme.textSecondary.opacity(0.3))
-                .frame(width: 36, height: 5)
-                .padding(.top, 10)
-
-            Text("Rewind")
-                .font(BalconyTheme.bodyFont(13))
-                .foregroundStyle(BalconyTheme.textSecondary)
+    var body: some View {
+        PickerScaffold(title: "Rewind", onDismiss: onDismiss) {
+            if filteredTurns.isEmpty {
+                PickerEmptyState(message: "No matching turns")
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        ForEach(filteredTurns) { turn in
+                            Button {
+                                BalconyTheme.hapticLight()
+                                onSelect(turn)
+                            } label: {
+                                turnRow(turn)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.vertical, 6)
+                }
+                .frame(maxHeight: 320)
+            }
         }
-        .frame(maxWidth: .infinity)
-        .padding(.bottom, BalconyTheme.spacingSM)
     }
 
     // MARK: - Turn Row
@@ -107,6 +69,8 @@ struct RewindPickerView: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
         .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(turn.preview.isEmpty ? "User input" : turn.preview), \(turnSubtitle(turn))")
     }
 
     // MARK: - Helpers
@@ -134,6 +98,7 @@ struct RewindPickerView: View {
 
         RewindPickerView(
             turns: sampleTurns,
+            searchQuery: "",
             onSelect: { turn in print("Selected: \(turn.id) turns") },
             onDismiss: { print("Dismissed") }
         )

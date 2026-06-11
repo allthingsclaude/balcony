@@ -13,31 +13,38 @@ struct FilePickerMenu: View {
     }
 
     var body: some View {
-        if filteredFiles.isEmpty {
-            EmptyView()
-        } else {
-            ScrollView {
-                LazyVStack(spacing: 0) {
-                    ForEach(filteredFiles, id: \.self) { file in
-                        Button {
-                            BalconyTheme.hapticLight()
-                            onSelect(file)
-                        } label: {
-                            fileRow(file)
+        Group {
+            if filteredFiles.isEmpty {
+                // Keep the card visible so the user knows the filter is active.
+                Text("No matching files")
+                    .font(BalconyTheme.bodyFont(13))
+                    .foregroundStyle(BalconyTheme.textSecondary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, BalconyTheme.spacingLG)
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        ForEach(filteredFiles, id: \.self) { file in
+                            Button {
+                                BalconyTheme.hapticLight()
+                                onSelect(file)
+                            } label: {
+                                fileRow(file)
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
                     }
+                    .padding(.vertical, 6)
                 }
-                .padding(.vertical, 6)
+                .frame(maxHeight: 320)
             }
-            .frame(maxHeight: 280)
-            .background {
-                RoundedRectangle(cornerRadius: BalconyTheme.radiusMD)
-                    .fill(.ultraThinMaterial)
-                    .shadow(color: .black.opacity(0.15), radius: 16, y: -4)
-            }
-            .clipShape(RoundedRectangle(cornerRadius: BalconyTheme.radiusMD))
         }
+        .background {
+            RoundedRectangle(cornerRadius: BalconyTheme.radiusMD)
+                .fill(.ultraThinMaterial)
+                .shadow(color: .black.opacity(0.15), radius: 16, y: -4)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: BalconyTheme.radiusMD))
     }
 
     // MARK: - Row

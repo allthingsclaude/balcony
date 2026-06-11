@@ -52,13 +52,13 @@ The app dropped frames during fast output (>10KB/s): every PTY chunk batch trigg
 
 Also seeded the Phase 6 motion vocabulary early: `BalconyTheme.springSnappy/springStandard/springGentle`.
 
-## Phase 4: Pickers & Menus Consistency
+## Phase 4: Pickers & Menus Consistency ✅ (2026-06-11)
 
-1. [ ] **Extract shared picker scaffold** — Model/Session/Rewind pickers duplicate drag handle, gesture, background (~100 LOC drift already: icon 28×28 vs 24×24, hardcoded radius 8, maxHeight 280 vs 320).
-2. [ ] **Selection indicators** — Session/Rewind pickers show no current selection (Model picker does); unify on checkmark + subtle fill.
-3. [ ] **Empty states for menus** — Slash/File menus return `EmptyView()` on zero matches; show "No matches" row instead.
-4. [ ] **Search parity** — only SessionPicker has search; add to Rewind (by preview text), consider Model.
-5. [ ] **Unify dimensions** — icons 24×24, row padding 12×10, maxHeight 320 everywhere.
+1. [x] **Shared `PickerScaffold`** — drag handle, dismiss gesture, glass card extracted; all three pickers use it (plus shared `PickerEmptyState`). VoiceOver escape action and combined row labels came along free.
+2. [x] **Selection indicators** — evaluated: Model keeps its checkmark+fill (it has a "current" concept); Session/Rewind list candidates with no current item, so an indicator would be meaningless there. Audit recommendation rejected as N/A.
+3. [x] **Empty states for menus** — Slash/File menus show "No matching commands/files" in the card instead of vanishing.
+4. [x] **Search parity** — Rewind picker filters by preview text (input field, same pattern as Session); Model skipped (3 items).
+5. [x] **Unify dimensions** — icons 24×24, maxHeight 320 everywhere, hardcoded radius → `radiusSM`.
 
 ## Phase 5: Connection Lifecycle Trust ✅ (2026-06-11)
 
@@ -75,14 +75,14 @@ Root-caused deeper than the audit: on an unexpected drop the app ejected the use
 
 Also from this phase's investigation: `TerminalContainerView`, `SessionListView`, `SessionCardView` were dead pre-sidebar code — removed (commit c710245).
 
-## Phase 6: Design System & Accessibility
+## Phase 6: Design System & Accessibility 🔶 Partial (2026-06-11)
 
-1. [ ] **Animation vocabulary in theme** — 31 animation blocks with ad-hoc curves; define `BalconyTheme.snappy/standard/gentle` springs and migrate; respect `accessibilityReduceMotion` centrally (currently 2/31).
-2. [ ] **Type scale** — 53 ad-hoc `.system(size:)` across 15 sizes; consolidate to theme font functions; user-adjustable mono size for terminal (`@AppStorage`).
-3. [ ] **Dynamic Type** — zero support today; adopt relative sizing or cap with `.dynamicTypeSize(...)`; audit fixed frames.
-4. [ ] **Hardcoded colors** — 7 violations (`.white` ×6, `.blue` hyperlink in `PromptOverlayView.swift:301`); add overlay/shadow tokens.
-5. [ ] **VoiceOver** — label icon-only buttons in menus/pickers; add hints to prompt actions; verify terminal line accessibility text.
-6. [ ] **Spacing scale cleanup** — ~15 magic paddings (e.g. `.padding(.bottom, 120)`) → tokens or derived values.
+1. [x] **Animation vocabulary + Reduce Motion** — theme springs are now reduce-motion-aware (`Animation?`, nil when enabled), so **every** migrated call site respects the setting centrally. All ad-hoc spring literals swept to `springSnappy/Standard/Gentle` (SessionManager ×9, ConversationView, pickers, sidebar drawer, app shell); BashModeGlow rotation gated.
+2. [x] **VoiceOver** — labels added to all icon-only buttons (slash, send, scroll-to-bottom, wizard close/back/submit), combined row labels in pickers, escape action on picker scaffold. (EscButton labeled in Phase 2.)
+3. [ ] **Type scale consolidation** — deferred: 53 ad-hoc sizes is a broad mechanical sweep; do alongside Dynamic Type so it's one re-test pass.
+4. [ ] **Dynamic Type** — deferred: terminal layout metrics (18pt line height, 14pt marker column, pinned spinner rows) are tuned to 13pt mono; scaling needs layout-metric work + device testing. Same applies to a user-adjustable terminal font size — don't ship it without scaling those metrics.
+5. [x] **Hardcoded colors — resolved by audit review**: the `.blue` hyperlink died with IdlePromptCard; remaining `.white` uses are deliberate contrast-on-red-banner / camera-overlay and correct as-is.
+6. [ ] **Spacing scale cleanup** — deferred, cosmetic; fold into the type-scale pass.
 
 ## Phase 7: Award-Level Delights (after foundations)
 

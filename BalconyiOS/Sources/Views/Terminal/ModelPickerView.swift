@@ -11,22 +11,13 @@ struct ModelPickerView: View {
     let onSelect: (ModelInfo) -> Void
     let onDismiss: () -> Void
 
-    @State private var dragOffset: CGFloat = 0
-
     /// Models sorted by tier — Opus first, Haiku last.
     private var sortedModels: [ModelInfo] {
         models.sorted { $0.tier < $1.tier }
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Drag handle
-            dragHandle
-
-            Divider()
-                .background(BalconyTheme.separator)
-
-            // Model list
+        PickerScaffold(title: "Switch Model", onDismiss: onDismiss) {
             ScrollView {
                 LazyVStack(spacing: 0) {
                     ForEach(sortedModels) { model in
@@ -43,46 +34,6 @@ struct ModelPickerView: View {
             }
             .frame(maxHeight: 320)
         }
-        .background {
-            RoundedRectangle(cornerRadius: BalconyTheme.radiusMD)
-                .fill(.ultraThinMaterial)
-                .shadow(color: .black.opacity(0.15), radius: 16, y: -4)
-        }
-        .clipShape(RoundedRectangle(cornerRadius: BalconyTheme.radiusMD))
-        .offset(y: max(0, dragOffset))
-        .gesture(
-            DragGesture()
-                .onChanged { value in
-                    dragOffset = value.translation.height
-                }
-                .onEnded { value in
-                    if value.translation.height > 80 || value.predictedEndTranslation.height > 160 {
-                        BalconyTheme.hapticLight()
-                        onDismiss()
-                    } else {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                            dragOffset = 0
-                        }
-                    }
-                }
-        )
-    }
-
-    // MARK: - Drag Handle
-
-    private var dragHandle: some View {
-        VStack(spacing: 6) {
-            Capsule()
-                .fill(BalconyTheme.textSecondary.opacity(0.3))
-                .frame(width: 36, height: 5)
-                .padding(.top, 10)
-
-            Text("Switch Model")
-                .font(BalconyTheme.bodyFont(13))
-                .foregroundStyle(BalconyTheme.textSecondary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.bottom, BalconyTheme.spacingSM)
     }
 
     // MARK: - Model Row
@@ -120,11 +71,13 @@ struct ModelPickerView: View {
         .padding(.vertical, 10)
         .background {
             if isActive {
-                RoundedRectangle(cornerRadius: 8)
+                RoundedRectangle(cornerRadius: BalconyTheme.radiusSM)
                     .fill(BalconyTheme.accent.opacity(0.08))
             }
         }
         .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(model.displayName), \(model.description)\(isActive ? ", current model" : "")")
     }
 
     // MARK: - Helpers
@@ -143,7 +96,6 @@ struct ModelPickerView: View {
         case .haiku: return "leaf.fill"
         }
     }
-
 }
 
 // MARK: - Preview

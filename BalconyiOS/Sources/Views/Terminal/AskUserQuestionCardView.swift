@@ -84,6 +84,7 @@ struct AskUserQuestionCardView: View {
                         .frame(width: 28, height: 28)
                         .background(BalconyTheme.textSecondary.opacity(0.1), in: Circle())
                 }
+                .accessibilityLabel("Previous question")
                 .transition(.scale.combined(with: .opacity))
             }
 
@@ -119,6 +120,7 @@ struct AskUserQuestionCardView: View {
                     .frame(width: 28, height: 28)
                     .background(BalconyTheme.textSecondary.opacity(0.1), in: Circle())
             }
+            .accessibilityLabel("Dismiss question")
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
@@ -264,6 +266,7 @@ struct AskUserQuestionCardView: View {
                         .font(.system(size: 24))
                         .foregroundStyle(otherText.isEmpty ? BalconyTheme.textSecondary.opacity(0.3) : BalconyTheme.accent)
                 }
+                .accessibilityLabel("Submit answer")
                 .disabled(otherText.isEmpty)
             }
             .padding(.horizontal, 16)
