@@ -44,6 +44,11 @@ struct ConversationView: View {
     /// Track previous line count to only auto-scroll when content grows.
     @State private var lastLineCount = 0
     @State private var showEmptyState = false
+    /// Grouped display blocks, recomputed only when `lines` (or the
+    /// AskUserQuestion strip state) changes. Body re-evaluations triggered by
+    /// local state — every keystroke in the input field — reuse the cache
+    /// instead of regrouping the whole conversation.
+    @State private var cachedBlocks: [ConversationBlock] = []
     @State private var showSlashMenu = false
     @State private var showFilePicker = false
     @State private var showBashMode = false
@@ -116,7 +121,7 @@ struct ConversationView: View {
                 ZStack(alignment: .bottom) {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 0) {
-                        ForEach(groupedBlocks, id: \.id) { block in
+                        ForEach(cachedBlocks, id: \.id) { block in
                             switch block {
                             case .spacer:
                                 Color.clear
@@ -211,8 +216,18 @@ struct ConversationView: View {
                     // during rapid content updates (spinner, streaming).
                     .animation(nil, value: lines.count)
                 }
+                // Native bottom anchoring. History replay arrives after the
+                // view mounts, so proxy-based scrolling races LazyVStack
+                // layout; these keep the view opened-at-bottom and pinned
+                // while content streams in (only while already at the bottom —
+                // reading scrolled-up history is never interrupted).
+                .defaultScrollAnchor(.bottom, for: .initialOffset)
+                .defaultScrollAnchor(.bottom, for: .sizeChanges)
                 .contentShape(Rectangle())
                 .onTapGesture { handleOutsideTap() }
+                // Drag the conversation down to dismiss the keyboard (tap
+                // outside still works via handleOutsideTap above).
+                .scrollDismissesKeyboard(.interactively)
                 .onChange(of: lines.count) { newCount in
                     if needsInitialScroll {
                         scrollToBottom(proxy: proxy, animated: false)
@@ -397,7 +412,7 @@ struct ConversationView: View {
                         .textFieldStyle(.plain)
                         .font(BalconyTheme.monoFont(15))
                         .lineLimit(1...5)
-                        .submitLabel(.send)
+                        .submitLabel(.return)
                         .autocorrectionDisabled(!autocorrectEnabled)
                         .textInputAutocapitalization(autocorrectEnabled ? .sentences : .never)
                         .focused($inputFocused)
@@ -452,6 +467,17 @@ struct ConversationView: View {
             try? await Task.sleep(nanoseconds: 300_000_000)
             guard !Task.isCancelled else { return }
             showEmptyState = true
+        }
+        .onAppear {
+            cachedBlocks = computeGroupedBlocks()
+        }
+        .onChange(of: lines) { _ in
+            cachedBlocks = computeGroupedBlocks()
+        }
+        .onChange(of: pendingAskUserQuestion == nil) { _ in
+            // Grouping strips the AskUserQuestion TUI while the native card
+            // shows, so the cache depends on its presence too.
+            cachedBlocks = computeGroupedBlocks()
         }
         .onChange(of: activePrompt) { _ in
             // Reset the guard when the prompt changes (new prompt or cleared).
@@ -759,7 +785,10 @@ struct ConversationView: View {
     /// Group consecutive table rows so they share a single horizontal scroll view.
     /// Inserts fixed-height spacers before message-start lines so that all items
     /// in the LazyVStack have predictable heights (prevents layout jumping).
-    private var groupedBlocks: [ConversationBlock] {
+    ///
+    /// Called from the `lines`/AskUserQuestion change hooks and cached in
+    /// `cachedBlocks` — never from `body` directly.
+    private func computeGroupedBlocks() -> [ConversationBlock] {
         var blocks: [ConversationBlock] = []
         var tableBuffer: [TerminalLine] = []
 

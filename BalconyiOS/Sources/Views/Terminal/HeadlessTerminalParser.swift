@@ -8,7 +8,11 @@ import Combine
 /// The terminal size is fixed to the Mac's PTY size so no resize events are sent,
 /// preserving the Mac's terminal layout. Scrollback is enabled so the full
 /// conversation history is available when replaying buffered PTY data.
-@MainActor
+///
+/// Feeding and extraction run on a dedicated serial queue so multi-hundred-KB
+/// history replays and steady streaming never block the main thread. The serial
+/// queue also guarantees chunks are parsed in arrival order. The `@Published`
+/// properties are written on the main queue only.
 final class HeadlessTerminalParser: ObservableObject {
     @Published var conversationLines: [TerminalLine] = []
     @Published var activePrompt: InteractivePrompt?
@@ -16,6 +20,11 @@ final class HeadlessTerminalParser: ObservableObject {
     /// Text currently typed after the ❯ prompt in the bottom chrome input box.
     /// Used to pre-fill the iOS input composer when entering a session.
     @Published var pendingInputText: String = ""
+
+    /// All terminal access, extraction, and debounce state is confined to this
+    /// queue. SwiftTerm's `Terminal` is not thread-safe; single-queue ownership
+    /// makes it safe without locking.
+    private let parseQueue = DispatchQueue(label: "com.balcony.terminal-parser", qos: .userInitiated)
 
     private let terminal: Terminal
     private let delegate: MinimalTerminalDelegate
@@ -34,6 +43,12 @@ final class HeadlessTerminalParser: ObservableObject {
     private static let quietDelay: TimeInterval = 0.05
     private static let maxDelay: TimeInterval = 0.15
 
+    /// Last published values, for change-gating before hopping to main.
+    /// Accessed on `parseQueue` only.
+    private var lastPublishedLines: [TerminalLine] = []
+    private var lastPublishedPrompt: InteractivePrompt?
+    private var lastPublishedInput: String = ""
+
     init(cols: Int, rows: Int) {
         var options = TerminalOptions()
         options.cols = cols
@@ -50,11 +65,16 @@ final class HeadlessTerminalParser: ObservableObject {
     // MARK: - Feeding Data
 
     /// Feed raw PTY bytes into the terminal emulator.
-    func feed(bytes: [UInt8]) {
-        terminal.feed(byteArray: bytes)
-        scheduleExtraction()
+    /// Safe to call from any thread; parsing happens on the parse queue.
+    func feed(data: Data) {
+        parseQueue.async { [weak self] in
+            guard let self else { return }
+            self.terminal.feed(byteArray: Array(data))
+            self.scheduleExtraction()
+        }
     }
 
+    /// Must be called on `parseQueue`.
     private func scheduleExtraction() {
         let now = Date()
         if firstPendingFeed == nil { firstPendingFeed = now }
@@ -70,11 +90,12 @@ final class HeadlessTerminalParser: ObservableObject {
             self?.extractLines()
         }
         extractionWorkItem = item
-        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: item)
+        parseQueue.asyncAfter(deadline: .now() + delay, execute: item)
     }
 
     // MARK: - Line Extraction
 
+    /// Runs on `parseQueue`; results are handed to the main thread via `publish`.
     private func extractLines() {
         let topVisible = terminal.getTopVisibleRow()
         let totalRows = topVisible + terminal.rows
@@ -88,7 +109,7 @@ final class HeadlessTerminalParser: ObservableObject {
         }
 
         guard !allRows.isEmpty else {
-            conversationLines = []
+            publish(lines: [], prompt: lastPublishedPrompt, input: lastPublishedInput)
             return
         }
 
@@ -97,10 +118,10 @@ final class HeadlessTerminalParser: ObservableObject {
 
         // Always extract chrome input — even when there's no conversation content
         // (e.g. a freshly-opened thread with only the welcome banner).
-        pendingInputText = extractChromeInputText(allRows: allRows, chromeStart: chromeStart)
+        let chromeInput = extractChromeInputText(allRows: allRows, chromeStart: chromeStart)
 
         guard headerEnd < chromeStart else {
-            conversationLines = []
+            publish(lines: [], prompt: lastPublishedPrompt, input: chromeInput)
             return
         }
 
@@ -390,23 +411,31 @@ final class HeadlessTerminalParser: ObservableObject {
             detectedPrompt = nil
         }
 
-        // Publish only on change. Beyond skipping redundant view updates, the
-        // prompt guard makes downstream nil-handling transition-based: hook
-        // enrichment that arrives before the prompt renders is no longer wiped
-        // by a no-change extraction re-emitting nil.
-        if detectedPrompt != activePrompt {
-            activePrompt = detectedPrompt
-        }
+        publish(lines: lines, prompt: detectedPrompt, input: chromeInput)
+    }
 
-        if lines != conversationLines {
-            conversationLines = lines
-        }
+    // MARK: - Publishing
 
-        // Update chrome input — re-extract since the terminal may have changed
-        // between the early extraction and now (e.g. prompt detection stripped lines).
-        let chromeInput = extractChromeInputText(allRows: allRows, chromeStart: chromeStart)
-        if chromeInput != pendingInputText {
-            pendingInputText = chromeInput
+    /// Hand extraction results to the main thread, change-gated per property.
+    ///
+    /// Beyond skipping redundant view updates, the prompt gate makes downstream
+    /// nil-handling transition-based: hook enrichment that arrives before the
+    /// prompt renders is no longer wiped by a no-change extraction re-emitting
+    /// nil. Must be called on `parseQueue`.
+    private func publish(lines: [TerminalLine], prompt: InteractivePrompt?, input: String) {
+        let linesChanged = lines != lastPublishedLines
+        let promptChanged = prompt != lastPublishedPrompt
+        let inputChanged = input != lastPublishedInput
+        guard linesChanged || promptChanged || inputChanged else { return }
+        lastPublishedLines = lines
+        lastPublishedPrompt = prompt
+        lastPublishedInput = input
+
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            if promptChanged { self.activePrompt = prompt }
+            if linesChanged { self.conversationLines = lines }
+            if inputChanged { self.pendingInputText = input }
         }
     }
 

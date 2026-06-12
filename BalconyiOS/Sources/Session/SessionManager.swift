@@ -596,7 +596,7 @@ final class SessionManager {
         do {
             let payload = try message.decodePayload(TerminalDataPayload.self)
             guard payload.sessionId == activeSession?.id else { return }
-            parser?.feed(bytes: Array(payload.data))
+            parser?.feed(data: payload.data)
             logger.debug("Terminal data for \(payload.sessionId): \(payload.data.count) bytes")
         } catch {
             logger.error("Failed to decode terminal data: \(error.localizedDescription)")

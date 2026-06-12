@@ -252,6 +252,10 @@ struct SidebarContainerView: View {
                                     sessionManager.dismissRewindPicker()
                                 }
                             )
+                            // Per-session view identity: switching sessions
+                            // resets all conversation state (scroll position,
+                            // initial-scroll flags, typed input).
+                            .id(session.id)
                             // Stale data reads as stale: dim while disconnected.
                             .opacity(connectionManager.isConnected ? 1 : 0.8)
                             .saturation(connectionManager.isConnected ? 1 : 0.85)
