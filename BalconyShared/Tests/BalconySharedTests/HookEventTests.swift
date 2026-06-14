@@ -166,6 +166,50 @@ final class HookEventTests: XCTestCase {
         XCTAssertEqual(decoded.toolInput?["command"]?.stringValue, "ls -la")
     }
 
+    // MARK: - Balcony PTY Session ID (CLI-wrapper marker)
+
+    /// A session started via the Balcony CLI wrapper carries `balcony_pty_session_id`.
+    /// BalconyMac uses a non-nil value to decide a hook event is interactive (has a PTY
+    /// bridge) and should surface notifications; nil events are dropped.
+    func testDecodeIncludesBalconyPtySessionId() throws {
+        let json = """
+        {
+          "hook_event_name": "PermissionRequest",
+          "session_id": "wrapped-session",
+          "tool_name": "Bash",
+          "tool_input": {"command": "ls -la"},
+          "balcony_pty_session_id": "B6F2C0D1-1234-4567-89AB-CDEF01234567"
+        }
+        """.data(using: .utf8)!
+
+        let event = try JSONDecoder().decode(HookEvent.self, from: json)
+
+        XCTAssertEqual(event.balconyPtySessionId, "B6F2C0D1-1234-4567-89AB-CDEF01234567")
+
+        // The marker propagates into the parsed prompt info as ptySessionId.
+        let info = PermissionPromptInfo.from(event)
+        XCTAssertEqual(info?.ptySessionId, "B6F2C0D1-1234-4567-89AB-CDEF01234567")
+    }
+
+    /// A plain `claude` process (not launched through the Balcony CLI) has no
+    /// BALCONY_PTY_SESSION_ID, so the field is absent and decodes to nil — the
+    /// signal BalconyMac uses to suppress non-interactive notifications.
+    func testBalconyPtySessionIdNilForPlainClaude() throws {
+        let json = """
+        {
+          "hook_event_name": "PermissionRequest",
+          "session_id": "plain-session",
+          "tool_name": "Bash",
+          "tool_input": {"command": "ls -la"}
+        }
+        """.data(using: .utf8)!
+
+        let event = try JSONDecoder().decode(HookEvent.self, from: json)
+
+        XCTAssertNil(event.balconyPtySessionId)
+        XCTAssertNil(PermissionPromptInfo.from(event)?.ptySessionId)
+    }
+
     // MARK: - PermissionPromptInfo
 
     func testPermissionPromptInfoFromBashEvent() {

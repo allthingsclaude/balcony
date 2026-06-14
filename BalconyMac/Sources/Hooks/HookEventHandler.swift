@@ -134,6 +134,17 @@ final class HookEventHandler: ObservableObject {
 
     /// Handle a raw hook event from HookListener.
     func handleHookEvent(_ event: HookEvent) {
+        // Only surface events from sessions running within the Balcony CLI wrapper.
+        // The wrapper injects BALCONY_PTY_SESSION_ID, which the hook handler script
+        // forwards as `balcony_pty_session_id`. A nil value means this is a plain
+        // `claude` process with no PTY bridge — prompts forwarded to the phone (and
+        // idle-prompt text responses) would be dead-ends, so we drop these events
+        // entirely rather than show non-interactive notifications.
+        guard event.balconyPtySessionId != nil else {
+            logger.debug("Ignoring hook event from non-Balcony session: \(event.hookEventName) session=\(event.sessionId)")
+            return
+        }
+
         logger.info("Hook event: \(event.hookEventName) session=\(event.sessionId)")
 
         switch event.hookEventName {
