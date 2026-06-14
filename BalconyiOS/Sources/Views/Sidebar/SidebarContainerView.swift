@@ -192,6 +192,7 @@ struct SidebarContainerView: View {
                             ConversationView(
                                 lines: sessionManager.conversationLines,
                                 transcriptEvents: sessionManager.transcriptEvents,
+                                optimisticMessages: sessionManager.optimisticMessages,
                                 slashCommands: sessionManager.slashCommands,
                                 projectFiles: sessionManager.projectFiles,
                                 activePrompt: sessionManager.activePrompt,
@@ -210,6 +211,9 @@ struct SidebarContainerView: View {
                                     Task {
                                         await sessionManager.sendInput(text, to: session)
                                     }
+                                },
+                                onMessageSubmitted: { text in
+                                    sessionManager.registerOptimisticMessage(text)
                                 },
                                 onSubmitAskUserQuestion: { answers in
                                     Task { await sessionManager.submitAskUserQuestionResponse(answers: answers) }

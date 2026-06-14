@@ -11,6 +11,8 @@ struct ConversationView: View {
     /// Structured transcript (parsed from the session JSONL) — the reliable
     /// source for settled conversation history.
     let transcriptEvents: [TranscriptEvent]
+    /// Just-sent messages shown immediately (dimmed) until they land in the JSONL.
+    let optimisticMessages: [TranscriptEvent]
     let slashCommands: [SlashCommandInfo]
     let projectFiles: [String]
     let activePrompt: InteractivePrompt?
@@ -26,6 +28,9 @@ struct ConversationView: View {
     let showRewindPicker: Bool
     let pendingAskUserQuestion: AskUserQuestionPayload?
     var onSendInput: ((String) -> Void)?
+    /// Called with a plain message's text the moment it's submitted, for
+    /// optimistic rendering (before the Mac round-trips it into the JSONL).
+    var onMessageSubmitted: ((String) -> Void)?
     var onSubmitAskUserQuestion: (([String: String]) -> Void)?
     var onDismissAskUserQuestion: (() -> Void)?
     var onSelectSession: ((SessionInfo) -> Void)?
@@ -116,10 +121,10 @@ struct ConversationView: View {
         transcriptEvents.filter { !$0.isSidechain }
     }
 
-    /// True when the last settled turn is the user's — i.e. the assistant's
-    /// reply is in flight and hasn't landed in the JSONL yet.
+    /// True when the assistant's reply is in flight — either the last settled
+    /// turn is the user's, or we have an optimistic (just-sent) message pending.
     private var awaitingReply: Bool {
-        transcriptEvents.last?.role == .user
+        transcriptEvents.last?.role == .user || !optimisticMessages.isEmpty
     }
 
     /// The in-flight assistant reply, scraped from the live PTY tail so it
@@ -142,7 +147,26 @@ struct ConversationView: View {
             text = String(text.dropFirst()).trimmingCharacters(in: .whitespaces)
         }
         guard !text.isEmpty else { return nil }
+        // Until the PTY renders the new user turn, the "assistant after the last
+        // user marker" can still be the *previous* answer. Suppress it if it
+        // echoes a recently-settled reply, so the old message doesn't flash back.
+        if Self.echoesRecentAssistant(text, in: transcriptEvents) { return nil }
         return TranscriptEvent(id: "live-tail", role: .assistant, blocks: [.text(text)])
+    }
+
+    private static func normalizedPrefix(_ s: String) -> String {
+        String(s.lowercased().split(whereSeparator: \.isWhitespace).joined(separator: " ").prefix(64))
+    }
+
+    private static func echoesRecentAssistant(_ text: String, in events: [TranscriptEvent]) -> Bool {
+        let prefix = normalizedPrefix(text)
+        guard !prefix.isEmpty else { return false }
+        for event in events.suffix(4) where event.role == .assistant {
+            for case .text(let settled) in event.blocks where normalizedPrefix(settled) == prefix {
+                return true
+            }
+        }
+        return false
     }
 
     /// Character count of the live tail — drives auto-scroll as the reply streams.
@@ -151,9 +175,9 @@ struct ConversationView: View {
         return t.count
     }
 
-    /// Structural item count (settled turns + the in-flight slot) for scroll/anim.
+    /// Structural item count (settled turns + optimistic + in-flight slot) for scroll/anim.
     private var displayCount: Int {
-        visibleTranscript.count + (awaitingReply ? 1 : 0)
+        visibleTranscript.count + optimisticMessages.count + (awaitingReply ? 1 : 0)
     }
 
     var body: some View {
@@ -172,6 +196,15 @@ struct ConversationView: View {
                         // JSONL transcript (no PTY screen-scrape guessing).
                         ForEach(visibleTranscript) { event in
                             TranscriptEventView(event: event)
+                                .padding(.horizontal, 12)
+                                .id(event.id)
+                        }
+
+                        // Optimistic just-sent messages — dimmed until the Mac
+                        // echoes them back into the JSONL.
+                        ForEach(optimisticMessages) { event in
+                            TranscriptEventView(event: event)
+                                .opacity(0.55)
                                 .padding(.horizontal, 12)
                                 .id(event.id)
                         }
@@ -502,11 +535,11 @@ struct ConversationView: View {
         .onChange(of: pendingInputText) { newValue in
             // Don't sync Mac's terminal input while a picker is active
             guard !isSessionPickerActive && !isModelPickerActive && !isRewindPickerActive else { return }
-            // Sync Mac's terminal input → iOS input field.
-            // Skip if the iOS user typed recently — those updates are just echoes
-            // of keystrokes we already sent. Once typing pauses (>0.5s), resume
-            // syncing so Mac-originated edits come through.
-            guard newValue != inputText else { return }
+            // Pre-fill the composer from the Mac's input box only when the local
+            // field is EMPTY. Never overwrite text the user is composing: the
+            // Mac's echo lags and can drop characters, and clobbering the field
+            // mid-edit is what made messages feel laggy and send only partially.
+            guard inputText.isEmpty, !newValue.isEmpty, newValue != previousText else { return }
             let elapsed = Date().timeIntervalSince(lastLocalKeystroke)
             guard elapsed > 0.5 else { return }
             previousText = newValue
@@ -607,6 +640,12 @@ struct ConversationView: View {
             // Show native rewind picker (computed locally, no Mac round-trip)
             onRequestRewind?()
         } else {
+            // Optimistically render plain messages immediately (slash/bash/
+            // background inputs render differently or not at all in the JSONL,
+            // so they're excluded — they'd never get matched/removed).
+            if !trimmed.hasPrefix("/"), !trimmed.hasPrefix("!"), !trimmed.hasPrefix("&") {
+                onMessageSubmitted?(trimmed)
+            }
             onSendInput?("\r")
         }
 
@@ -1264,6 +1303,7 @@ private struct ConversationEmptyView: View {
                 .toolUse(id: "t1", name: "Read", input: "src/auth/login.ts"),
             ]),
         ],
+        optimisticMessages: [],
         slashCommands: [
             .init(name: "help", description: "Get help with Claude Code", source: .builtIn),
             .init(name: "compact", description: "Compact conversation with summary", source: .builtIn),

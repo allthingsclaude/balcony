@@ -39,6 +39,10 @@ final class SessionManager {
     /// `conversationLines` supply only the in-flight reply tail.
     var transcriptEvents: [TranscriptEvent] = []
 
+    /// Messages the user just sent, shown immediately (dimmed) before the Mac
+    /// round-trips them into the JSONL. Pruned as the real events arrive.
+    var optimisticMessages: [TranscriptEvent] = []
+
     /// Slash commands available for the active session.
     var slashCommands: [SlashCommandInfo] = []
 
@@ -169,6 +173,7 @@ final class SessionManager {
         activeSession = session
         conversationLines = []
         transcriptEvents = []
+        optimisticMessages = []
         slashCommands = []
         projectFiles = []
 
@@ -580,6 +585,7 @@ final class SessionManager {
                 parser = nil
                 conversationLines = []
                 transcriptEvents = []
+                optimisticMessages = []
                 activePrompt = nil
                 pendingHookData = nil
                 pendingIdlePrompt = nil
@@ -618,16 +624,45 @@ final class SessionManager {
             guard payload.sessionId == activeSession?.id else { return }
             if payload.reset {
                 transcriptEvents = payload.events
+                // A reset (initial load, /clear, rewrite) supersedes any pending sends.
+                optimisticMessages = []
             } else {
                 // Append, de-duplicating by event id (defends against snapshot/
                 // delta overlap on reconnect).
                 let existing = Set(transcriptEvents.map(\.id))
                 transcriptEvents.append(contentsOf: payload.events.filter { !existing.contains($0.id) })
             }
+            pruneOptimisticMessages(against: payload.events)
             logger.debug("Transcript events for \(payload.sessionId): +\(payload.events.count) reset=\(payload.reset)")
         } catch {
             logger.error("Failed to decode transcript events: \(error.localizedDescription)")
         }
+    }
+
+    /// Append an optimistic copy of a just-sent message so it shows immediately.
+    func registerOptimisticMessage(_ text: String) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        optimisticMessages.append(
+            TranscriptEvent(id: "optimistic-\(UUID().uuidString)", role: .user, blocks: [.text(trimmed)])
+        )
+    }
+
+    /// Drop optimistic messages whose real `user` event has now arrived from the JSONL.
+    private func pruneOptimisticMessages(against events: [TranscriptEvent]) {
+        guard !optimisticMessages.isEmpty else { return }
+        let landed = Set(events.filter { $0.role == .user }.compactMap { Self.firstText($0) })
+        guard !landed.isEmpty else { return }
+        optimisticMessages.removeAll { om in
+            Self.firstText(om).map { landed.contains($0) } ?? false
+        }
+    }
+
+    private static func firstText(_ event: TranscriptEvent) -> String? {
+        for block in event.blocks {
+            if case .text(let t) = block { return t.trimmingCharacters(in: .whitespacesAndNewlines) }
+        }
+        return nil
     }
 
     private func handleSlashCommands(_ message: BalconyMessage) {

@@ -51,6 +51,13 @@ public enum TranscriptParser {
         let blocks = parseContent(message["content"], role: role)
         guard !blocks.isEmpty else { return nil }
 
+        // Skip Claude Code's synthetic command bookkeeping — the caveat banner,
+        // the `<command-name>…` echo of a slash command, and bash IO wrappers —
+        // which it records as `user` messages but are not real conversation.
+        if role == .user, case .text(let text)? = blocks.first, isCommandMeta(text) {
+            return nil
+        }
+
         return TranscriptEvent(
             id: uuid,
             role: role,
@@ -58,6 +65,27 @@ public enum TranscriptParser {
             timestamp: parseTimestamp(obj["timestamp"]),
             isSidechain: obj["isSidechain"] as? Bool ?? false
         )
+    }
+
+    /// Tags Claude Code uses to wrap synthetic `user` messages that are command
+    /// bookkeeping, not real input. Detected by leading tag so a real message
+    /// that merely mentions one of these words isn't dropped.
+    private static let commandMetaPrefixes = [
+        "<local-command-caveat>",
+        "<local-command-stdout>",
+        "<local-command-stderr>",
+        "<command-name>",
+        "<command-message>",
+        "<command-args>",
+        "<command-contents>",
+        "<bash-input>",
+        "<bash-stdout>",
+        "<bash-stderr>",
+    ]
+
+    private static func isCommandMeta(_ text: String) -> Bool {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        return commandMetaPrefixes.contains { trimmed.hasPrefix($0) }
     }
 
     // MARK: - Content
