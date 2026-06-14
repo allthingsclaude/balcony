@@ -17,7 +17,10 @@ import os
 final class TranscriptTailer: @unchecked Sendable {
     private let logger = Logger(subsystem: "com.balcony.mac", category: "TranscriptTailer")
 
-    private let path: String
+    /// The transcript file currently being tailed. Mutable: `/clear` (and
+    /// `/resume`) start a new session file, which the directory watch detects
+    /// and switches to.
+    private var path: String
     private let sessionId: String
     private let onEvents: @Sendable (TranscriptEventsPayload) -> Void
 
@@ -33,6 +36,10 @@ final class TranscriptTailer: @unchecked Sendable {
 
     private var source: DispatchSourceFileSystemObject?
     private var fd: Int32 = -1
+    /// Watches the parent directory so a newly-created active transcript (e.g.
+    /// `/clear`) is picked up — the per-file watch only sees the file we hold.
+    private var dirSource: DispatchSourceFileSystemObject?
+    private var dirFD: Int32 = -1
 
     /// - Parameters:
     ///   - path: absolute path to the session JSONL (from `HookEvent.transcriptPath`).
@@ -50,6 +57,7 @@ final class TranscriptTailer: @unchecked Sendable {
         queue.async { [weak self] in
             self?.snapshot()
             self?.beginWatching()
+            self?.beginWatchingDirectory()
         }
     }
 
@@ -57,6 +65,8 @@ final class TranscriptTailer: @unchecked Sendable {
         queue.async { [weak self] in
             self?.source?.cancel()
             self?.source = nil
+            self?.dirSource?.cancel()
+            self?.dirSource = nil
         }
     }
 
@@ -149,6 +159,58 @@ final class TranscriptTailer: @unchecked Sendable {
         source = nil
         snapshot()
         beginWatching()
+    }
+
+    /// Watch the parent directory. Directory vnode events fire when entries are
+    /// added/removed — i.e. when `/clear` (or `/resume`) spins up a new session
+    /// file — which the per-file watch can't see.
+    private func beginWatchingDirectory() {
+        let dirPath = (path as NSString).deletingLastPathComponent
+        dirFD = open(dirPath, O_EVTONLY)
+        guard dirFD >= 0 else {
+            logger.error("open(O_EVTONLY) failed for dir \(dirPath, privacy: .public)")
+            return
+        }
+        let src = DispatchSource.makeFileSystemObjectSource(
+            fileDescriptor: dirFD,
+            eventMask: [.write],
+            queue: queue
+        )
+        src.setEventHandler { [weak self] in self?.checkForNewerTranscript() }
+        src.setCancelHandler { [dirFD = self.dirFD] in if dirFD >= 0 { close(dirFD) } }
+        dirSource = src
+        src.resume()
+    }
+
+    /// If a newer non-agent transcript has appeared in the directory (the session
+    /// was cleared/replaced), switch to it and re-snapshot — the reset batch
+    /// clears the stale conversation on iOS.
+    private func checkForNewerTranscript() {
+        let dir = URL(fileURLWithPath: path).deletingLastPathComponent()
+        guard let latest = Self.latestJSONL(inDirectory: dir), latest != path else { return }
+        logger.info("Active transcript changed for session \(self.sessionId, privacy: .public) → \(latest, privacy: .public)")
+        source?.cancel()
+        source = nil
+        path = latest
+        snapshot()
+        beginWatching()
+    }
+
+    /// Most-recently-modified non-agent `.jsonl` in a directory, or nil.
+    static func latestJSONL(inDirectory dir: URL) -> String? {
+        guard let files = try? FileManager.default.contentsOfDirectory(
+            at: dir,
+            includingPropertiesForKeys: [.contentModificationDateKey],
+            options: [.skipsHiddenFiles]
+        ) else { return nil }
+        let latest = files
+            .filter { $0.pathExtension == "jsonl" && !$0.lastPathComponent.hasPrefix("agent-") }
+            .max { a, b in
+                let da = (try? a.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+                let db = (try? b.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+                return da < db
+            }
+        return latest?.path
     }
 
     // MARK: - Helpers (queue-confined)

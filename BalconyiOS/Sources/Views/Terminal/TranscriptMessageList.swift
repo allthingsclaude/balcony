@@ -102,24 +102,38 @@ private struct RoleContainer: ViewModifier {
 
 // MARK: - Working Indicator
 
-/// Immediate "Claude is working" feedback shown while a reply is in flight and
-/// before the live PTY tail has any text.
+/// In-flight "Claude is working" loader shown before the reply starts streaming.
+/// Mimics Claude Code's terminal spinner: a star glyph that pulses through the
+/// dingbat frames while a whimsical gerund cycles every few seconds.
 struct WorkingIndicator: View {
-    @State private var animating = false
+    /// Grow-then-shrink star cycle — reads as a pulsing spinner.
+    private static let frames = ["·", "✢", "✳", "✶", "✻", "✽", "✻", "✶", "✳", "✢"]
+    private static let phrases = [
+        "Brewing", "Conjuring", "Noodling", "Percolating", "Simmering",
+        "Pondering", "Marinating", "Ruminating", "Cooking", "Schlepping",
+        "Vibing", "Tinkering", "Mustering", "Channelling", "Synthesizing",
+    ]
+    private static let frameInterval = 0.11
+    private static let phraseInterval = 2.5
+
+    @State private var start = Date()
 
     var body: some View {
-        HStack(spacing: 8) {
-            Circle()
-                .fill(BalconyTheme.accent)
-                .frame(width: 7, height: 7)
-                .opacity(animating ? 0.25 : 1)
-                .animation(.easeInOut(duration: 0.7).repeatForever(autoreverses: true), value: animating)
-            Text("Working…")
-                .font(BalconyTheme.bodyFont(14))
-                .foregroundStyle(BalconyTheme.textSecondary)
+        TimelineView(.periodic(from: start, by: Self.frameInterval)) { context in
+            let elapsed = context.date.timeIntervalSince(start)
+            let glyph = Self.frames[Int(elapsed / Self.frameInterval) % Self.frames.count]
+            let phrase = Self.phrases[Int(elapsed / Self.phraseInterval) % Self.phrases.count]
+            HStack(spacing: 8) {
+                Text(glyph)
+                    .font(BalconyTheme.monoFont(15))
+                    .foregroundStyle(BalconyTheme.accent)
+                    .frame(width: 14, alignment: .leading)
+                Text(phrase + "…")
+                    .font(BalconyTheme.bodyFont(14))
+                    .foregroundStyle(BalconyTheme.textSecondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .onAppear { animating = true }
     }
 }
 
