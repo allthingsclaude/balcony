@@ -39,7 +39,9 @@ struct TranscriptMessageList: View {
 
 // MARK: - Event
 
-private struct TranscriptEventView: View {
+/// Renders one transcript turn (user/assistant) and its content blocks.
+/// Reused by the hybrid `ConversationView` to render settled history.
+struct TranscriptEventView: View {
     let event: TranscriptEvent
 
     var body: some View {
@@ -95,6 +97,29 @@ private struct RoleContainer: ViewModifier {
         case .assistant:
             content
         }
+    }
+}
+
+// MARK: - Working Indicator
+
+/// Immediate "Claude is working" feedback shown while a reply is in flight and
+/// before the live PTY tail has any text.
+struct WorkingIndicator: View {
+    @State private var animating = false
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Circle()
+                .fill(BalconyTheme.accent)
+                .frame(width: 7, height: 7)
+                .opacity(animating ? 0.25 : 1)
+                .animation(.easeInOut(duration: 0.7).repeatForever(autoreverses: true), value: animating)
+            Text("Working…")
+                .font(BalconyTheme.bodyFont(14))
+                .foregroundStyle(BalconyTheme.textSecondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .onAppear { animating = true }
     }
 }
 

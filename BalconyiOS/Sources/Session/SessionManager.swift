@@ -35,8 +35,8 @@ final class SessionManager {
     var conversationLines: [TerminalLine] = []
 
     /// Structured transcript events parsed from the session JSONL on the Mac.
-    /// The reliable alternative to `conversationLines`; rendered by
-    /// `TranscriptMessageList` when the transcript view is toggled on.
+    /// Rendered by `ConversationView` as settled history; the live PTY
+    /// `conversationLines` supply only the in-flight reply tail.
     var transcriptEvents: [TranscriptEvent] = []
 
     /// Slash commands available for the active session.

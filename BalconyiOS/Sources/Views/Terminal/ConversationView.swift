@@ -5,7 +5,12 @@ import BalconyShared
 /// Renders parsed terminal conversation lines with a native input bar.
 /// Keystrokes are streamed live to the Mac terminal as the user types.
 struct ConversationView: View {
+    /// Live PTY-parsed lines. Used only for the in-flight reply tail now that
+    /// settled history is rendered from the structured `transcriptEvents`.
     let lines: [TerminalLine]
+    /// Structured transcript (parsed from the session JSONL) — the reliable
+    /// source for settled conversation history.
+    let transcriptEvents: [TranscriptEvent]
     let slashCommands: [SlashCommandInfo]
     let projectFiles: [String]
     let activePrompt: InteractivePrompt?
@@ -44,11 +49,6 @@ struct ConversationView: View {
     /// Track previous line count to only auto-scroll when content grows.
     @State private var lastLineCount = 0
     @State private var showEmptyState = false
-    /// Grouped display blocks, recomputed only when `lines` (or the
-    /// AskUserQuestion strip state) changes. Body re-evaluations triggered by
-    /// local state — every keystroke in the input field — reuse the cache
-    /// instead of regrouping the whole conversation.
-    @State private var cachedBlocks: [ConversationBlock] = []
     @State private var showSlashMenu = false
     @State private var showFilePicker = false
     @State private var showBashMode = false
@@ -109,9 +109,56 @@ struct ConversationView: View {
         return String(after)
     }
 
+    // MARK: - Hybrid Transcript / Live Tail
+
+    /// Settled history to render (sub-agent turns hidden, matching the TUI).
+    private var visibleTranscript: [TranscriptEvent] {
+        transcriptEvents.filter { !$0.isSidechain }
+    }
+
+    /// True when the last settled turn is the user's — i.e. the assistant's
+    /// reply is in flight and hasn't landed in the JSONL yet.
+    private var awaitingReply: Bool {
+        transcriptEvents.last?.role == .user
+    }
+
+    /// The in-flight assistant reply, scraped from the live PTY tail so it
+    /// streams token-by-token. Shown only until the JSONL transcript catches up
+    /// (at which point `awaitingReply` flips false). Nil before the first token.
+    private var liveTailEvent: TranscriptEvent? {
+        guard awaitingReply else { return nil }
+        // The reply must be the assistant block AFTER the latest user message —
+        // not the previous turn's reply still sitting in the PTY scrollback.
+        let afterUser = lines.lastIndex(where: { $0.markerRole == .user }).map { lines.index(after: $0) } ?? lines.startIndex
+        guard afterUser <= lines.endIndex,
+              let start = lines[afterUser...].firstIndex(where: { $0.markerRole == .assistant }) else { return nil }
+        var text = lines[start...]
+            .filter { $0.markerRole != .spinner }
+            .map { $0.segments.map(\.text).joined() }
+            .joined(separator: "\n")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        // Strip the leading assistant marker (· / ›) the PTY parser leaves in.
+        if let first = text.first, first == "\u{00B7}" || first == "\u{203A}" {
+            text = String(text.dropFirst()).trimmingCharacters(in: .whitespaces)
+        }
+        guard !text.isEmpty else { return nil }
+        return TranscriptEvent(id: "live-tail", role: .assistant, blocks: [.text(text)])
+    }
+
+    /// Character count of the live tail — drives auto-scroll as the reply streams.
+    private var liveTailCharCount: Int {
+        guard case .text(let t)? = liveTailEvent?.blocks.first else { return 0 }
+        return t.count
+    }
+
+    /// Structural item count (settled turns + the in-flight slot) for scroll/anim.
+    private var displayCount: Int {
+        visibleTranscript.count + (awaitingReply ? 1 : 0)
+    }
+
     var body: some View {
         ZStack(alignment: .bottom) {
-            if lines.isEmpty && showEmptyState {
+            if transcriptEvents.isEmpty && !awaitingReply && showEmptyState {
                 ConversationEmptyView()
                     .transition(.opacity.animation(.easeIn(duration: 0.5)))
             }
@@ -120,65 +167,26 @@ struct ConversationView: View {
             ScrollViewReader { proxy in
                 ZStack(alignment: .bottom) {
                 ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 0) {
-                        ForEach(cachedBlocks, id: \.id) { block in
-                            switch block {
-                            case .spacer:
-                                Color.clear
-                                    .frame(height: 18)
-                            case .line(let line):
-                                TerminalLineView(line: line)
-                                    .equatable()
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, line.markerRole == .user ? 6 : 0)
-                                    .background(line.markerRole == .user ? BalconyTheme.surfaceSecondary : Color.clear)
-                                    .overlay(alignment: .leading) {
-                                        if line.markerRole == .user {
-                                            Rectangle()
-                                                .fill(BalconyTheme.accent)
-                                                .frame(width: 3)
-                                        }
-                                    }
-                                    .id(line.id)
-                                    .contextMenu {
-                                        Button {
-                                            UIPasteboard.general.string = plainText(of: line)
-                                        } label: {
-                                            Label("Copy Line", systemImage: "doc.on.doc")
-                                        }
-                                        Button {
-                                            UIPasteboard.general.string = messageText(containing: line)
-                                        } label: {
-                                            Label("Copy Message", systemImage: "text.quote")
-                                        }
-                                        ShareLink(item: messageText(containing: line)) {
-                                            Label("Share Message", systemImage: "square.and.arrow.up")
-                                        }
-                                    }
-                            case .table(let rows):
-                                ScrollView(.horizontal, showsIndicators: true) {
-                                    VStack(alignment: .leading, spacing: 0) {
-                                        ForEach(rows) { row in
-                                            buildStyledText(from: row.segments)
-                                                .font(.system(size: 13, design: .monospaced))
-                                        }
-                                    }
-                                    // Left padding aligns content with text after marker column.
-                                    .padding(.leading, 24)
-                                    .padding(.trailing, 20)
-                                }
-                                .overlay(codeBlockFadeOverlay)
-                                .id(rows.first?.id ?? -1)
-                                .contextMenu {
-                                    Button {
-                                        UIPasteboard.general.string = rows
-                                            .map { $0.segments.map(\.text).joined() }
-                                            .joined(separator: "\n")
-                                    } label: {
-                                        Label("Copy Block", systemImage: "doc.on.doc")
-                                    }
-                                }
-                            }
+                    LazyVStack(alignment: .leading, spacing: BalconyTheme.spacingMD) {
+                        // Settled history — rendered natively from the structured
+                        // JSONL transcript (no PTY screen-scrape guessing).
+                        ForEach(visibleTranscript) { event in
+                            TranscriptEventView(event: event)
+                                .padding(.horizontal, 12)
+                                .id(event.id)
+                        }
+
+                        // In-flight reply: stream the live PTY tail until the
+                        // JSONL transcript catches up; show a working dot before
+                        // the first token lands.
+                        if let tail = liveTailEvent {
+                            TranscriptEventView(event: tail)
+                                .padding(.horizontal, 12)
+                                .id("live-tail")
+                        } else if awaitingReply {
+                            WorkingIndicator()
+                                .padding(.horizontal, 12)
+                                .id("live-tail")
                         }
 
                         // "Near bottom" detector — sits just above the input-bar
@@ -214,7 +222,7 @@ struct ConversationView: View {
                     .padding(.top, 8)
                     // Suppress implicit animations to prevent layout jitter
                     // during rapid content updates (spinner, streaming).
-                    .animation(nil, value: lines.count)
+                    .animation(nil, value: displayCount)
                 }
                 // Native bottom anchoring. History replay arrives after the
                 // view mounts, so proxy-based scrolling races LazyVStack
@@ -228,16 +236,19 @@ struct ConversationView: View {
                 // Drag the conversation down to dismiss the keyboard (tap
                 // outside still works via handleOutsideTap above).
                 .scrollDismissesKeyboard(.interactively)
-                .onChange(of: lines.count) { newCount in
+                .onChange(of: displayCount) { newCount in
                     if needsInitialScroll {
                         scrollToBottom(proxy: proxy, animated: false)
                     } else if isNearBottom && newCount >= lastLineCount {
-                        // Only auto-scroll when content grows (not on count
-                        // oscillation from spinner/joining changes). Non-animated
-                        // to prevent jitter during rapid streaming updates.
+                        // Only auto-scroll when content grows. Non-animated to
+                        // prevent jitter during rapid streaming updates.
                         scrollToBottom(proxy: proxy, animated: false)
                     }
                     lastLineCount = newCount
+                }
+                // Follow the in-flight reply as its text streams in.
+                .onChange(of: liveTailCharCount) { _ in
+                    if isNearBottom { scrollToBottom(proxy: proxy, animated: false) }
                 }
                 .onAppear {
                     scrollToBottom(proxy: proxy, animated: false)
@@ -460,24 +471,13 @@ struct ConversationView: View {
         .background {
             BalconyTheme.background.ignoresSafeArea()
         }
-        .task(id: lines.isEmpty) {
+        .task(id: transcriptEvents.isEmpty) {
             showEmptyState = false
-            guard lines.isEmpty else { return }
+            guard transcriptEvents.isEmpty else { return }
             // Brief delay so the empty state doesn't flash during initial load
             try? await Task.sleep(nanoseconds: 300_000_000)
             guard !Task.isCancelled else { return }
             showEmptyState = true
-        }
-        .onAppear {
-            cachedBlocks = computeGroupedBlocks()
-        }
-        .onChange(of: lines) { _ in
-            cachedBlocks = computeGroupedBlocks()
-        }
-        .onChange(of: pendingAskUserQuestion == nil) { _ in
-            // Grouping strips the AskUserQuestion TUI while the native card
-            // shows, so the cache depends on its presence too.
-            cachedBlocks = computeGroupedBlocks()
         }
         .onChange(of: activePrompt) { _ in
             // Reset the guard when the prompt changes (new prompt or cleared).
@@ -529,7 +529,7 @@ struct ConversationView: View {
     // MARK: - Scrolling
 
     private func scrollToBottom(proxy: ScrollViewProxy, animated: Bool) {
-        guard !lines.isEmpty else { return }
+        guard !transcriptEvents.isEmpty || awaitingReply else { return }
         let go = {
             if animated {
                 withAnimation(.easeOut(duration: 0.15)) {
@@ -1257,6 +1257,13 @@ private struct ConversationEmptyView: View {
 
     ConversationView(
         lines: sampleLines,
+        transcriptEvents: [
+            TranscriptEvent(id: "u1", role: .user, blocks: [.text("help me fix the login bug")]),
+            TranscriptEvent(id: "a1", role: .assistant, blocks: [
+                .text("I'll look into the login flow."),
+                .toolUse(id: "t1", name: "Read", input: "src/auth/login.ts"),
+            ]),
+        ],
         slashCommands: [
             .init(name: "help", description: "Get help with Claude Code", source: .builtIn),
             .init(name: "compact", description: "Compact conversation with summary", source: .builtIn),
