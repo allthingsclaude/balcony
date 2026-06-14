@@ -200,5 +200,18 @@
                 sparkle:edSignature="vGG5mT2E8jRe9pbFlqZKQq//1t+MmTeGyOG7ZUUs5DT2dMBQXljfWlb1px07L4+F18zikRQCsfkp5Kz09JmhAQ=="
             />
         </item>
+            <item>
+            <title>Version 0.1.29</title>
+            <pubDate>Sun, 14 Jun 2026 17:00:44 +0000</pubDate>
+            <sparkle:version>257</sparkle:version>
+            <sparkle:shortVersionString>0.1.29</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <enclosure
+                url="https://github.com/allthingsclaude/balcony/releases/download/v0.1.29/Balcony-0.1.29.dmg"
+                length="10723033"
+                type="application/octet-stream"
+                sparkle:edSignature="B1AIi4IMEmUy49hAPikAwFCLywJmdmt4+58o6cQwZlofKlc+STMSt7sW9165Zoi16s4GR0hNjZ4RXD3jZ6d6CA=="
+            />
+        </item>
     </channel>
 </rss>
