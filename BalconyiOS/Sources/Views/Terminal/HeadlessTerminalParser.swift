@@ -174,18 +174,23 @@ final class HeadlessTerminalParser: ObservableObject {
                 if scalar == Unicode.Scalar(0x276F) {   // ❯ user
                     rowMarker[i] = .user
                 } else if scalar == Unicode.Scalar(0x23FA) {  // ⏺ assistant
-                    // Only accept DIM ⏺ as assistant marker. Spinner ⏺ frames
-                    // are never dim — they get caught as .spinner below.
-                    if style.isDim {
-                        rowMarker[i] = .assistant
-                    }
+                    // ⏺ (U+23FA) is the assistant message marker — accept it
+                    // regardless of color or dim. Older Claude Code builds
+                    // rendered it dim/magenta; 2.1.x renders it bright white
+                    // (truecolor 255,255,255). The animated spinner uses a
+                    // different glyph family entirely (✢ ✳ ✶ ✻ ✽ ·), never ⏺,
+                    // so the glyph alone identifies the marker. Previously this
+                    // required `style.isDim`, which misclassified the bright
+                    // marker as a spinner — and ConversationView pins spinner
+                    // rows to one line, truncating every assistant message.
+                    rowMarker[i] = .assistant
                 }
 
                 // Spinner detection: non-ASCII non-letter symbol with a
                 // non-default foreground color (the animated spinner color).
-                // Runs after marker checks, so rowMarker[i] == .none means
-                // the character wasn't claimed as ❯ or dim-⏺. Non-dim ⏺
-                // (spinner frame) is caught here too — same color as ✢/✶/✽.
+                // Runs after marker checks, so rowMarker[i] == .none means the
+                // character wasn't claimed as ❯ or ⏺ — spinner frames use the
+                // asterisk/star glyphs (✢ ✳ ✶ ✻ ✽ ·), caught here by color.
                 if rowMarker[i] == .none,
                    scalar.value > 0x7F,
                    !scalar.properties.isAlphabetic,
