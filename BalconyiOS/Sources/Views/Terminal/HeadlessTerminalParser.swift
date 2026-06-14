@@ -568,6 +568,14 @@ final class HeadlessTerminalParser: ObservableObject {
             if let ch = trimmed.first, (ch == "!" || ch == "&"), trimmed.count < 60 {
                 adjusted = k; k -= 1; continue
             }
+            // Absorb Claude Code's transient "working" status block (spinner
+            // progress line + its "⎿ Tip:" companion) that sits directly above
+            // the input box. A real terminal erases it in place, but the erase
+            // can be lost in the reconstructed scrollback, leaving a frozen
+            // "Generating… (running stop hooks…)" loader after the turn settles.
+            if Self.isTransientWorkingStatus(trimmed) {
+                adjusted = k; k -= 1; continue
+            }
             let symbolCount = trimmed.filter { !$0.isLetter && !$0.isNumber && !$0.isWhitespace && $0 != "\0" }.count
             if trimmed.count > 5 && symbolCount * 2 > trimmed.count {
                 adjusted = k; k -= 1; continue
@@ -576,6 +584,31 @@ final class HeadlessTerminalParser: ObservableObject {
         }
 
         return adjusted
+    }
+
+    /// Detect Claude Code's transient "working" status chrome so it can be
+    /// stripped when it lingers above the idle input box.
+    ///
+    /// The live status block is drawn-then-erased on a real terminal: the
+    /// spinner progress line ("✻ Generating… (esc to interrupt · ↓ 1.2k
+    /// tokens)", "✱ … running stop hooks… 1/2 · 2s · ↓ N tokens)") and its
+    /// "⎿ Tip: …" companion. In the reconstructed scrollback that erase can be
+    /// lost, leaving a frozen loader in the transcript. Working state is still
+    /// conveyed by the sidebar status dot, so dropping this block is safe.
+    ///
+    /// Keyed on signals unique to the in-progress state — the live token
+    /// counter ("… tokens)") paired with an I/O arrow (↓/↑), the "esc to
+    /// interrupt" hint, and the "⎿ Tip:" line. Settled summaries such as
+    /// "Worked for 2s" have none of these and are preserved.
+    private static func isTransientWorkingStatus(_ trimmed: String) -> Bool {
+        let lower = trimmed.lowercased()
+        if lower.contains("tokens)") &&
+            (trimmed.contains("\u{2193}") || trimmed.contains("\u{2191}")) {  // ↓ / ↑
+            return true
+        }
+        if lower.contains("esc to interrupt") { return true }
+        if trimmed.hasPrefix("\u{23BF}") && lower.contains("tip:") { return true }  // ⎿ Tip:
+        return false
     }
 
     /// Extract the user's in-progress input from the chrome input box.
