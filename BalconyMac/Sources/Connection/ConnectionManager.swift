@@ -38,6 +38,10 @@ final class ConnectionManager: ObservableObject {
     private let encoder = MessageEncoder()
     private var serverEventTask: Task<Void, Never>?
 
+    /// Active transcript tailers, keyed by PTY session ID. Each streams the
+    /// structured JSONL transcript to that session's subscribers.
+    private var transcriptTailers: [String: TranscriptTailer] = [:]
+
     /// Weak reference to AppDelegate for session picker notifications.
     weak var appDelegate: AppDelegate?
 
@@ -101,6 +105,8 @@ final class ConnectionManager: ObservableObject {
     func stop() async throws {
         serverEventTask?.cancel()
         serverEventTask = nil
+        for tailer in transcriptTailers.values { tailer.stop() }
+        transcriptTailers.removeAll()
         try await webSocketServer.stop()
         bonjourAdvertiser.stopAdvertising()
         blePeripheral.stopAdvertising()
@@ -139,6 +145,99 @@ final class ConnectionManager: ObservableObject {
     /// Check if any iOS clients are currently connected.
     func hasConnectedClients() async -> Bool {
         return !connectedDevices.isEmpty
+    }
+
+    // MARK: - Transcript Streaming
+
+    /// Start (or restart) the structured-transcript tailer for a PTY session.
+    /// Restarting re-snapshots the file so a newly-subscribed client gets the
+    /// full history (`reset: true`) before any append deltas.
+    private func startTranscriptTailer(ptySessionId: String, path explicitPath: String? = nil) async {
+        let resolved: String?
+        if let explicitPath {
+            resolved = explicitPath
+        } else {
+            resolved = await resolveTranscriptPath(ptySessionId: ptySessionId)
+        }
+        guard let path = resolved, FileManager.default.fileExists(atPath: path) else {
+            logger.info("No transcript path for PTY session \(ptySessionId) yet — will start when a hook resolves it")
+            return
+        }
+
+        transcriptTailers[ptySessionId]?.stop()
+        let tailer = TranscriptTailer(path: path, sessionId: ptySessionId) { [weak self] payload in
+            Task { await self?.sendTranscriptEvents(payload) }
+        }
+        transcriptTailers[ptySessionId] = tailer
+        tailer.start()
+        logger.info("Transcript tailer started for \(ptySessionId): \(path, privacy: .public)")
+    }
+
+    /// React to a transcript path becoming known/changed (from a hook event):
+    /// (re)bind the tailer only if the session currently has subscribers.
+    func handleTranscriptPathResolved(ptySessionId: String, path: String) async {
+        guard await webSocketServer.hasSubscribers(for: ptySessionId) else { return }
+        await startTranscriptTailer(ptySessionId: ptySessionId, path: path)
+    }
+
+    /// Send a batch of structured transcript events to a session's subscribers.
+    private func sendTranscriptEvents(_ payload: TranscriptEventsPayload) async {
+        do {
+            let msg = try BalconyMessage.create(type: .transcriptEvents, payload: payload)
+            await webSocketServer.sendToSubscribers(of: payload.sessionId, message: msg)
+        } catch {
+            logger.error("Failed to send transcript events: \(error.localizedDescription)")
+        }
+    }
+
+    /// Stop tailers for sessions that no longer have any subscribers.
+    private func pruneTranscriptTailers() async {
+        // Snapshot keys first — the dictionary is mutated inside the loop.
+        for sessionId in Array(transcriptTailers.keys) {
+            if await webSocketServer.hasSubscribers(for: sessionId) == false {
+                transcriptTailers[sessionId]?.stop()
+                transcriptTailers.removeValue(forKey: sessionId)
+            }
+        }
+    }
+
+    /// Resolve a session's transcript path: prefer the authoritative path from
+    /// hook events, else fall back to the most-recently-modified JSONL in the
+    /// project's `~/.claude/projects/<hash>/` directory (covers sessions that
+    /// haven't fired a hook yet this run).
+    private func resolveTranscriptPath(ptySessionId: String) async -> String? {
+        if let path = hookEventHandler?.transcriptPath(for: ptySessionId),
+           FileManager.default.fileExists(atPath: path) {
+            return path
+        }
+        let sessions = await ptySessionManager.getActiveSessions()
+        guard let projectPath = sessions.first(where: { $0.id == ptySessionId })?.projectPath else {
+            return nil
+        }
+        return Self.latestTranscriptPath(forProjectPath: projectPath)
+    }
+
+    /// Most-recently-modified non-agent `.jsonl` for a project path. Mirrors the
+    /// project-hash scheme Claude Code uses (`/` → `-`).
+    private static func latestTranscriptPath(forProjectPath projectPath: String) -> String? {
+        let hash = projectPath.replacingOccurrences(of: "/", with: "-")
+        let dir = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".claude/projects")
+            .appendingPathComponent(hash)
+        guard let files = try? FileManager.default.contentsOfDirectory(
+            at: dir,
+            includingPropertiesForKeys: [.contentModificationDateKey],
+            options: [.skipsHiddenFiles]
+        ) else { return nil }
+
+        let latest = files
+            .filter { $0.pathExtension == "jsonl" && !$0.lastPathComponent.hasPrefix("agent-") }
+            .max { a, b in
+                let da = (try? a.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+                let db = (try? b.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+                return da < db
+            }
+        return latest?.path
     }
 
     // MARK: - Hook Event Forwarding
@@ -343,6 +442,7 @@ final class ConnectionManager: ObservableObject {
             }
             postDeviceNotification(title: "Device Disconnected", body: "\(deviceName) disconnected", isConnect: false)
             logger.info("Client disconnected: \(client.id)")
+            await pruneTranscriptTailers()
 
         case .messageReceived(let client, let message):
             await handleClientMessage(from: client, message: message)
@@ -401,6 +501,11 @@ final class ConnectionManager: ObservableObject {
 
                 // Resend pending idle prompt if Claude is waiting for input.
                 await resendPendingIdlePrompt(sessionId: sessionId, to: client)
+
+                // Begin streaming the structured JSONL transcript for this
+                // session. Re-(start) on every subscribe so a freshly-joined
+                // client receives a full reset snapshot.
+                await startTranscriptTailer(ptySessionId: sessionId)
             } catch {
                 logger.error("Failed to decode session subscribe: \(error.localizedDescription)")
             }

@@ -31,8 +31,13 @@ final class SessionManager {
     var sessions: [Session] = []
     var activeSession: Session?
 
-    /// Parsed conversation lines from the headless terminal parser.
+    /// Parsed conversation lines from the headless terminal parser (PTY scrape).
     var conversationLines: [TerminalLine] = []
+
+    /// Structured transcript events parsed from the session JSONL on the Mac.
+    /// The reliable alternative to `conversationLines`; rendered by
+    /// `TranscriptMessageList` when the transcript view is toggled on.
+    var transcriptEvents: [TranscriptEvent] = []
 
     /// Slash commands available for the active session.
     var slashCommands: [SlashCommandInfo] = []
@@ -163,6 +168,7 @@ final class SessionManager {
         logger.info("Subscribing to session: \(session.id)")
         activeSession = session
         conversationLines = []
+        transcriptEvents = []
         slashCommands = []
         projectFiles = []
 
@@ -461,6 +467,8 @@ final class SessionManager {
             handleSessionList(message)
         case .terminalData:
             handleTerminalData(message)
+        case .transcriptEvents:
+            handleTranscriptEvents(message)
         case .slashCommands:
             handleSlashCommands(message)
         case .fileList:
@@ -571,6 +579,7 @@ final class SessionManager {
                 pendingInputCancellable = nil
                 parser = nil
                 conversationLines = []
+                transcriptEvents = []
                 activePrompt = nil
                 pendingHookData = nil
                 pendingIdlePrompt = nil
@@ -600,6 +609,24 @@ final class SessionManager {
             logger.debug("Terminal data for \(payload.sessionId): \(payload.data.count) bytes")
         } catch {
             logger.error("Failed to decode terminal data: \(error.localizedDescription)")
+        }
+    }
+
+    private func handleTranscriptEvents(_ message: BalconyMessage) {
+        do {
+            let payload = try message.decodePayload(TranscriptEventsPayload.self)
+            guard payload.sessionId == activeSession?.id else { return }
+            if payload.reset {
+                transcriptEvents = payload.events
+            } else {
+                // Append, de-duplicating by event id (defends against snapshot/
+                // delta overlap on reconnect).
+                let existing = Set(transcriptEvents.map(\.id))
+                transcriptEvents.append(contentsOf: payload.events.filter { !existing.contains($0.id) })
+            }
+            logger.debug("Transcript events for \(payload.sessionId): +\(payload.events.count) reset=\(payload.reset)")
+        } catch {
+            logger.error("Failed to decode transcript events: \(error.localizedDescription)")
         }
     }
 

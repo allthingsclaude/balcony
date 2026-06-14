@@ -306,6 +306,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         connectionManager.appDelegate = self
         connectionManager.hookEventHandler = hookEventHandler
 
+        // When a hook reveals (or changes) a session's transcript path, (re)bind
+        // the structured-transcript tailer if that session is being viewed.
+        hookEventHandler.onTranscriptPathResolved = { [weak self] ptySessionId, path in
+            guard let self else { return }
+            Task { await self.connectionManager.handleTranscriptPathResolved(ptySessionId: ptySessionId, path: path) }
+        }
+
         // Wire voice transcriber to prompt panel controller
         promptPanelController.voiceTranscriber = voiceTranscriber
         voiceTranscriber.checkAuthorization()

@@ -138,6 +138,11 @@ actor WebSocketServer {
         clients.values.filter { $0.isSubscribed(to: sessionId) }
     }
 
+    /// Whether any client is currently subscribed to a session.
+    func hasSubscribers(for sessionId: String) -> Bool {
+        clients.values.contains { $0.isSubscribed(to: sessionId) }
+    }
+
     /// Disconnect a client by its device ID.
     func disconnectClient(deviceId: String) {
         guard let client = clients.values.first(where: { $0.deviceInfo?.id == deviceId }) else {

@@ -61,6 +61,11 @@ final class HookEventHandler: ObservableObject {
     /// One PTY session can host multiple Claude Code sessions.
     private var ptyToClaudeSessionIds: [String: Set<String>] = [:]
 
+    /// Absolute path to each PTY session's JSONL transcript, learned from hook
+    /// events (`transcript_path`). The authoritative source for the transcript
+    /// tailer — no project-path hashing guesswork.
+    private var transcriptPaths: [String: String] = [:]
+
     // MARK: - Callbacks
 
     /// Called when a new permission prompt should be shown on Mac.
@@ -130,6 +135,16 @@ final class HookEventHandler: ObservableObject {
         ptyToClaudeSessionIds[ptySessionId] ?? []
     }
 
+    /// The JSONL transcript path last seen for a PTY session, if any.
+    func transcriptPath(for ptySessionId: String) -> String? {
+        transcriptPaths[ptySessionId]
+    }
+
+    /// Fired when a PTY session's transcript path is first learned or changes
+    /// (e.g. `/clear` starts a new file). Lets the tailer (re)bind to the file.
+    /// Parameters: (ptySessionId, transcriptPath)
+    var onTranscriptPathResolved: ((String, String) -> Void)?
+
     // MARK: - Event Processing
 
     /// Handle a raw hook event from HookListener.
@@ -140,9 +155,16 @@ final class HookEventHandler: ObservableObject {
         // `claude` process with no PTY bridge — prompts forwarded to the phone (and
         // idle-prompt text responses) would be dead-ends, so we drop these events
         // entirely rather than show non-interactive notifications.
-        guard event.balconyPtySessionId != nil else {
+        guard let ptySessionId = event.balconyPtySessionId else {
             logger.debug("Ignoring hook event from non-Balcony session: \(event.hookEventName) session=\(event.sessionId)")
             return
+        }
+
+        // Learn the session's JSONL transcript path from the hook payload. This
+        // is the authoritative source for the structured-transcript tailer.
+        if let path = event.transcriptPath, !path.isEmpty, transcriptPaths[ptySessionId] != path {
+            transcriptPaths[ptySessionId] = path
+            onTranscriptPathResolved?(ptySessionId, path)
         }
 
         logger.info("Hook event: \(event.hookEventName) session=\(event.sessionId)")

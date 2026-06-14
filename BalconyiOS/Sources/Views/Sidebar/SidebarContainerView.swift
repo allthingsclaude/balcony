@@ -13,6 +13,9 @@ struct SidebarContainerView: View {
     @AppStorage("lastSelectedSessionId") private var lastSelectedSessionId: String?
     @State private var isLoading = false
     @State private var showingSettings = false
+    /// Spike toggle: render the structured JSONL transcript (`TranscriptMessageList`)
+    /// instead of the PTY screen scrape (`ConversationView`), for side-by-side comparison.
+    @AppStorage("debug.showTranscript") private var showTranscript = false
     @State private var showDisconnectConfirm = false
     @State private var dragOffset: CGFloat = 0
 
@@ -188,6 +191,12 @@ struct SidebarContainerView: View {
                     Group {
                         if isLoading {
                             loadingView
+                        } else if showTranscript {
+                            // Structured JSONL transcript (spike) — read-only preview.
+                            TranscriptMessageList(events: sessionManager.transcriptEvents)
+                                .id(session.id)
+                                .opacity(connectionManager.isConnected ? 1 : 0.8)
+                                .saturation(connectionManager.isConnected ? 1 : 0.85)
                         } else {
                             ConversationView(
                                 lines: sessionManager.conversationLines,
@@ -272,6 +281,17 @@ struct SidebarContainerView: View {
                     .toolbar {
                         ToolbarItem(placement: .navigationBarLeading) {
                             sidebarButtonWithIndicator
+                        }
+                        ToolbarItem(placement: .navigationBarTrailing) {
+                            Button {
+                                BalconyTheme.hapticLight()
+                                showTranscript.toggle()
+                            } label: {
+                                Image(systemName: showTranscript ? "doc.plaintext" : "terminal")
+                                    .font(.system(size: 15, weight: .medium))
+                                    .foregroundStyle(showTranscript ? BalconyTheme.accent : BalconyTheme.textPrimary)
+                            }
+                            .accessibilityLabel(showTranscript ? "Show terminal view" : "Show transcript view")
                         }
                         ToolbarItem(placement: .navigationBarTrailing) {
                             EscButton {

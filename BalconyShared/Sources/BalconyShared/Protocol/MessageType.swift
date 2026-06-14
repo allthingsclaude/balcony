@@ -20,6 +20,10 @@ public enum MessageType: String, Codable, Sendable, CaseIterable {
     case terminalResize
     case userInput
 
+    // Structured transcript (parsed from the session JSONL) — the reliable
+    // source of truth for settled messages, complementing the PTY stream.
+    case transcriptEvents
+
     // Slash commands
     case slashCommands
 

@@ -598,8 +598,12 @@ final class HeadlessTerminalParser: ObservableObject {
     ///
     /// Keyed on signals unique to the in-progress state — the live token
     /// counter ("… tokens)") paired with an I/O arrow (↓/↑), the "esc to
-    /// interrupt" hint, and the "⎿ Tip:" line. Settled summaries such as
-    /// "Worked for 2s" have none of these and are preserved.
+    /// interrupt" hint, the "⎿ Tip:" line, and a bare animated spinner frame
+    /// ("✶ Swooping…", "✻ Generating…"). The latter is the same glyph family
+    /// as the settled summary ("✻ Sautéed for 3s") but ends in an ellipsis with
+    /// no "for Ns" duration, so summaries are preserved while a frame that lost
+    /// its "(esc to interrupt …)" suffix in the reconstructed scrollback — and
+    /// would otherwise freeze where the turn's settled reply belongs — is dropped.
     private static func isTransientWorkingStatus(_ trimmed: String) -> Bool {
         let lower = trimmed.lowercased()
         if lower.contains("tokens)") &&
@@ -608,6 +612,16 @@ final class HeadlessTerminalParser: ObservableObject {
         }
         if lower.contains("esc to interrupt") { return true }
         if trimmed.hasPrefix("\u{23BF}") && lower.contains("tip:") { return true }  // ⎿ Tip:
+        // Bare spinner frame: a star/asterisk spinner glyph (Dingbats block,
+        // U+2722–U+273F: ✢ ✳ ✶ ✻ ✽ …) followed by a gerund verb ending in an
+        // ellipsis. Excludes the settled "✻ Sautéed for 3s" summary, which has
+        // no ellipsis and carries a "for Ns" duration.
+        if let first = trimmed.unicodeScalars.first,
+           first.value >= 0x2722, first.value <= 0x273F,
+           trimmed.contains("\u{2026}"),  // …
+           trimmed.range(of: #"for \d+\s*[smh]"#, options: .regularExpression) == nil {
+            return true
+        }
         return false
     }
 
