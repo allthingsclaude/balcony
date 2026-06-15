@@ -508,12 +508,13 @@ struct ConversationView: View {
         .onChange(of: pendingInputText) { newValue in
             // Don't sync Mac's terminal input while a picker is active
             guard !isSessionPickerActive && !isModelPickerActive && !isRewindPickerActive else { return }
-            guard newValue != inputText else { return }
-            // Ignore a whitespace-only box — Claude leaves a stray space in its
-            // input after submitting, which would otherwise reappear in the field.
-            if !newValue.isEmpty, newValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                return
-            }
+            // Treat a whitespace-only box as empty — Claude leaves a stray space
+            // after submitting. Normalizing (rather than ignoring) lets a CLI-side
+            // clear or full delete propagate to the phone, while still not
+            // re-adding a space after our own send: when we just sent, inputText
+            // is already "" so the normalized "" matches and is a no-op.
+            let macText = newValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "" : newValue
+            guard macText != inputText else { return }
             // Adopt the Mac's box only once it reflects every keystroke we've
             // sent (seq-acked). Then a difference is a real CLI-side edit → show
             // it. Before that the box is stale/mid-update → don't clobber what
@@ -521,8 +522,8 @@ struct ConversationView: View {
             guard inputInSync else { return }
             // Brief settle delay so we don't adopt a box mid-redraw right after a keystroke.
             guard Date().timeIntervalSince(lastLocalKeystroke) > 0.3 else { return }
-            previousText = newValue
-            inputText = newValue
+            previousText = macText
+            inputText = macText
         }
         // Spring choreography for prompt surfaces. Presence-keyed so content
         // changes within an active prompt (e.g. selection moves) don't
