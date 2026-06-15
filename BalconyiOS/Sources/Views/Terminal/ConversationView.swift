@@ -114,70 +114,29 @@ struct ConversationView: View {
         return String(after)
     }
 
-    // MARK: - Hybrid Transcript / Live Tail
+    // MARK: - Transcript / Loader
 
     /// Settled history to render (sub-agent turns hidden, matching the TUI).
     private var visibleTranscript: [TranscriptEvent] {
         transcriptEvents.filter { !$0.isSidechain }
     }
 
-    /// True when the assistant's reply is in flight — either the last settled
-    /// turn is the user's, or we have an optimistic (just-sent) message pending.
+    /// True when the assistant's reply is in flight — the last settled turn is
+    /// the user's (a real message or a tool result Claude is still acting on),
+    /// or we have an optimistic just-sent message pending.
     private var awaitingReply: Bool {
         transcriptEvents.last?.role == .user || !optimisticMessages.isEmpty
     }
 
-    /// The in-flight assistant reply, scraped from the live PTY tail so it
-    /// streams token-by-token. Shown only until the JSONL transcript catches up
-    /// (at which point `awaitingReply` flips false). Nil before the first token.
-    private var liveTailEvent: TranscriptEvent? {
-        guard awaitingReply else { return nil }
-        // The reply must be the assistant block AFTER the latest user message —
-        // not the previous turn's reply still sitting in the PTY scrollback.
-        let afterUser = lines.lastIndex(where: { $0.markerRole == .user }).map { lines.index(after: $0) } ?? lines.startIndex
-        guard afterUser <= lines.endIndex,
-              let start = lines[afterUser...].firstIndex(where: { $0.markerRole == .assistant }) else { return nil }
-        var text = lines[start...]
-            .filter { $0.markerRole != .spinner }
-            .map { $0.segments.map(\.text).joined() }
-            .joined(separator: "\n")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        // Strip the leading assistant marker (· / ›) the PTY parser leaves in.
-        if let first = text.first, first == "\u{00B7}" || first == "\u{203A}" {
-            text = String(text.dropFirst()).trimmingCharacters(in: .whitespaces)
-        }
-        guard !text.isEmpty else { return nil }
-        // Until the PTY renders the new user turn, the "assistant after the last
-        // user marker" can still be the *previous* answer. Suppress it if it
-        // echoes a recently-settled reply, so the old message doesn't flash back.
-        if Self.echoesRecentAssistant(text, in: transcriptEvents) { return nil }
-        return TranscriptEvent(id: "live-tail", role: .assistant, blocks: [.text(text)])
+    /// Show the working spinner only when Claude is actually generating — not
+    /// while it's blocked on a prompt, question, or idle waiting for input.
+    private var showLoader: Bool {
+        awaitingReply && activePrompt == nil && pendingIdlePrompt == nil && pendingAskUserQuestion == nil
     }
 
-    private static func normalizedPrefix(_ s: String) -> String {
-        String(s.lowercased().split(whereSeparator: \.isWhitespace).joined(separator: " ").prefix(64))
-    }
-
-    private static func echoesRecentAssistant(_ text: String, in events: [TranscriptEvent]) -> Bool {
-        let prefix = normalizedPrefix(text)
-        guard !prefix.isEmpty else { return false }
-        for event in events.suffix(4) where event.role == .assistant {
-            for case .text(let settled) in event.blocks where normalizedPrefix(settled) == prefix {
-                return true
-            }
-        }
-        return false
-    }
-
-    /// Character count of the live tail — drives auto-scroll as the reply streams.
-    private var liveTailCharCount: Int {
-        guard case .text(let t)? = liveTailEvent?.blocks.first else { return 0 }
-        return t.count
-    }
-
-    /// Structural item count (settled turns + optimistic + in-flight slot) for scroll/anim.
+    /// Structural item count (settled turns + optimistic + loader) for scroll/anim.
     private var displayCount: Int {
-        visibleTranscript.count + optimisticMessages.count + (awaitingReply ? 1 : 0)
+        visibleTranscript.count + optimisticMessages.count + (showLoader ? 1 : 0)
     }
 
     var body: some View {
@@ -209,17 +168,13 @@ struct ConversationView: View {
                                 .id(event.id)
                         }
 
-                        // In-flight reply: stream the live PTY tail until the
-                        // JSONL transcript catches up; show a working dot before
-                        // the first token lands.
-                        if let tail = liveTailEvent {
-                            TranscriptEventView(event: tail)
-                                .padding(.horizontal, 12)
-                                .id("live-tail")
-                        } else if awaitingReply {
+                        // Working spinner while Claude generates the reply. The
+                        // reply itself renders block-by-block from the JSONL as
+                        // Claude writes it (thinking → text → tool cards).
+                        if showLoader {
                             WorkingIndicator()
                                 .padding(.horizontal, 12)
-                                .id("live-tail")
+                                .id("loader")
                         }
 
                         // "Near bottom" detector — sits just above the input-bar
@@ -278,10 +233,6 @@ struct ConversationView: View {
                         scrollToBottom(proxy: proxy, animated: false)
                     }
                     lastLineCount = newCount
-                }
-                // Follow the in-flight reply as its text streams in.
-                .onChange(of: liveTailCharCount) { _ in
-                    if isNearBottom { scrollToBottom(proxy: proxy, animated: false) }
                 }
                 .onAppear {
                     scrollToBottom(proxy: proxy, animated: false)
@@ -646,7 +597,12 @@ struct ConversationView: View {
             if !trimmed.hasPrefix("/"), !trimmed.hasPrefix("!"), !trimmed.hasPrefix("&") {
                 onMessageSubmitted?(trimmed)
             }
-            onSendInput?("\r")
+            // Reconcile the Mac's input box to exactly what's on screen, then
+            // submit. Live keystrokes mirror typing for feedback, but a dropped
+            // one would otherwise send a truncated message — so we clear the box
+            // (backspaces ≥ its contents) and re-send the full text atomically.
+            let clear = String(repeating: "\u{7f}", count: inputText.count)
+            onSendInput?(clear + bracketingPasteIfMultiline(inputText) + "\r")
         }
 
         // Set previousText first so onChange doesn't send backspaces for the clear.
