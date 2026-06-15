@@ -648,21 +648,15 @@ final class SessionManager {
         )
     }
 
-    /// Drop optimistic messages whose real `user` event has now arrived from the JSONL.
+    /// Clear optimistic placeholders once any real `user` event arrives — the
+    /// sent message has landed in the JSONL, so the dimmed copy is superseded.
+    /// (Text-matching proved fragile; the user sends then waits, so the next
+    /// user event is reliably theirs.)
     private func pruneOptimisticMessages(against events: [TranscriptEvent]) {
         guard !optimisticMessages.isEmpty else { return }
-        let landed = Set(events.filter { $0.role == .user }.compactMap { Self.firstText($0) })
-        guard !landed.isEmpty else { return }
-        optimisticMessages.removeAll { om in
-            Self.firstText(om).map { landed.contains($0) } ?? false
+        if events.contains(where: { $0.role == .user }) {
+            optimisticMessages = []
         }
-    }
-
-    private static func firstText(_ event: TranscriptEvent) -> String? {
-        for block in event.blocks {
-            if case .text(let t) = block { return t.trimmingCharacters(in: .whitespacesAndNewlines) }
-        }
-        return nil
     }
 
     private func handleSlashCommands(_ message: BalconyMessage) {
