@@ -13,6 +13,8 @@ struct ConversationView: View {
     let transcriptEvents: [TranscriptEvent]
     /// Just-sent messages shown immediately (dimmed) until they land in the JSONL.
     let optimisticMessages: [TranscriptEvent]
+    /// True after the user interrupts the run (Esc) — suppresses the spinner.
+    let interrupted: Bool
     let slashCommands: [SlashCommandInfo]
     let projectFiles: [String]
     let activePrompt: InteractivePrompt?
@@ -129,9 +131,11 @@ struct ConversationView: View {
     }
 
     /// Show the working spinner only when Claude is actually generating — not
-    /// while it's blocked on a prompt, question, or idle waiting for input.
+    /// while it's blocked on a prompt/question, idle waiting for input, or the
+    /// user just interrupted the run (Esc).
     private var showLoader: Bool {
-        awaitingReply && activePrompt == nil && pendingIdlePrompt == nil && pendingAskUserQuestion == nil
+        awaitingReply && !interrupted
+            && activePrompt == nil && pendingIdlePrompt == nil && pendingAskUserQuestion == nil
     }
 
     /// Structural item count (settled turns + optimistic + loader) for scroll/anim.
@@ -501,11 +505,17 @@ struct ConversationView: View {
         .onChange(of: pendingInputText) { newValue in
             // Don't sync Mac's terminal input while a picker is active
             guard !isSessionPickerActive && !isModelPickerActive && !isRewindPickerActive else { return }
-            // Pre-fill the composer from the Mac's input box only when the local
-            // field is EMPTY. Never overwrite text the user is composing: the
-            // Mac's echo lags and can drop characters, and clobbering the field
-            // mid-edit is what made messages feel laggy and send only partially.
-            guard inputText.isEmpty, !newValue.isEmpty, newValue != previousText else { return }
+            guard newValue != inputText else { return }
+            // Ignore a whitespace-only box — Claude leaves a stray space in its
+            // input after submitting, which would otherwise reappear in the field.
+            if !newValue.isEmpty, newValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                return
+            }
+            // Adopt the Mac's box when the field is empty (pre-fill) or the user
+            // isn't actively composing on the phone (so CLI-side edits show up).
+            // While focused-and-non-empty the phone is authoritative — submit's
+            // reconcile guarantees the Mac gets the exact text.
+            guard inputText.isEmpty || !inputFocused else { return }
             let elapsed = Date().timeIntervalSince(lastLocalKeystroke)
             guard elapsed > 0.5 else { return }
             previousText = newValue
@@ -1275,6 +1285,7 @@ private struct ConversationEmptyView: View {
             ]),
         ],
         optimisticMessages: [],
+        interrupted: false,
         slashCommands: [
             .init(name: "help", description: "Get help with Claude Code", source: .builtIn),
             .init(name: "compact", description: "Compact conversation with summary", source: .builtIn),

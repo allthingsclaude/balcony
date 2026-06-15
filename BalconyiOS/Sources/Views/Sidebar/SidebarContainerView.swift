@@ -193,6 +193,7 @@ struct SidebarContainerView: View {
                                 lines: sessionManager.conversationLines,
                                 transcriptEvents: sessionManager.transcriptEvents,
                                 optimisticMessages: sessionManager.optimisticMessages,
+                                interrupted: sessionManager.interrupted,
                                 slashCommands: sessionManager.slashCommands,
                                 projectFiles: sessionManager.projectFiles,
                                 activePrompt: sessionManager.activePrompt,
@@ -280,6 +281,7 @@ struct SidebarContainerView: View {
                         }
                         ToolbarItem(placement: .navigationBarTrailing) {
                             EscButton {
+                                sessionManager.noteInterrupt()
                                 Task {
                                     await sessionManager.sendInput("\u{1B}", to: session)
                                 }
