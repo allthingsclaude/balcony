@@ -43,6 +43,11 @@ final class SessionManager {
     /// round-trips them into the JSONL. Pruned as the real events arrive.
     var optimisticMessages: [TranscriptEvent] = []
 
+    /// Set when the user interrupts the run (Esc). Suppresses the working
+    /// spinner — the last JSONL turn is still the user's, so `awaitingReply`
+    /// would otherwise keep spinning. Cleared when the next turn begins.
+    var interrupted = false
+
     /// Slash commands available for the active session.
     var slashCommands: [SlashCommandInfo] = []
 
@@ -174,6 +179,7 @@ final class SessionManager {
         conversationLines = []
         transcriptEvents = []
         optimisticMessages = []
+        interrupted = false
         slashCommands = []
         projectFiles = []
 
@@ -586,6 +592,7 @@ final class SessionManager {
                 conversationLines = []
                 transcriptEvents = []
                 optimisticMessages = []
+                interrupted = false
                 activePrompt = nil
                 pendingHookData = nil
                 pendingIdlePrompt = nil
@@ -626,6 +633,7 @@ final class SessionManager {
                 transcriptEvents = payload.events
                 // A reset (initial load, /clear, rewrite) supersedes any pending sends.
                 optimisticMessages = []
+                interrupted = false
             } else {
                 // Append, de-duplicating by event id (defends against snapshot/
                 // delta overlap on reconnect).
@@ -643,9 +651,15 @@ final class SessionManager {
     func registerOptimisticMessage(_ text: String) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
+        interrupted = false  // a new turn begins — let the spinner show again
         optimisticMessages.append(
             TranscriptEvent(id: "optimistic-\(UUID().uuidString)", role: .user, blocks: [.text(trimmed)])
         )
+    }
+
+    /// Note that the user interrupted the run (Esc) so the spinner stops.
+    func noteInterrupt() {
+        interrupted = true
     }
 
     /// Clear optimistic placeholders once any real `user` event arrives — the
