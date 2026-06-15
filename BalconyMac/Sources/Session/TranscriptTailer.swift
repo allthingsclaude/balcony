@@ -22,10 +22,16 @@ final class TranscriptTailer: @unchecked Sendable {
     /// and switches to.
     private var path: String
     private let sessionId: String
-    /// The PTY session's start time. The directory watch only switches to a
-    /// transcript created at/after this, so a pre-existing session's file is
-    /// never adopted (e.g. when this session is brand-new and has no file yet).
+    /// The PTY session's start time. In fallback mode the directory watch only
+    /// adopts a transcript created at/after this, so a pre-existing session's
+    /// file is never shown (e.g. when this session is brand-new with no file yet).
     private let createdAfter: Date?
+    /// True when `path` is the session's exact transcript (resolved from a hook,
+    /// e.g. SessionStart). In that case the directory watch only waits for that
+    /// exact file to appear and never switches to a sibling session's file —
+    /// path changes (/clear, resume) arrive as fresh hooks that restart the tailer.
+    /// When false (no hook yet) it falls back to the latest file created after start.
+    private let authoritative: Bool
     private let onEvents: @Sendable (TranscriptEventsPayload) -> Void
 
     private let queue = DispatchQueue(label: "com.balcony.mac.transcript-tailer", qos: .utility)
@@ -48,12 +54,14 @@ final class TranscriptTailer: @unchecked Sendable {
     /// - Parameters:
     ///   - path: absolute path to the session JSONL (from `HookEvent.transcriptPath`).
     ///   - sessionId: the PTY session id this transcript is shown under on iOS.
-    ///   - createdAfter: the PTY session's start time; bounds directory-watch switches.
+    ///   - createdAfter: the PTY session's start time; bounds fallback switches.
+    ///   - authoritative: whether `path` is the exact, hook-resolved transcript.
     ///   - onEvents: invoked on the tailer's queue with each batch to send.
-    init(path: String, sessionId: String, createdAfter: Date? = nil, onEvents: @escaping @Sendable (TranscriptEventsPayload) -> Void) {
+    init(path: String, sessionId: String, createdAfter: Date? = nil, authoritative: Bool = false, onEvents: @escaping @Sendable (TranscriptEventsPayload) -> Void) {
         self.path = path
         self.sessionId = sessionId
         self.createdAfter = createdAfter
+        self.authoritative = authoritative
         self.onEvents = onEvents
     }
 
@@ -61,9 +69,16 @@ final class TranscriptTailer: @unchecked Sendable {
 
     func start() {
         queue.async { [weak self] in
-            self?.snapshot()
-            self?.beginWatching()
-            self?.beginWatchingDirectory()
+            guard let self else { return }
+            if FileManager.default.fileExists(atPath: self.path) {
+                self.snapshot()
+                self.beginWatching()
+            } else {
+                // Fresh session — the file isn't written yet. Show empty and let
+                // the directory watch pick it up the moment it's created.
+                self.emit([], reset: true)
+            }
+            self.beginWatchingDirectory()
         }
     }
 
@@ -182,18 +197,37 @@ final class TranscriptTailer: @unchecked Sendable {
             eventMask: [.write],
             queue: queue
         )
-        src.setEventHandler { [weak self] in self?.checkForNewerTranscript() }
+        src.setEventHandler { [weak self] in self?.onDirectoryEvent() }
         src.setCancelHandler { [dirFD = self.dirFD] in if dirFD >= 0 { close(dirFD) } }
         dirSource = src
         src.resume()
     }
 
-    /// If a newer non-agent transcript has appeared in the directory (the session
-    /// was cleared/replaced), switch to it and re-snapshot — the reset batch
-    /// clears the stale conversation on iOS.
-    private func checkForNewerTranscript() {
+    /// Directory changed (a file was created/removed).
+    private func onDirectoryEvent() {
+        if authoritative {
+            // We know the exact file. Only act when *our* file finally appears
+            // (fresh session) — never switch to a sibling session's transcript.
+            // Path changes (/clear, resume) arrive as new hooks that restart us.
+            if source == nil, FileManager.default.fileExists(atPath: path) {
+                snapshot()
+                beginWatching()
+            }
+            return
+        }
+
+        // Fallback (no hook yet): adopt the latest transcript created after this
+        // session started — covers the file first appearing and /clear creating
+        // a new one, while never reaching back to a pre-existing session.
         let dir = URL(fileURLWithPath: path).deletingLastPathComponent()
-        guard let latest = Self.latestJSONL(inDirectory: dir, createdAfter: createdAfter), latest != path else { return }
+        guard let latest = Self.latestJSONL(inDirectory: dir, createdAfter: createdAfter), latest != path else {
+            // Our chosen file may just now have appeared — start watching it.
+            if source == nil, FileManager.default.fileExists(atPath: path) {
+                snapshot()
+                beginWatching()
+            }
+            return
+        }
         logger.info("Active transcript changed for session \(self.sessionId, privacy: .public) → \(latest, privacy: .public)")
         source?.cancel()
         source = nil

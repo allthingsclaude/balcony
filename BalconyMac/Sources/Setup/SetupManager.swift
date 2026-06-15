@@ -56,6 +56,8 @@ final class SetupManager {
     }
 
     /// Check if Claude Code settings.json contains Balcony hooks.
+    /// Requires both PreToolUse and SessionStart so an existing install missing
+    /// the newer SessionStart hook is re-patched on next launch.
     var areHooksPatched: Bool {
         let settingsPath = claudeDir.appendingPathComponent("settings.json")
         guard let data = try? Data(contentsOf: settingsPath),
@@ -63,9 +65,9 @@ final class SetupManager {
               let hooks = json["hooks"] as? [String: Any] else {
             return false
         }
-        // Check if at least the PreToolUse hook references hook-handler (new or old format)
-        if let preToolUse = hooks["PreToolUse"] as? [[String: Any]] {
-            return preToolUse.contains { entry in
+        func references(_ hookName: String) -> Bool {
+            guard let entries = hooks[hookName] as? [[String: Any]] else { return false }
+            return entries.contains { entry in
                 // New format
                 if let innerHooks = entry["hooks"] as? [[String: Any]] {
                     return innerHooks.contains { ($0["command"] as? String)?.contains("hook-handler") == true }
@@ -74,7 +76,7 @@ final class SetupManager {
                 return (entry["command"] as? String)?.contains("hook-handler") == true
             }
         }
-        return false
+        return references("PreToolUse") && references("SessionStart")
     }
 
     /// Check if the balcony alias exists in the user's shell profile.
@@ -222,8 +224,11 @@ final class SetupManager {
             ]
         ]
 
-        // Hook event names to patch
-        let hookNames = ["Notification", "PreToolUse", "Stop"]
+        // Hook event names to patch. SessionStart lets the Mac learn each
+        // session's exact transcript_path the moment it starts (and on
+        // /clear & resume) — so a brand-new session resolves to its own file
+        // instead of a sibling session's.
+        let hookNames = ["Notification", "PreToolUse", "Stop", "SessionStart"]
 
         for hookName in hookNames {
             var entries = hooks[hookName] as? [[String: Any]] ?? []

@@ -48,6 +48,17 @@ final class SessionManager {
     /// would otherwise keep spinning. Cleared when the next turn begins.
     var interrupted = false
 
+    /// Input-box sync sequence numbers. `localInputSeq` increments on every
+    /// input we send; the Mac echoes the highest it has applied in
+    /// `TerminalDataPayload.inputSeq`, tracked here as `ackedInputSeq`. When the
+    /// ack catches up, the Mac's input box reflects everything we've typed, so
+    /// it's safe to adopt it (showing CLI-side edits) without clobbering ours.
+    private var localInputSeq: UInt64 = 0
+    private var ackedInputSeq: UInt64 = 0
+
+    /// True when the terminal reflects all the input the phone has sent.
+    var inputInSync: Bool { ackedInputSeq >= localInputSeq }
+
     /// Slash commands available for the active session.
     var slashCommands: [SlashCommandInfo] = []
 
@@ -180,6 +191,8 @@ final class SessionManager {
         transcriptEvents = []
         optimisticMessages = []
         interrupted = false
+        localInputSeq = 0
+        ackedInputSeq = 0
         slashCommands = []
         projectFiles = []
 
@@ -254,8 +267,9 @@ final class SessionManager {
             pendingIdlePrompt = nil
         }
         guard let connectionManager else { return }
+        localInputSeq &+= 1
         do {
-            let payload = UserInputPayload(sessionId: session.id, text: input)
+            let payload = UserInputPayload(sessionId: session.id, text: input, seq: localInputSeq)
             let msg = try BalconyMessage.create(type: .userInput, payload: payload)
             try await connectionManager.send(msg)
         } catch {
@@ -618,6 +632,11 @@ final class SessionManager {
         do {
             let payload = try message.decodePayload(TerminalDataPayload.self)
             guard payload.sessionId == activeSession?.id else { return }
+            // The Mac echoes the highest input seq it has applied; once it
+            // reaches our local seq, the terminal reflects everything we sent.
+            if let seq = payload.inputSeq, seq > ackedInputSeq {
+                ackedInputSeq = seq
+            }
             parser?.feed(data: payload.data)
             logger.debug("Terminal data for \(payload.sessionId): \(payload.data.count) bytes")
         } catch {
@@ -856,4 +875,8 @@ struct SessionSubscribePayload: Codable, Sendable {
 struct UserInputPayload: Codable, Sendable {
     let sessionId: String
     let text: String
+    /// Monotonic per-session input sequence, echoed back by the Mac in
+    /// `TerminalDataPayload.inputSeq` so the phone knows when the terminal
+    /// reflects all its sent input. Optional for wire compatibility.
+    var seq: UInt64?
 }

@@ -15,6 +15,9 @@ struct ConversationView: View {
     let optimisticMessages: [TranscriptEvent]
     /// True after the user interrupts the run (Esc) — suppresses the spinner.
     let interrupted: Bool
+    /// True when the terminal reflects all input the phone has sent — gates
+    /// adopting the Mac's input box so an in-flight echo can't clobber typing.
+    let inputInSync: Bool
     let slashCommands: [SlashCommandInfo]
     let projectFiles: [String]
     let activePrompt: InteractivePrompt?
@@ -511,13 +514,13 @@ struct ConversationView: View {
             if !newValue.isEmpty, newValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 return
             }
-            // Adopt the Mac's box when the field is empty (pre-fill) or the user
-            // isn't actively composing on the phone (so CLI-side edits show up).
-            // While focused-and-non-empty the phone is authoritative — submit's
-            // reconcile guarantees the Mac gets the exact text.
-            guard inputText.isEmpty || !inputFocused else { return }
-            let elapsed = Date().timeIntervalSince(lastLocalKeystroke)
-            guard elapsed > 0.5 else { return }
+            // Adopt the Mac's box only once it reflects every keystroke we've
+            // sent (seq-acked). Then a difference is a real CLI-side edit → show
+            // it. Before that the box is stale/mid-update → don't clobber what
+            // we're typing (submit's reconcile still guarantees the exact text).
+            guard inputInSync else { return }
+            // Brief settle delay so we don't adopt a box mid-redraw right after a keystroke.
+            guard Date().timeIntervalSince(lastLocalKeystroke) > 0.3 else { return }
             previousText = newValue
             inputText = newValue
         }
@@ -1286,6 +1289,7 @@ private struct ConversationEmptyView: View {
         ],
         optimisticMessages: [],
         interrupted: false,
+        inputInSync: true,
         slashCommands: [
             .init(name: "help", description: "Get help with Claude Code", source: .builtIn),
             .init(name: "compact", description: "Compact conversation with summary", source: .builtIn),
