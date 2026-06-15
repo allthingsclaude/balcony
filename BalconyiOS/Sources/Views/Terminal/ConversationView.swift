@@ -51,8 +51,8 @@ struct ConversationView: View {
     @State private var lastLocalKeystroke: Date = .distantPast
     @State private var isNearBottom = true
     @State private var needsInitialScroll = true
-    /// Track previous line count to only auto-scroll when content grows.
-    @State private var lastLineCount = 0
+    /// Pending "left the bottom" flip, cancelled if the bottom detector reappears.
+    @State private var leftBottomWorkItem: DispatchWorkItem?
     @State private var showEmptyState = false
     @State private var showSlashMenu = false
     @State private var showFilePicker = false
@@ -184,14 +184,24 @@ struct ConversationView: View {
                         Color.clear
                             .frame(height: 1)
                             .onAppear {
+                                // Cancel any pending "left the bottom" flip — the
+                                // detector reappeared (e.g. right after an auto-
+                                // scroll), so we're still at the bottom. Without
+                                // this, a stale timer would set isNearBottom=false
+                                // and silently stop following new messages.
+                                leftBottomWorkItem?.cancel()
+                                leftBottomWorkItem = nil
                                 isNearBottom = true
                                 needsInitialScroll = false
                             }
                             .onDisappear {
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                                leftBottomWorkItem?.cancel()
+                                let item = DispatchWorkItem {
                                     guard !needsInitialScroll else { return }
                                     isNearBottom = false
                                 }
+                                leftBottomWorkItem = item
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: item)
                             }
 
                         // Spacer for the floating input bar + fade gradient —
@@ -224,15 +234,12 @@ struct ConversationView: View {
                 // Drag the conversation down to dismiss the keyboard (tap
                 // outside still works via handleOutsideTap above).
                 .scrollDismissesKeyboard(.interactively)
-                .onChange(of: displayCount) { newCount in
-                    if needsInitialScroll {
-                        scrollToBottom(proxy: proxy, animated: false)
-                    } else if isNearBottom && newCount >= lastLineCount {
-                        // Only auto-scroll when content grows. Non-animated to
-                        // prevent jitter during rapid streaming updates.
+                .onChange(of: displayCount) { _ in
+                    // Follow new content whenever we're at the bottom (or on the
+                    // first load). Non-animated to avoid jitter during streaming.
+                    if needsInitialScroll || isNearBottom {
                         scrollToBottom(proxy: proxy, animated: false)
                     }
-                    lastLineCount = newCount
                 }
                 .onAppear {
                     scrollToBottom(proxy: proxy, animated: false)
@@ -392,8 +399,16 @@ struct ConversationView: View {
                     // (with a leading space if mid-word, so the trigger counts).
                     Button {
                         BalconyTheme.hapticLight()
-                        let needsSpace = !(inputText.isEmpty || inputText.hasSuffix(" ") || inputText.hasSuffix("\n"))
-                        inputText += needsSpace ? " /" : "/"
+                        // On an empty/whitespace field, start a fresh "/" at
+                        // column 0 — a slash command must lead the input. Only
+                        // prepend a separating space when there's real text before it.
+                        if inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                            inputText = "/"
+                        } else if inputText.hasSuffix(" ") || inputText.hasSuffix("\n") {
+                            inputText += "/"
+                        } else {
+                            inputText += " /"
+                        }
                     } label: {
                         Text("/")
                             .font(.system(size: 18, weight: .semibold, design: .monospaced))
@@ -656,17 +671,17 @@ struct ConversationView: View {
     private func selectSlashCommand(_ command: SlashCommandInfo) {
         guard let slashIndex = inputText.lastIndex(of: "/") else { return }
 
-        // Erase everything from the "/" onward in the terminal
-        let suffixToErase = inputText[slashIndex...]
-        onSendInput?(String(repeating: "\u{7f}", count: suffixToErase.count))
-
-        // Send the full command name + trailing space
-        let replacement = command.displayName + " "
-        onSendInput?(replacement)
-
-        // Update local text: keep everything before "/" and append the command + space
+        // Keep text before "/", append the command + space, and strip any leading
+        // whitespace so the command sits at column 0 — otherwise " /clear" isn't
+        // recognized as a command when submitted.
         let prefix = String(inputText[..<slashIndex])
-        let newText = prefix + replacement
+        let newText = String((prefix + command.displayName + " ").drop(while: { $0 == " " || $0 == "\n" }))
+
+        // Mirror to the Mac: clear the whole input box, then send the clean
+        // command. Clearing everything (not just from "/") keeps the Mac's box
+        // exactly equal to `inputText` so submit's reconcile stays in sync.
+        onSendInput?(String(repeating: "\u{7f}", count: inputText.count) + newText)
+
         previousText = newText
         inputText = newText
 

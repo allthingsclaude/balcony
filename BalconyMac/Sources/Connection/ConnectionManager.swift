@@ -153,11 +153,13 @@ final class ConnectionManager: ObservableObject {
     /// Restarting re-snapshots the file so a newly-subscribed client gets the
     /// full history (`reset: true`) before any append deltas.
     private func startTranscriptTailer(ptySessionId: String, path explicitPath: String? = nil) async {
+        let session = (await ptySessionManager.getActiveSessions()).first { $0.id == ptySessionId }
+
         let resolved: String?
         if let explicitPath {
             resolved = explicitPath
         } else {
-            resolved = await resolveTranscriptPath(ptySessionId: ptySessionId)
+            resolved = resolveTranscriptPath(ptySessionId: ptySessionId, session: session)
         }
         guard let path = resolved, FileManager.default.fileExists(atPath: path) else {
             logger.info("No transcript path for PTY session \(ptySessionId) yet — will start when a hook resolves it")
@@ -165,7 +167,7 @@ final class ConnectionManager: ObservableObject {
         }
 
         transcriptTailers[ptySessionId]?.stop()
-        let tailer = TranscriptTailer(path: path, sessionId: ptySessionId) { [weak self] payload in
+        let tailer = TranscriptTailer(path: path, sessionId: ptySessionId, createdAfter: session?.createdAt) { [weak self] payload in
             Task { await self?.sendTranscriptEvents(payload) }
         }
         transcriptTailers[ptySessionId] = tailer
@@ -203,28 +205,26 @@ final class ConnectionManager: ObservableObject {
 
     /// Resolve a session's transcript path: prefer the authoritative path from
     /// hook events, else fall back to the most-recently-modified JSONL in the
-    /// project's `~/.claude/projects/<hash>/` directory (covers sessions that
-    /// haven't fired a hook yet this run).
-    private func resolveTranscriptPath(ptySessionId: String) async -> String? {
+    /// project dir — but only one created at/after this session started, so a
+    /// *different* (pre-existing) session is never shown. A brand-new session
+    /// has no file yet → nil → empty until its file or first hook appears.
+    private func resolveTranscriptPath(ptySessionId: String, session: Session?) -> String? {
         if let path = hookEventHandler?.transcriptPath(for: ptySessionId),
            FileManager.default.fileExists(atPath: path) {
             return path
         }
-        let sessions = await ptySessionManager.getActiveSessions()
-        guard let projectPath = sessions.first(where: { $0.id == ptySessionId })?.projectPath else {
-            return nil
-        }
-        return Self.latestTranscriptPath(forProjectPath: projectPath)
+        guard let session else { return nil }
+        return Self.latestTranscriptPath(forProjectPath: session.projectPath, createdAfter: session.createdAt)
     }
 
     /// Most-recently-modified non-agent `.jsonl` for a project path. Mirrors the
     /// project-hash scheme Claude Code uses (`/` → `-`).
-    private static func latestTranscriptPath(forProjectPath projectPath: String) -> String? {
+    private static func latestTranscriptPath(forProjectPath projectPath: String, createdAfter: Date? = nil) -> String? {
         let hash = projectPath.replacingOccurrences(of: "/", with: "-")
         let dir = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent(".claude/projects")
             .appendingPathComponent(hash)
-        return TranscriptTailer.latestJSONL(inDirectory: dir)
+        return TranscriptTailer.latestJSONL(inDirectory: dir, createdAfter: createdAfter)
     }
 
     // MARK: - Hook Event Forwarding

@@ -22,6 +22,10 @@ final class TranscriptTailer: @unchecked Sendable {
     /// and switches to.
     private var path: String
     private let sessionId: String
+    /// The PTY session's start time. The directory watch only switches to a
+    /// transcript created at/after this, so a pre-existing session's file is
+    /// never adopted (e.g. when this session is brand-new and has no file yet).
+    private let createdAfter: Date?
     private let onEvents: @Sendable (TranscriptEventsPayload) -> Void
 
     private let queue = DispatchQueue(label: "com.balcony.mac.transcript-tailer", qos: .utility)
@@ -44,10 +48,12 @@ final class TranscriptTailer: @unchecked Sendable {
     /// - Parameters:
     ///   - path: absolute path to the session JSONL (from `HookEvent.transcriptPath`).
     ///   - sessionId: the PTY session id this transcript is shown under on iOS.
+    ///   - createdAfter: the PTY session's start time; bounds directory-watch switches.
     ///   - onEvents: invoked on the tailer's queue with each batch to send.
-    init(path: String, sessionId: String, onEvents: @escaping @Sendable (TranscriptEventsPayload) -> Void) {
+    init(path: String, sessionId: String, createdAfter: Date? = nil, onEvents: @escaping @Sendable (TranscriptEventsPayload) -> Void) {
         self.path = path
         self.sessionId = sessionId
+        self.createdAfter = createdAfter
         self.onEvents = onEvents
     }
 
@@ -187,7 +193,7 @@ final class TranscriptTailer: @unchecked Sendable {
     /// clears the stale conversation on iOS.
     private func checkForNewerTranscript() {
         let dir = URL(fileURLWithPath: path).deletingLastPathComponent()
-        guard let latest = Self.latestJSONL(inDirectory: dir), latest != path else { return }
+        guard let latest = Self.latestJSONL(inDirectory: dir, createdAfter: createdAfter), latest != path else { return }
         logger.info("Active transcript changed for session \(self.sessionId, privacy: .public) → \(latest, privacy: .public)")
         source?.cancel()
         source = nil
@@ -196,15 +202,24 @@ final class TranscriptTailer: @unchecked Sendable {
         beginWatching()
     }
 
-    /// Most-recently-modified non-agent `.jsonl` in a directory, or nil.
-    static func latestJSONL(inDirectory dir: URL) -> String? {
+    /// Most-recently-modified non-agent `.jsonl` in a directory, or nil. When
+    /// `createdAfter` is set, only files created at/after it (minus a small
+    /// tolerance, since the file may be created just before the session is
+    /// registered) are considered — so a pre-existing session is never picked.
+    static func latestJSONL(inDirectory dir: URL, createdAfter: Date? = nil) -> String? {
         guard let files = try? FileManager.default.contentsOfDirectory(
             at: dir,
-            includingPropertiesForKeys: [.contentModificationDateKey],
+            includingPropertiesForKeys: [.contentModificationDateKey, .creationDateKey],
             options: [.skipsHiddenFiles]
         ) else { return nil }
+        let cutoff = createdAfter?.addingTimeInterval(-10)
         let latest = files
-            .filter { $0.pathExtension == "jsonl" && !$0.lastPathComponent.hasPrefix("agent-") }
+            .filter { url in
+                guard url.pathExtension == "jsonl", !url.lastPathComponent.hasPrefix("agent-") else { return false }
+                guard let cutoff else { return true }
+                let created = (try? url.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? .distantPast
+                return created >= cutoff
+            }
             .max { a, b in
                 let da = (try? a.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
                 let db = (try? b.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
