@@ -194,6 +194,7 @@ struct SidebarContainerView: View {
                                 transcriptEvents: sessionManager.transcriptEvents,
                                 optimisticMessages: sessionManager.optimisticMessages,
                                 interrupted: sessionManager.interrupted,
+                                inputInSync: sessionManager.inputInSync,
                                 slashCommands: sessionManager.slashCommands,
                                 projectFiles: sessionManager.projectFiles,
                                 activePrompt: sessionManager.activePrompt,

@@ -42,6 +42,11 @@ final class ConnectionManager: ObservableObject {
     /// structured JSONL transcript to that session's subscribers.
     private var transcriptTailers: [String: TranscriptTailer] = [:]
 
+    /// Highest input sequence received from the phone, per PTY session. Stamped
+    /// onto outgoing PTY chunks so the phone can tell when the terminal reflects
+    /// its sent input (input-box sync).
+    private var lastInputSeq: [String: UInt64] = [:]
+
     /// Weak reference to AppDelegate for session picker notifications.
     weak var appDelegate: AppDelegate?
 
@@ -134,7 +139,7 @@ final class ConnectionManager: ObservableObject {
     /// Forward raw PTY output from a CLI session to WebSocket subscribers.
     func forwardPTYOutput(sessionId: String, data: Data) async {
         do {
-            let payload = TerminalDataPayload(sessionId: sessionId, data: data)
+            let payload = TerminalDataPayload(sessionId: sessionId, data: data, inputSeq: lastInputSeq[sessionId])
             let msg = try BalconyMessage.create(type: .terminalData, payload: payload)
             await webSocketServer.sendToSubscribers(of: sessionId, message: msg)
         } catch {
@@ -155,24 +160,32 @@ final class ConnectionManager: ObservableObject {
     private func startTranscriptTailer(ptySessionId: String, path explicitPath: String? = nil) async {
         let session = (await ptySessionManager.getActiveSessions()).first { $0.id == ptySessionId }
 
-        let resolved: String?
+        // An explicit path comes from a hook (SessionStart/PreToolUse/Stop) and is
+        // the session's exact transcript — authoritative even if the file hasn't
+        // been written yet (the tailer waits for it).
+        let resolution: (path: String, authoritative: Bool)?
         if let explicitPath {
-            resolved = explicitPath
+            resolution = (explicitPath, true)
         } else {
-            resolved = resolveTranscriptPath(ptySessionId: ptySessionId, session: session)
+            resolution = resolveTranscriptPath(ptySessionId: ptySessionId, session: session)
         }
-        guard let path = resolved, FileManager.default.fileExists(atPath: path) else {
+        guard let (path, authoritative) = resolution else {
             logger.info("No transcript path for PTY session \(ptySessionId) yet — will start when a hook resolves it")
             return
         }
 
         transcriptTailers[ptySessionId]?.stop()
-        let tailer = TranscriptTailer(path: path, sessionId: ptySessionId, createdAfter: session?.createdAt) { [weak self] payload in
+        let tailer = TranscriptTailer(
+            path: path,
+            sessionId: ptySessionId,
+            createdAfter: session?.createdAt,
+            authoritative: authoritative
+        ) { [weak self] payload in
             Task { await self?.sendTranscriptEvents(payload) }
         }
         transcriptTailers[ptySessionId] = tailer
         tailer.start()
-        logger.info("Transcript tailer started for \(ptySessionId): \(path, privacy: .public)")
+        logger.info("Transcript tailer started (authoritative=\(authoritative)) for \(ptySessionId): \(path, privacy: .public)")
     }
 
     /// React to a transcript path becoming known/changed (from a hook event):
@@ -208,13 +221,16 @@ final class ConnectionManager: ObservableObject {
     /// project dir — but only one created at/after this session started, so a
     /// *different* (pre-existing) session is never shown. A brand-new session
     /// has no file yet → nil → empty until its file or first hook appears.
-    private func resolveTranscriptPath(ptySessionId: String, session: Session?) -> String? {
-        if let path = hookEventHandler?.transcriptPath(for: ptySessionId),
-           FileManager.default.fileExists(atPath: path) {
-            return path
+    private func resolveTranscriptPath(ptySessionId: String, session: Session?) -> (path: String, authoritative: Bool)? {
+        // The hook-resolved path is exact — return it even if the file hasn't
+        // been written yet (fresh session); the tailer waits for it to appear.
+        if let path = hookEventHandler?.transcriptPath(for: ptySessionId) {
+            return (path, true)
         }
-        guard let session else { return nil }
-        return Self.latestTranscriptPath(forProjectPath: session.projectPath, createdAfter: session.createdAt)
+        guard let session,
+              let latest = Self.latestTranscriptPath(forProjectPath: session.projectPath, createdAfter: session.createdAt)
+        else { return nil }
+        return (latest, false)
     }
 
     /// Most-recently-modified non-agent `.jsonl` for a project path. Mirrors the
@@ -500,6 +516,11 @@ final class ConnectionManager: ObservableObject {
         case .userInput:
             do {
                 let input = try message.decodePayload(UserInputPayload.self)
+                // Record the input sequence so subsequent PTY chunks tell the
+                // phone the terminal has caught up to its sent input.
+                if let seq = input.seq, seq > (lastInputSeq[input.sessionId] ?? 0) {
+                    lastInputSeq[input.sessionId] = seq
+                }
                 if let data = input.text.data(using: .utf8) {
                     await ptySessionManager.sendInput(sessionId: input.sessionId, data: data)
                 }
@@ -806,4 +827,8 @@ struct SessionSubscribePayload: Codable, Sendable {
 struct UserInputPayload: Codable, Sendable {
     let sessionId: String
     let text: String
+    /// Monotonic per-session input sequence from the phone, echoed back in
+    /// `TerminalDataPayload.inputSeq` so the phone knows when the terminal has
+    /// caught up to its sent input. Optional for wire compatibility.
+    var seq: UInt64?
 }
