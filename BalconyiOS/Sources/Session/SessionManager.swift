@@ -677,8 +677,11 @@ final class SessionManager {
     }
 
     /// Note that the user interrupted the run (Esc) so the spinner stops.
+    /// Esc also recalls the just-sent (uncommitted) message back into the
+    /// composer, so it's no longer "sent" — drop its optimistic bubble.
     func noteInterrupt() {
         interrupted = true
+        optimisticMessages = []
     }
 
     /// Clear optimistic placeholders once any real `user` event arrives — the
