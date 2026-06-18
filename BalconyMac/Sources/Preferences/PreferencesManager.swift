@@ -211,8 +211,11 @@ final class PreferencesManager {
     // MARK: - Init
 
     private init() {
-        registerDefaults()
+        // Migrate BEFORE registering defaults: once defaults are registered,
+        // object(forKey:) returns the registered "" fallback (never nil), so the
+        // migration guard would always be false and old prefs silently lost.
         migrateOldSoundPreference()
+        registerDefaults()
     }
 
     /// Register default values so @AppStorage picks them up.

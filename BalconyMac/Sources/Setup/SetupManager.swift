@@ -83,7 +83,9 @@ final class SetupManager {
     var isAliasInstalled: Bool {
         guard let profilePath = shellProfilePath else { return false }
         guard let contents = try? String(contentsOfFile: profilePath, encoding: .utf8) else { return false }
-        return contents.contains("alias claude=balcony") || contents.contains("alias claude='balcony'")
+        return contents.contains("alias claude=balcony")
+            || contents.contains("alias claude='balcony'")
+            || contents.contains("alias claude balcony") // fish syntax (no '='), written by installAlias
     }
 
     // MARK: - Step 1: Create ~/.balcony/
@@ -170,8 +172,14 @@ final class SetupManager {
 
         let destPath = usrLocalBin.appendingPathComponent("balcony").path
 
+        // Bind the paths as AppleScript string literals (escaping only `\` and `"`), then let
+        // AppleScript's `quoted form of` produce the shell-safe quoting. This avoids the
+        // injection/breakage that naive single-quote interpolation has on a path containing a
+        // quote or space.
         let script = """
-        do shell script "mkdir -p /usr/local/bin && rm -f '\(destPath)' && cp '\(bundledPath)' '\(destPath)' && chmod +x '\(destPath)'" with administrator privileges
+        set destPath to \(appleScriptStringLiteral(destPath))
+        set srcPath to \(appleScriptStringLiteral(bundledPath))
+        do shell script "mkdir -p /usr/local/bin && rm -f " & quoted form of destPath & " && cp " & quoted form of srcPath & " " & quoted form of destPath & " && chmod +x " & quoted form of destPath with administrator privileges
         """
 
         var error: NSDictionary?
@@ -199,11 +207,23 @@ final class SetupManager {
             try FileManager.default.createDirectory(at: claudeDir, withIntermediateDirectories: true)
         }
 
-        // Read existing settings or start fresh
+        // Read existing settings or start fresh. Distinguish "no file" (a clean first
+        // install) from "file exists but doesn't parse": in the latter case we must NOT
+        // silently treat it as empty and overwrite the user's (recoverable) config.
         var settings: [String: Any]
-        if let data = try? Data(contentsOf: settingsPath),
-           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-            settings = json
+        if let data = try? Data(contentsOf: settingsPath) {
+            guard let json = try? JSONSerialization.jsonObject(with: data),
+                  let dict = json as? [String: Any] else {
+                throw SetupError.settingsUnparseable(settingsPath.path)
+            }
+            settings = dict
+
+            // One-time backup of the last-known-good settings before the first rewrite,
+            // so a bad merge is always recoverable.
+            let backupPath = settingsPath.appendingPathExtension("balcony-backup")
+            if !FileManager.default.fileExists(atPath: backupPath.path) {
+                try? data.write(to: backupPath, options: .atomic)
+            }
         } else {
             settings = [:]
         }
@@ -260,9 +280,9 @@ final class SetupManager {
 
         settings["hooks"] = hooks
 
-        // Write back
+        // Write back atomically so a crash mid-write can't corrupt the user's settings.
         let data = try JSONSerialization.data(withJSONObject: settings, options: [.prettyPrinted, .sortedKeys])
-        try data.write(to: settingsPath)
+        try data.write(to: settingsPath, options: .atomic)
 
         logger.info("Patched Claude Code settings.json with Balcony hooks")
     }
@@ -329,6 +349,16 @@ final class SetupManager {
 
         logger.info("Added alias to \(profilePath)")
     }
+
+    // MARK: - Helpers
+
+    /// Render a string as an AppleScript string literal, escaping `\` and `"`.
+    private func appleScriptStringLiteral(_ s: String) -> String {
+        let escaped = s
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+        return "\"\(escaped)\""
+    }
 }
 
 // MARK: - Errors
@@ -337,6 +367,7 @@ enum SetupError: LocalizedError {
     case resourceNotFound(String)
     case adminInstallFailed(String)
     case shellNotSupported
+    case settingsUnparseable(String)
 
     var errorDescription: String? {
         switch self {
@@ -346,6 +377,8 @@ enum SetupError: LocalizedError {
             return "Admin install failed: \(message)"
         case .shellNotSupported:
             return "Shell not supported for alias installation"
+        case .settingsUnparseable(let path):
+            return "Your Claude Code settings file at \(path) isn't valid JSON, so Balcony left it untouched. Fix or remove the file, then relaunch."
         }
     }
 }
