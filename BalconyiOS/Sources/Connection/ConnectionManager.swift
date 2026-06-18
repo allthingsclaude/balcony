@@ -551,6 +551,9 @@ final class ConnectionManager: ObservableObject {
         try await webSocketClient.send(requestMsg)
     }
 
+    /// Minimal mirror of the Mac server's error payload, for decoding handshake failures.
+    private struct ServerErrorPayload: Decodable { let message: String }
+
     /// Wait for a specific message type with timeout.
     private func waitForMessage(ofType type: MessageType, timeout: TimeInterval) async throws -> BalconyMessage {
         try await withThrowingTaskGroup(of: BalconyMessage.self) { group in
@@ -562,6 +565,13 @@ final class ConnectionManager: ObservableObject {
                         if message.type == type {
                             self?.onMessage = previousHandler
                             continuation.resume(returning: message)
+                        } else if message.type == .error {
+                            // The Mac emits .error on handshake/auth failure; surface it
+                            // immediately instead of waiting out the timeout.
+                            self?.onMessage = previousHandler
+                            let reason = (try? message.decodePayload(ServerErrorPayload.self).message)
+                                ?? "Server rejected the connection"
+                            continuation.resume(throwing: BalconyError.connectionFailed(reason))
                         } else {
                             previousHandler?(message)
                         }

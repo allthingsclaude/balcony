@@ -123,7 +123,7 @@ actor WebSocketClient {
         session?.invalidateAndCancel()
 
         // Use plain ws:// for local network — E2E encryption is handled at the app layer
-        // via XChaCha20-Poly1305, so TLS is not needed.
+        // via XSalsa20-Poly1305 (libsodium crypto_secretbox), so TLS is not needed.
         var components = URLComponents()
         components.scheme = "ws"
         components.host = host
@@ -170,14 +170,18 @@ actor WebSocketClient {
                     continue
                 }
 
-                // Decrypt if crypto is set up, otherwise decode plaintext
+                // Decrypt if crypto is set up, otherwise decode plaintext.
+                // Once the secure channel is established, a frame that fails authentication
+                // must be dropped — never reinterpreted as plaintext, or a forged/garbage
+                // frame would bypass integrity and be acted upon. Plaintext is only valid
+                // before crypto exists (the handshake itself).
                 let messageData: Data
                 if let crypto = cryptoManager {
                     do {
                         messageData = try await crypto.decrypt(rawData)
                     } catch {
-                        // May be a plaintext message during handshake transition
-                        messageData = rawData
+                        logger.error("Dropping frame that failed to decrypt (\(rawData.count) bytes)")
+                        continue
                     }
                 } else {
                     messageData = rawData

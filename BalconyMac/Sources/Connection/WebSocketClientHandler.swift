@@ -9,6 +9,8 @@ import os
 /// Lifecycle state of a connected WebSocket client.
 enum ClientState: Sendable {
     case connected
+    /// Handshake received, crypto setup in flight — not yet trusted.
+    case authenticating
     case authenticated
     case disconnected
 }
@@ -25,6 +27,12 @@ final class ConnectedClient: @unchecked Sendable {
     var lastPongAt: Date = Date()
     private(set) var cryptoManager: CryptoManager?
 
+    /// Serial chain that preserves outbound frame order. Each enqueued send awaits the
+    /// previous one before encrypting+writing, so concurrent `encrypt` calls can't reorder
+    /// frames on the wire (which would corrupt the terminal/history stream). Only mutated
+    /// from the `WebSocketServer` actor, so no extra locking is needed.
+    private var sendChain: Task<Void, Never> = Task {}
+
     init(id: String = UUID().uuidString, channel: Channel) {
         self.id = id
         self.channel = channel
@@ -35,9 +43,22 @@ final class ConnectedClient: @unchecked Sendable {
         self.cryptoManager = crypto
     }
 
-    /// Whether this client has completed the handshake.
+    /// Append work to the per-client serial send chain, preserving FIFO order.
+    func enqueueSend(_ work: @escaping @Sendable () async -> Void) {
+        let previous = sendChain
+        sendChain = Task {
+            await previous.value
+            await work()
+        }
+    }
+
+    /// Whether this client has completed the handshake AND established crypto.
+    ///
+    /// Requiring `cryptoManager != nil` guarantees an "authenticated" client can never be
+    /// served on the plaintext path, and that input/control messages are only accepted once
+    /// the shared secret is in place.
     var isAuthenticated: Bool {
-        state == .authenticated
+        state == .authenticated && cryptoManager != nil
     }
 
     /// Whether this client is subscribed to a given session.

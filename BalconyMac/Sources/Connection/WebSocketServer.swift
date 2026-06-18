@@ -52,6 +52,11 @@ actor WebSocketServer {
             .serverChannelOption(.socketOption(.so_reuseaddr), value: 1)
             .childChannelInitializer { channel in
                 let upgrader = NIOWebSocketServerUpgrader(
+                    // The convenience initializer hardcodes a 16 KB max frame size, but iOS
+                    // sends input as single unfragmented frames up to 16 MB — a paste/large
+                    // input over 16 KB would otherwise trip automatic error handling and tear
+                    // the connection down. Allow a generous 1 MB inbound frame.
+                    maxFrameSize: 1 << 20,
                     shouldUpgrade: { channel, head in
                         channel.eventLoop.makeSucceededFuture(HTTPHeaders())
                     },
@@ -160,14 +165,17 @@ actor WebSocketServer {
         do {
             let data = try encoder.encode(message)
 
-            // If client has crypto set up, encrypt before sending
+            // If client has crypto set up, encrypt before sending — on the client's serial
+            // send chain so concurrent encrypts can't reorder frames on the wire.
             if let crypto = client.cryptoManager {
-                Task {
+                let logger = self.logger
+                let clientId = client.id
+                client.enqueueSend {
                     do {
                         let encrypted = try await crypto.encrypt(data)
                         client.send(encrypted)
                     } catch {
-                        logger.error("Encryption failed for client \(client.id): \(error.localizedDescription)")
+                        logger.error("Encryption failed for client \(clientId): \(error.localizedDescription)")
                     }
                 }
             } else {
@@ -200,9 +208,12 @@ actor WebSocketServer {
         do {
             let handshake = try message.decodePayload(HandshakePayload.self)
 
-            // Store device info
+            // Store device info. Stay in `.authenticating` until crypto is established —
+            // marking `.authenticated` before the shared secret exists would open a window
+            // where messages take the plaintext path and the auth gate trusts a client with
+            // no key.
             client.deviceInfo = handshake.deviceInfo
-            client.state = .authenticated
+            client.state = .authenticating
 
             // Set up per-client crypto
             let crypto = CryptoManager()
@@ -211,6 +222,7 @@ actor WebSocketServer {
                     let keyPair = try await crypto.generateKeyPair()
                     try await crypto.deriveSharedSecret(theirPublicKey: handshake.publicKey)
                     client.setupCrypto(crypto)
+                    client.state = .authenticated
 
                     // Send handshake acknowledgement with our public key
                     let ack = HandshakeAckPayload(
@@ -266,6 +278,16 @@ actor WebSocketServer {
     private func processMessage(from client: ConnectedClient, data: Data) {
         do {
             let message = try decoder.decode(data)
+
+            // Auth gate: before the handshake completes (and crypto is established) the only
+            // message a client may send is the handshake itself. Without this, any device on
+            // the LAN could send `.userInput`/`.terminalResize`/picker selections that are
+            // forwarded straight into the live Claude Code PTY — blind keystroke injection.
+            guard message.type == .handshake || client.isAuthenticated else {
+                logger.warning("Dropping \(message.type.rawValue) from unauthenticated client \(client.id)")
+                sendError(to: client, message: "Not authenticated")
+                return
+            }
 
             switch message.type {
             case .handshake:
@@ -341,11 +363,13 @@ actor WebSocketServer {
         let now = Date()
         let timeout: TimeInterval = 45 // Miss 2 pongs (30s) + buffer
 
-        for client in clients.values {
+        // Snapshot before iterating: closing a channel drives clientDidDisconnect (which
+        // mutates `clients`) via channelInactive, so iterating `clients.values` directly
+        // would mutate the collection mid-loop and double-fire the disconnect.
+        for client in Array(clients.values) {
             if now.timeIntervalSince(client.lastPongAt) > timeout {
                 logger.warning("Client \(client.id) heartbeat timeout - disconnecting")
-                client.channel.close(promise: nil)
-                clientDidDisconnect(client)
+                client.channel.close(promise: nil) // → channelInactive → clientDidDisconnect
             } else {
                 client.sendPing()
             }

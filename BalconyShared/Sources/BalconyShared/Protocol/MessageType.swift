@@ -7,7 +7,8 @@ public enum MessageType: String, Codable, Sendable, CaseIterable {
     case handshakeAck
     case ping
     case pong
-    /// Reserved for protocol-level error reporting; not currently emitted by either peer.
+    /// Protocol-level error reporting. Emitted by the Mac server on handshake/auth failure
+    /// (see `WebSocketServer.sendError`); the iOS client surfaces it during the handshake.
     case error
 
     // Session management
