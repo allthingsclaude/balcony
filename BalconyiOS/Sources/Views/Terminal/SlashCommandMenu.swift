@@ -98,6 +98,7 @@ struct SlashCommandMenu: View {
         case .builtIn: return Image(systemName: "terminal")
         case .global: return Image(systemName: "globe")
         case .project: return Image(systemName: "folder")
+        case .unknown: return Image(systemName: "questionmark.circle")
         }
     }
 
@@ -125,6 +126,8 @@ struct SlashCommandMenu: View {
                 .padding(.horizontal, 6)
                 .padding(.vertical, 2)
                 .background(BalconyTheme.accentSubtle, in: Capsule())
+        case .unknown:
+            EmptyView()
         }
     }
 }
