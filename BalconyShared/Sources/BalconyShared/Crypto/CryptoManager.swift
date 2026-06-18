@@ -1,12 +1,20 @@
 import Foundation
 import Sodium
 
-/// Manages E2E encryption using X25519 key exchange and XChaCha20-Poly1305.
+/// Manages E2E encryption using X25519 key exchange and XSalsa20-Poly1305
+/// (libsodium `crypto_secretbox`).
+///
+/// Every message is sealed under a fresh **random** 24-byte nonce. This is load-bearing:
+/// `deriveSharedSecret` uses `box.beforenm`, so both peers derive the *same* shared key. A
+/// deterministic per-peer counter would then reuse a `(key, nonce)` pair across the two
+/// directions (Mac frame #1 and iOS frame #1 would both be nonce 1), which collapses the
+/// stream cipher into a two-time pad and breaks both confidentiality and integrity. A 24-byte
+/// nonce is large enough that random generation never realistically collides, so each
+/// direction gets an independent nonce space without any role negotiation.
 public actor CryptoManager {
     private let sodium = Sodium()
     private var keyPair: KeyPair?
     private var sharedSecret: Bytes?
-    private var nonceCounter: UInt64 = 0
 
     public init() {}
 
@@ -48,13 +56,13 @@ public actor CryptoManager {
 
     // MARK: - Encryption / Decryption
 
-    /// Encrypt plaintext data using XChaCha20-Poly1305.
+    /// Encrypt plaintext data using XSalsa20-Poly1305 with a fresh random nonce.
     public func encrypt(_ plaintext: Data) throws -> Data {
         guard let secret = sharedSecret else {
             throw BalconyError.cryptoError("No shared secret established")
         }
 
-        let nonce = generateNonce()
+        let nonce = try generateNonce()
         guard let ciphertext = sodium.secretBox.seal(
             message: Bytes(plaintext),
             secretKey: secret,
@@ -67,7 +75,7 @@ public actor CryptoManager {
         return Data(nonce + ciphertext)
     }
 
-    /// Decrypt ciphertext data using XChaCha20-Poly1305.
+    /// Decrypt ciphertext data using XSalsa20-Poly1305.
     public func decrypt(_ data: Data) throws -> Data {
         guard let secret = sharedSecret else {
             throw BalconyError.cryptoError("No shared secret established")
@@ -95,13 +103,13 @@ public actor CryptoManager {
 
     // MARK: - Private
 
-    private func generateNonce() -> Bytes {
-        nonceCounter += 1
-        var nonce = Bytes(repeating: 0, count: sodium.secretBox.NonceBytes)
-        var counter = nonceCounter
-        for i in 0..<8 {
-            nonce[i] = UInt8(counter & 0xFF)
-            counter >>= 8
+    /// Generate a fresh random nonce for one message.
+    ///
+    /// Random (not counter-based) generation is required: both peers share the same key,
+    /// so independent random nonces are what keep the two directions from colliding.
+    private func generateNonce() throws -> Bytes {
+        guard let nonce = sodium.randomBytes.buf(length: sodium.secretBox.NonceBytes) else {
+            throw BalconyError.cryptoError("Failed to generate nonce")
         }
         return nonce
     }

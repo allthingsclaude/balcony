@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 import Sodium
 
 /// An X25519 key pair for E2E encryption.
@@ -11,14 +12,12 @@ public struct KeyPair: Sendable {
         self.secretKey = secretKey
     }
 
-    /// SHA256 fingerprint of the public key (first 8 bytes, hex-encoded).
+    /// SHA-256 fingerprint of the public key (first 8 bytes, hex-encoded).
+    ///
+    /// Used for display and device identity. A real cryptographic digest (rather than a
+    /// rolling hash) so it is safe to pin against once handshake-key verification lands.
     public var fingerprint: String {
-        let data = Data(publicKey)
-        // Simple hash for fingerprint display
-        var hash: UInt64 = 0
-        for byte in data {
-            hash = hash &* 31 &+ UInt64(byte)
-        }
-        return String(format: "%016llx", hash)
+        let digest = SHA256.hash(data: Data(publicKey))
+        return digest.prefix(8).map { String(format: "%02x", $0) }.joined()
     }
 }

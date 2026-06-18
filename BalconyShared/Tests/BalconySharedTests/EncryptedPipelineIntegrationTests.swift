@@ -142,6 +142,39 @@ final class EncryptedPipelineIntegrationTests: XCTestCase {
         }
     }
 
+    /// Regression guard for the nonce-reuse bug: because both peers derive the *same* shared
+    /// secret, the two directions must never produce the same nonce. With the old per-peer
+    /// counter (both starting at 0) Mac frame #1 and iOS frame #1 collided — a `(key, nonce)`
+    /// reuse that breaks confidentiality and integrity. This fails on the counter, passes on
+    /// the random nonce.
+    func testNoncesAreUniqueAcrossDirections() async throws {
+        let (mac, ios) = try await makePairedCrypto()
+        let nonceSize = 24 // crypto_secretbox nonce length
+
+        var nonces = Set<Data>()
+        for i in 0..<50 {
+            let macCipher = try await mac.encrypt(Data("mac-\(i)".utf8))
+            let iosCipher = try await ios.encrypt(Data("ios-\(i)".utf8))
+            nonces.insert(macCipher.prefix(nonceSize))
+            nonces.insert(iosCipher.prefix(nonceSize))
+        }
+        // 100 encryptions across both directions must yield 100 distinct nonces.
+        XCTAssertEqual(nonces.count, 100, "Nonce collision detected — (key, nonce) reuse breaks E2E encryption")
+    }
+
+    /// Repeated encryptions from a single manager must each use a distinct nonce.
+    func testNoncesAreUniqueWithinDirection() async throws {
+        let (mac, _) = try await makePairedCrypto()
+        let nonceSize = 24
+
+        var nonces = Set<Data>()
+        for i in 0..<200 {
+            let cipher = try await mac.encrypt(Data("line-\(i)".utf8))
+            nonces.insert(cipher.prefix(nonceSize))
+        }
+        XCTAssertEqual(nonces.count, 200, "Same-direction nonce reuse detected")
+    }
+
     // MARK: - Large Payload
 
     /// Large terminal output survives the pipeline.
