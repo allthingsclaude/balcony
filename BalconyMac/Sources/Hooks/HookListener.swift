@@ -41,9 +41,13 @@ actor HookListener {
 
     /// Start the Unix domain socket server for hook events.
     func start() throws {
-        // Ensure directory exists
+        // Ensure directory exists, owner-only (the socket lives under $HOME).
         let dir = (socketPath as NSString).deletingLastPathComponent
-        try FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(
+            atPath: dir,
+            withIntermediateDirectories: true,
+            attributes: [.posixPermissions: 0o700]
+        )
 
         // Remove stale socket file
         unlink(socketPath)
@@ -60,8 +64,15 @@ actor HookListener {
         addr.sun_family = sa_family_t(AF_UNIX)
 
         let pathBytes = socketPath.utf8CString
+        // sun_path is a fixed 104-byte field; copying a longer path (incl. NUL) overflows it.
+        let sunPathCapacity = MemoryLayout.size(ofValue: addr.sun_path)
+        guard pathBytes.count <= sunPathCapacity else {
+            close(serverFD)
+            serverFD = -1
+            throw POSIXError(.ENAMETOOLONG)
+        }
         withUnsafeMutablePointer(to: &addr.sun_path) { ptr in
-            ptr.withMemoryRebound(to: CChar.self, capacity: Int(pathBytes.count)) { dest in
+            ptr.withMemoryRebound(to: CChar.self, capacity: sunPathCapacity) { dest in
                 for (i, byte) in pathBytes.enumerated() {
                     dest[i] = byte
                 }
@@ -80,6 +91,9 @@ actor HookListener {
             serverFD = -1
             throw POSIXError(.init(rawValue: errno) ?? .EADDRINUSE)
         }
+
+        // Restrict the socket to this user.
+        chmod(socketPath, 0o600)
 
         guard listen(serverFD, 16) == 0 else {
             close(serverFD)
@@ -181,7 +195,23 @@ actor HookListener {
                 }
             }
 
-            guard clientFD >= 0 else { break }
+            guard clientFD >= 0 else {
+                if errno == EINTR { continue }
+                // EAGAIN/EWOULDBLOCK = drained (normal). Anything else is worth a log —
+                // EMFILE in particular turns into an invisible "session never appears".
+                if errno != EAGAIN && errno != EWOULDBLOCK {
+                    logger.error("Hook accept() failed (errno \(errno)\(errno == EMFILE ? " — EMFILE, fd limit reached" : ""))")
+                }
+                break
+            }
+
+            // Reject peers that aren't this user — hook responses unblock Claude, so we don't
+            // want a different-uid local process driving them.
+            if !Self.peerIsCurrentUser(clientFD) {
+                logger.warning("Rejecting hook client with non-matching uid")
+                close(clientFD)
+                continue
+            }
 
             logger.debug("Hook client connected (fd=\(clientFD))")
 
@@ -190,6 +220,15 @@ actor HookListener {
                 self?.readHookEvent(fd: clientFD)
             }
         }
+    }
+
+    /// Whether the connected peer on `fd` runs as the current effective user.
+    /// Returns true if credentials can't be determined, so we never break legitimate use.
+    private nonisolated static func peerIsCurrentUser(_ fd: Int32) -> Bool {
+        var uid: uid_t = 0
+        var gid: gid_t = 0
+        guard getpeereid(fd, &uid, &gid) == 0 else { return true }
+        return uid == geteuid()
     }
 
     /// Get the PID of a connected Unix socket peer.

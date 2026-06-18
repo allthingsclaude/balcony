@@ -58,9 +58,13 @@ actor PTYSessionManager {
 
     /// Start the Unix domain socket server.
     func start() throws {
-        // Ensure directory exists
+        // Ensure directory exists, owner-only (the socket lives under $HOME).
         let dir = (socketPath as NSString).deletingLastPathComponent
-        try FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(
+            atPath: dir,
+            withIntermediateDirectories: true,
+            attributes: [.posixPermissions: 0o700]
+        )
 
         // Remove stale socket file
         unlink(socketPath)
@@ -78,8 +82,15 @@ actor PTYSessionManager {
         addr.sun_family = sa_family_t(AF_UNIX)
 
         let pathBytes = socketPath.utf8CString
+        // sun_path is a fixed 104-byte field; copying a longer path (incl. NUL) overflows it.
+        let sunPathCapacity = MemoryLayout.size(ofValue: addr.sun_path)
+        guard pathBytes.count <= sunPathCapacity else {
+            close(serverFD)
+            serverFD = -1
+            throw POSIXError(.ENAMETOOLONG)
+        }
         withUnsafeMutablePointer(to: &addr.sun_path) { ptr in
-            ptr.withMemoryRebound(to: CChar.self, capacity: Int(pathBytes.count)) { dest in
+            ptr.withMemoryRebound(to: CChar.self, capacity: sunPathCapacity) { dest in
                 for (i, byte) in pathBytes.enumerated() {
                     dest[i] = byte
                 }
@@ -98,6 +109,9 @@ actor PTYSessionManager {
             serverFD = -1
             throw POSIXError(.init(rawValue: errno) ?? .EADDRINUSE)
         }
+
+        // Restrict the socket to this user.
+        chmod(socketPath, 0o600)
 
         guard listen(serverFD, 5) == 0 else {
             close(serverFD)
@@ -149,7 +163,23 @@ actor PTYSessionManager {
             }
         }
 
-        guard clientFD >= 0 else { return }
+        guard clientFD >= 0 else {
+            // accept() is called once per dispatch wakeup; the source re-fires, so a transient
+            // error just returns. Log the non-transient ones (EMFILE in particular makes
+            // "session never appears" otherwise invisible).
+            if errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR {
+                logger.error("PTY accept() failed (errno \(errno)\(errno == EMFILE ? " — EMFILE, fd limit reached" : ""))")
+            }
+            return
+        }
+
+        // Reject peers that aren't this user — the input path writes straight to the PTY, so
+        // we don't want a different-uid local process injecting keystrokes.
+        if !Self.peerIsCurrentUser(clientFD) {
+            logger.warning("Rejecting PTY client with non-matching uid")
+            close(clientFD)
+            return
+        }
 
         // Set client fd to non-blocking so read() never blocks the actor
         let cflags = fcntl(clientFD, F_GETFL)
@@ -184,6 +214,15 @@ actor PTYSessionManager {
         state.readSource = readSource
 
         clientFDs[clientFD] = state
+    }
+
+    /// Whether the connected peer on `fd` runs as the current effective user.
+    /// Returns true if credentials can't be determined, so we never break legitimate use.
+    private static func peerIsCurrentUser(_ fd: Int32) -> Bool {
+        var uid: uid_t = 0
+        var gid: gid_t = 0
+        guard getpeereid(fd, &uid, &gid) == 0 else { return true }
+        return uid == geteuid()
     }
 
     /// Apply a batch of parsed messages from one client. One actor hop per
@@ -435,6 +474,11 @@ private final class PTYClientState {
 final class FrameParser: @unchecked Sendable {
     private var buffers: [Int32: Data] = [:]
 
+    /// Upper bound on a single frame's declared payload length. Comfortably above any real
+    /// PTY frame; rejects a desynced or hostile peer that declares a huge length and dribbles
+    /// bytes, which would otherwise drive unbounded buffer growth.
+    static let maxFrameLength: UInt32 = 16 * 1024 * 1024
+
     struct DrainOutcome {
         var messages: [(UInt8, Data)] = []
         var disconnected = false
@@ -478,6 +522,11 @@ final class FrameParser: @unchecked Sendable {
                     | UInt32(buf[s + 2]) << 16
                     | UInt32(buf[s + 3]) << 8
                     | UInt32(buf[s + 4])
+            // Reject absurd lengths rather than buffering toward them.
+            if len > Self.maxFrameLength {
+                outcome.disconnected = true
+                break
+            }
             let totalLen = 5 + Int(len)
             guard buf.count >= totalLen else { break }
             let payload = Data(buf[(s + 5)..<(s + totalLen)])
