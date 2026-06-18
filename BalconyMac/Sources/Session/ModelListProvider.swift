@@ -34,44 +34,33 @@ actor ModelListProvider {
     /// Scans `~/.claude/projects/{projectHash}/` for the most recently modified `.jsonl` file
     /// (skipping `agent-` prefixed subagent files), then reads the tail looking for a `"model"` field.
     func currentModelForProject(_ projectPath: String) -> String? {
-        let claudeDir = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".claude/projects")
+        // Scan only THIS project's session directory. (The previous implementation ignored
+        // projectPath and walked every project dir, returning the model from whichever
+        // project was last touched machine-wide — and doing an O(all-projects × all-files)
+        // stat walk on every /model request.)
+        let dir = ClaudeProjectLocator.sessionDirectory(for: projectPath)
 
-        guard let projectDirs = try? FileManager.default.contentsOfDirectory(
-            at: claudeDir,
+        let jsonlFiles = (try? FileManager.default.contentsOfDirectory(
+            at: dir,
             includingPropertiesForKeys: [.contentModificationDateKey],
             options: .skipsHiddenFiles
-        ) else {
-            logger.debug("No .claude/projects directory found")
-            return nil
-        }
+        ))?.filter { url in
+            url.pathExtension == "jsonl" && !url.lastPathComponent.hasPrefix("agent-")
+        } ?? []
 
-        // Find the project hash directory that matches this project path.
-        // Claude Code hashes the project path — we find the dir by looking at session files.
         var bestFile: URL?
         var bestDate = Date.distantPast
-
-        for dir in projectDirs {
-            let jsonlFiles = (try? FileManager.default.contentsOfDirectory(
-                at: dir,
-                includingPropertiesForKeys: [.contentModificationDateKey],
-                options: .skipsHiddenFiles
-            ))?.filter { url in
-                url.pathExtension == "jsonl" && !url.lastPathComponent.hasPrefix("agent-")
-            } ?? []
-
-            for file in jsonlFiles {
-                guard let attrs = try? FileManager.default.attributesOfItem(atPath: file.path),
-                      let modDate = attrs[.modificationDate] as? Date else { continue }
-                if modDate > bestDate {
-                    bestDate = modDate
-                    bestFile = file
-                }
+        for file in jsonlFiles {
+            guard let modDate = try? file.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate
+            else { continue }
+            if modDate > bestDate {
+                bestDate = modDate
+                bestFile = file
             }
         }
 
         guard let file = bestFile else {
-            logger.debug("No JSONL session files found")
+            logger.debug("No JSONL session files found for project")
             return nil
         }
 
@@ -88,9 +77,16 @@ actor ModelListProvider {
         let fileSize = handle.seekToEndOfFile()
         let offset = fileSize > tailSize ? fileSize - tailSize : 0
         handle.seek(toFileOffset: offset)
-        let data = handle.readDataToEndOfFile()
+        var data = handle.readDataToEndOfFile()
 
-        guard let text = String(data: data, encoding: .utf8) else { return nil }
+        // When we seek into the middle of the file the first bytes may be a partial UTF-8
+        // codepoint, which makes a strict decode return nil. Drop everything up to and
+        // including the first newline so decoding starts on a JSONL line boundary (each
+        // line is independently valid UTF-8). If there's no newline, fall back to lossy.
+        if offset > 0, let nl = data.firstIndex(of: UInt8(ascii: "\n")) {
+            data = data[(nl + 1)...]
+        }
+        let text = String(data: data, encoding: .utf8) ?? String(decoding: data, as: UTF8.self)
 
         let lines = text.components(separatedBy: .newlines).reversed()
         for line in lines {

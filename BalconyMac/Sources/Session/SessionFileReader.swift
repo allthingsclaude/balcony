@@ -9,11 +9,14 @@ actor SessionFileReader {
     /// Maximum sessions to return (most recent by file modification date).
     private let maxSessions = 30
 
+    /// Cached message counts keyed by file path, with the (size, mtime) they were computed at.
+    private struct MessageCountEntry { let size: Int; let mtime: Date; let count: Int }
+    private var messageCountCache: [String: MessageCountEntry] = [:]
+
     /// List available sessions for a given project path.
     /// Pre-sorts by modification date and only parses the most recent files.
     func listSessions(for projectPath: String) async -> [SessionInfo] {
-        let projectHash = hashProjectPath(projectPath)
-        let sessionsDir = claudeProjectsPath().appendingPathComponent(projectHash)
+        let sessionsDir = ClaudeProjectLocator.sessionDirectory(for: projectPath)
 
         guard FileManager.default.fileExists(atPath: sessionsDir.path) else {
             logger.warning("No sessions directory at: \(sessionsDir.path)")
@@ -171,8 +174,7 @@ actor SessionFileReader {
     /// Count user and assistant messages for a specific Claude session.
     /// Falls back to the most recently active JSONL file if no session ID is provided.
     func countMessages(projectPath: String, claudeSessionId: String? = nil) -> Int {
-        let hash = hashProjectPath(projectPath)
-        let dir = claudeProjectsPath().appendingPathComponent(hash)
+        let dir = ClaudeProjectLocator.sessionDirectory(for: projectPath)
 
         let url: URL
         if let sessionId = claudeSessionId {
@@ -200,6 +202,19 @@ actor SessionFileReader {
 
             guard let found = latestURL else { return 0 }
             url = found
+        }
+
+        // Skip the full re-scan when the file is unchanged since the last count. The active
+        // session's file changes (cache miss → rescan), but the other ~29 sessions in the
+        // list don't, so this avoids re-streaming their (potentially 25 MB+) JSONL every
+        // refresh — the exact memory pressure that risks jetsam SIGKILL.
+        let resourceValues = try? url.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey])
+        let fileSize = resourceValues?.fileSize
+        let modDate = resourceValues?.contentModificationDate
+        if let cached = messageCountCache[url.path],
+           let fileSize, let modDate,
+           cached.size == fileSize, cached.mtime == modDate {
+            return cached.count
         }
 
         // Stream the file in 64 KB chunks instead of loading the entire file into memory.
@@ -263,6 +278,9 @@ actor SessionFileReader {
             }
         }
 
+        if let fileSize, let modDate {
+            messageCountCache[url.path] = MessageCountEntry(size: fileSize, mtime: modDate, count: count)
+        }
         return count
     }
 
@@ -281,15 +299,4 @@ actor SessionFileReader {
         return false
     }
 
-    // MARK: - Path Helpers
-
-    private func claudeProjectsPath() -> URL {
-        FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".claude")
-            .appendingPathComponent("projects")
-    }
-
-    private func hashProjectPath(_ path: String) -> String {
-        path.replacingOccurrences(of: "/", with: "-")
-    }
 }

@@ -236,10 +236,7 @@ final class ConnectionManager: ObservableObject {
     /// Most-recently-modified non-agent `.jsonl` for a project path. Mirrors the
     /// project-hash scheme Claude Code uses (`/` → `-`).
     private static func latestTranscriptPath(forProjectPath projectPath: String, createdAfter: Date? = nil) -> String? {
-        let hash = projectPath.replacingOccurrences(of: "/", with: "-")
-        let dir = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(".claude/projects")
-            .appendingPathComponent(hash)
+        let dir = ClaudeProjectLocator.sessionDirectory(for: projectPath)
         return TranscriptTailer.latestJSONL(inDirectory: dir, createdAfter: createdAfter)
     }
 
@@ -616,7 +613,10 @@ final class ConnectionManager: ObservableObject {
         guard let session = sessions.first(where: { $0.id == sessionId }) else { return }
 
         let projectPath = session.projectPath
-        let commands = SlashCommandScanner.scan(projectPath: projectPath)
+        // Scan off the actor — a large project tree shouldn't stall the connection manager.
+        let commands = await Task.detached(priority: .utility) {
+            SlashCommandScanner.scan(projectPath: projectPath)
+        }.value
 
         do {
             let payload = SlashCommandsPayload(sessionId: sessionId, commands: commands)
@@ -634,7 +634,11 @@ final class ConnectionManager: ObservableObject {
         let sessions = await ptySessionManager.getActiveSessions()
         guard let session = sessions.first(where: { $0.id == sessionId }) else { return }
 
-        let files = ProjectFileScanner.scan(projectPath: session.projectPath)
+        let projectPath = session.projectPath
+        // Scan off the actor — enumerating a large project tree shouldn't stall it.
+        let files = await Task.detached(priority: .utility) {
+            ProjectFileScanner.scan(projectPath: projectPath)
+        }.value
         do {
             let payload = FileListPayload(sessionId: sessionId, files: files)
             let msg = try BalconyMessage.create(type: .fileList, payload: payload)

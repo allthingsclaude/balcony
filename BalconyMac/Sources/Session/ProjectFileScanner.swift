@@ -85,9 +85,17 @@ enum ProjectFileScanner {
     }
 
     private static func matchesGitignore(_ path: String, patterns: [String]) -> Bool {
+        let components = path.split(separator: "/").map(String.init)
         for pattern in patterns {
+            // Negation patterns (`!foo`) re-include files; without full gitignore semantics
+            // the safe behavior is to not let them act as positive matches.
+            if pattern.hasPrefix("!") { continue }
             let cleaned = pattern.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-            if path.contains(cleaned) { return true }
+            guard !cleaned.isEmpty else { continue }
+            // Match only when the pattern equals a full path component (e.g. `build`,
+            // `node_modules`, `dist`) — not as an arbitrary substring, which previously
+            // excluded unrelated files like `building.swift` for a `build` rule.
+            if components.contains(cleaned) { return true }
         }
         return false
     }
