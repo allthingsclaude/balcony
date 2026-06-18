@@ -54,4 +54,13 @@ public enum SessionStatus: String, Codable, Sendable {
     case idle
     case completed
     case error
+    /// A status sent by a newer peer that this build doesn't recognize. Decoding to
+    /// `.unknown` (rather than throwing) keeps one odd member from failing the whole
+    /// session-list decode and wiping the list to empty across a version skew.
+    case unknown
+
+    public init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = SessionStatus(rawValue: raw) ?? .unknown
+    }
 }

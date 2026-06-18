@@ -133,23 +133,41 @@ public struct PermissionPromptInfo: Sendable {
             return .normal
         case "Bash":
             guard let cmd = command else { return .elevated }
-            let destructivePatterns = [
-                "rm ", "rm\t", "rmdir",
-                "sudo ", "chmod ", "chown ",
-                "mkfs", "dd ",
-                "git push --force", "git reset --hard",
-                "> /dev/", "kill ", "killall ",
-                "mv /", "cp /",
-            ]
-            for pattern in destructivePatterns {
-                if cmd.contains(pattern) { return .destructive }
-            }
-            return .elevated
+            return Self.isDestructiveCommand(cmd) ? .destructive : .elevated
         case "Edit", "Write":
             return .elevated
         default:
             return .elevated
         }
+    }
+
+    /// Known destructive command names, matched against the first token of each command
+    /// segment (not as substrings).
+    static let destructiveCommandNames: Set<String> = [
+        "rm", "rmdir", "sudo", "chmod", "chown", "mkfs", "dd", "kill", "killall",
+    ]
+
+    /// Whether a shell command should be flagged destructive.
+    ///
+    /// Lowercases, splits on shell separators (`; | & newline`), and compares the first
+    /// token of each segment against `destructiveCommandNames`, plus a few phrase forms.
+    /// This avoids the substring false positives of naive `contains` — `git add .` no longer
+    /// matches `dd`, `terraform apply` no longer matches `rm` — and catches uppercase.
+    static func isDestructiveCommand(_ command: String) -> Bool {
+        let lower = command.lowercased()
+
+        // Phrase forms a first-token check won't catch.
+        let phrases = ["git push --force", "git push -f", "git reset --hard", "> /dev/"]
+        for phrase in phrases where lower.contains(phrase) { return true }
+
+        let segments = lower.components(separatedBy: CharacterSet(charactersIn: ";|&\n"))
+        for segment in segments {
+            let tokens = segment.split(whereSeparator: { $0 == " " || $0 == "\t" })
+            if let first = tokens.first, destructiveCommandNames.contains(String(first)) {
+                return true
+            }
+        }
+        return false
     }
 
     public init(toolName: String, command: String?, filePath: String?, detail: String? = nil, sessionId: String, cwd: String? = nil, ptySessionId: String? = nil, hookPeerPID: Int32? = nil, timestamp: Date = Date()) {

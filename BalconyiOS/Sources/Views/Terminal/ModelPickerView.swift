@@ -94,6 +94,7 @@ struct ModelPickerView: View {
         case .opus: return "brain.head.profile"
         case .sonnet: return "bolt.fill"
         case .haiku: return "leaf.fill"
+        case .unknown: return "cpu"
         }
     }
 }

@@ -5,13 +5,22 @@ public enum ModelTier: String, Codable, Sendable, Comparable {
     case opus
     case sonnet
     case haiku
+    /// A tier sent by a newer peer that this build doesn't recognize. Decoding to `.unknown`
+    /// keeps one unrecognized model from failing the whole model-list decode.
+    case unknown
 
-    /// Sort priority — Opus first, Haiku last.
+    public init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = ModelTier(rawValue: raw) ?? .unknown
+    }
+
+    /// Sort priority — Opus first, Haiku next, unknown last.
     private var sortOrder: Int {
         switch self {
         case .opus: return 0
         case .sonnet: return 1
         case .haiku: return 2
+        case .unknown: return 3
         }
     }
 

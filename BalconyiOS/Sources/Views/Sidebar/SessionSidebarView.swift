@@ -144,6 +144,7 @@ struct SessionSidebarView: View {
         case .idle: return 1
         case .completed: return 2
         case .error: return 3
+        case .unknown: return 4
         }
     }
 
@@ -382,6 +383,7 @@ struct SidebarSessionRow: View {
         case .idle: return BalconyTheme.statusYellow
         case .completed: return BalconyTheme.textSecondary
         case .error: return BalconyTheme.statusRed
+        case .unknown: return BalconyTheme.textSecondary
         }
     }
 

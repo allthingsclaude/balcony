@@ -303,6 +303,7 @@ struct MenuBarView: View {
         case .idle: return MenuBarTheme.brandLight
         case .completed: return .gray
         case .error: return MenuBarTheme.brandDark
+        case .unknown: return .gray
         }
     }
 }

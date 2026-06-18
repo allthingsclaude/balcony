@@ -341,6 +341,28 @@ final class HookEventTests: XCTestCase {
         XCTAssertEqual(info.riskLevel, .elevated)
     }
 
+    // Regression: naked substring matching used to flag these safe commands destructive
+    // ("git add ." → "dd ", "terraform apply" → "rm ", "echo perform" → "rm ").
+    func testRiskLevelFalsePositivesAreElevatedNotDestructive() {
+        let safe = ["git add .", "terraform apply", "echo perform migration", "npm run build", "cargo add serde"]
+        for cmd in safe {
+            let info = PermissionPromptInfo(toolName: "Bash", command: cmd, filePath: nil, sessionId: "s")
+            XCTAssertEqual(info.riskLevel, .elevated, "\(cmd) should be elevated, not destructive")
+        }
+    }
+
+    func testRiskLevelUppercaseDestructiveIsCaught() {
+        // The old lowercase-only patterns missed these.
+        let info = PermissionPromptInfo(toolName: "Bash", command: "SUDO rm -rf /tmp", filePath: nil, sessionId: "s")
+        XCTAssertEqual(info.riskLevel, .destructive)
+    }
+
+    func testRiskLevelDestructiveAfterSeparatorIsCaught() {
+        // The destructive command is the first token of a later segment.
+        let info = PermissionPromptInfo(toolName: "Bash", command: "make build && rm -rf dist", filePath: nil, sessionId: "s")
+        XCTAssertEqual(info.riskLevel, .destructive)
+    }
+
     // MARK: - HookEventPayload
 
     func testHookEventPayloadFromPermissionPromptInfo() {

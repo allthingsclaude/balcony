@@ -554,15 +554,6 @@ struct SidebarContainerView: View {
             selectSession(only)
         }
     }
-
-    private func statusPriority(_ status: SessionStatus) -> Int {
-        switch status {
-        case .active: return 0
-        case .idle: return 1
-        case .completed: return 2
-        case .error: return 3
-        }
-    }
 }
 
 // MARK: - Attention Toast
