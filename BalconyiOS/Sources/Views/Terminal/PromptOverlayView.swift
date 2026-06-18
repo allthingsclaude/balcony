@@ -192,6 +192,11 @@ private struct MultiOptionPromptView: View {
     let prompt: MultiOptionPrompt
     let onSendInput: (String) -> Void
 
+    /// Guards against a second tap before the first selection's nav+Enter is dispatched.
+    /// Each tap's arrow delta is computed against the captured `selectedIndex`, so two taps
+    /// in the 50ms window would send conflicting navigation and confirm the wrong option.
+    @State private var sending = false
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Question text
@@ -218,6 +223,7 @@ private struct MultiOptionPromptView: View {
                             optionRow(option)
                         }
                         .buttonStyle(.plain)
+                        .disabled(sending)
                     }
                 }
                 .padding(.vertical, 4)
@@ -277,6 +283,8 @@ private struct MultiOptionPromptView: View {
 
     /// Navigate to the target option using arrow keys, then confirm with Enter.
     private func sendOptionSelection(_ option: MultiOptionItem) {
+        guard !sending else { return }
+        sending = true
         let delta = option.index - prompt.selectedIndex
 
         if delta != 0 {

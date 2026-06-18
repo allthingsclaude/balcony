@@ -561,7 +561,9 @@ final class SessionManager {
                                 isAttention: true
                             )
                         }
-                        break
+                        // continue, not break: other sessions in this same update may also
+                        // have transitioned and must still get their notification/sound.
+                        continue
                     }
                     if inputTransition {
                         if appIsInactive {
@@ -582,7 +584,7 @@ final class SessionManager {
                                 isAttention: false
                             )
                         }
-                        break
+                        continue
                     }
                 }
             }

@@ -625,6 +625,13 @@ final class ConnectionManager: ObservableObject {
     /// Remove a paired device.
     func removePairedDevice(_ device: DeviceInfo) {
         pairedDevices.removeAll { $0.id == device.id }
+        // Stop silently auto-reconnecting to a device the user just removed.
+        if lastConnectedDeviceId == device.id {
+            lastConnectedDeviceId = nil
+        }
+        if connectedDevice?.id == device.id {
+            Task { await disconnect() }
+        }
         do {
             let encoder = JSONEncoder()
             let data = try encoder.encode(pairedDevices)

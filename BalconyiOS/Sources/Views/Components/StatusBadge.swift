@@ -18,6 +18,12 @@ struct StatusBadge: View {
                         .stroke(color.opacity(pulseOpacity), lineWidth: 1.5)
                         .frame(width: 8 * pulseScale, height: 8 * pulseScale)
                         .onAppear {
+                            // Reset to the start state first: the @State persists after the
+                            // ring is removed (status left .active), so without this a return
+                            // to .active would animate 2.5→2.5 / 0→0 and the pulse would be
+                            // an invisible static ring.
+                            pulseScale = 1.0
+                            pulseOpacity = 0.6
                             withAnimation(
                                 .easeOut(duration: 1.5)
                                 .repeatForever(autoreverses: false)
@@ -49,6 +55,7 @@ struct StatusBadge: View {
         case .idle: return BalconyTheme.statusYellow
         case .completed: return BalconyTheme.textSecondary
         case .error: return BalconyTheme.statusRed
+        case .unknown: return BalconyTheme.textSecondary
         }
     }
 
@@ -58,6 +65,7 @@ struct StatusBadge: View {
         case .idle: return "Idle"
         case .completed: return "Done"
         case .error: return "Error"
+        case .unknown: return "Unknown"
         }
     }
 }

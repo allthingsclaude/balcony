@@ -1,5 +1,6 @@
 import AVFoundation
 import Foundation
+import os
 import UserNotifications
 
 // MARK: - NotificationSound
@@ -94,6 +95,7 @@ final class SoundManager {
 
     /// Retained player for current playback.
     private var player: AVAudioPlayer?
+    private let logger = Logger(subsystem: "com.balcony.ios", category: "SoundManager")
 
     private init() {}
 
@@ -103,10 +105,16 @@ final class SoundManager {
               let url = Bundle.main.url(forResource: fileName.replacingOccurrences(of: ".caf", with: ""),
                                         withExtension: "caf") else { return }
         do {
+            // These are alert cues the user explicitly enabled, so configure a playback
+            // session that ignores the hardware mute switch (the default ambient category
+            // would silence them when the ringer is off).
+            let session = AVAudioSession.sharedInstance()
+            try? session.setCategory(.playback, options: [.duckOthers])
+            try? session.setActive(true)
             player = try AVAudioPlayer(contentsOf: url)
             player?.play()
         } catch {
-            // Silently fail — sound is non-critical
+            logger.error("Failed to play sound \(fileName): \(error.localizedDescription)")
         }
     }
 
