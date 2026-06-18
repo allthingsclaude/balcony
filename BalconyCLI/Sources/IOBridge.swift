@@ -1,5 +1,43 @@
 import Foundation
 
+// MARK: - Async-signal-safe terminal restore
+//
+// `IOBridge.stop()` only runs on a graceful exit. A Swift trap (fatalError /
+// force-unwrap → SIGILL/SIGABRT), a segfault, or a SIGQUIT/SIGHUP would otherwise leave
+// the user's tty in raw mode (no echo, broken Enter) — exactly the corruption the CLI is
+// meant to avoid. These file-scope hooks restore termios on those paths too. `tcsetattr` is
+// on the POSIX async-signal-safe list, so it is safe to call from a signal handler.
+
+private var balconySavedTermios = termios()
+private var balconyRawModeActive = false
+private var balconyRestoreInstalled = false
+
+/// Restore the saved terminal attributes (no-op if raw mode was never enabled).
+private func balconyRestoreTerminal() {
+    guard balconyRawModeActive else { return }
+    tcsetattr(STDIN_FILENO, TCSAFLUSH, &balconySavedTermios)
+}
+
+/// Crash handler: restore the tty, then re-raise with the default disposition so the normal
+/// crash/termination (and core dump) still happens.
+private func balconyCrashSignalHandler(_ sig: Int32) {
+    balconyRestoreTerminal()
+    signal(sig, SIG_DFL)
+    raise(sig)
+}
+
+/// Register `atexit` + crash-signal restore exactly once, capturing the pre-raw attributes.
+private func installBalconyTerminalRestore(saved: termios) {
+    balconySavedTermios = saved
+    balconyRawModeActive = true
+    guard !balconyRestoreInstalled else { return }
+    balconyRestoreInstalled = true
+    atexit(balconyRestoreTerminal) // covers exit()/return; NOT abort(), hence the handlers below
+    for sig in [SIGSEGV, SIGABRT, SIGQUIT, SIGHUP, SIGBUS] {
+        signal(sig, balconyCrashSignalHandler)
+    }
+}
+
 /// Multiplexed I/O bridge between local terminal, PTY master, and Unix socket.
 ///
 /// Data flows:
@@ -126,10 +164,18 @@ final class IOBridge {
                 if buf[0] != 0x1B {
                     self.socketClient?.sendStdinActivity()
                 }
+            } else if n == 0 || (n < 0 && errno != EAGAIN && errno != EINTR) {
+                // stdin hit EOF (e.g. piped/redirected input that ended) or a hard error.
+                // The descriptor stays persistently readable at EOF, so without tearing the
+                // source down it would re-fire in a tight loop and pin a core. PTY output
+                // keeps flowing — only the local stdin path is stopped.
+                self.stdinReadSource?.cancel()
+                self.stdinReadSource = nil
             }
         }
-        stdinSource.resume()
+        // Assign before resume so an immediate EOF event can cancel the source.
         stdinReadSource = stdinSource
+        stdinSource.resume()
     }
 
     /// Stop the I/O bridge and restore terminal state.
@@ -148,6 +194,9 @@ final class IOBridge {
         var raw = termios()
         tcgetattr(STDIN_FILENO, &raw)
         savedTermios = raw
+        // Register crash/atexit restore before flipping to raw, so an abnormal exit can
+        // never strand the tty in raw mode.
+        installBalconyTerminalRestore(saved: raw)
         cfmakeraw(&raw)
         tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw)
     }
@@ -156,6 +205,7 @@ final class IOBridge {
         guard var saved = savedTermios else { return }
         tcsetattr(STDIN_FILENO, TCSAFLUSH, &saved)
         savedTermios = nil
+        balconyRawModeActive = false
     }
 
     // MARK: - Write helper

@@ -16,6 +16,10 @@ enum PTYManager {
             throw POSIXError(.init(rawValue: errno) ?? .ENODEV)
         }
 
+        // Don't let the PTY master leak across exec into claude or its grandchildren — only
+        // the CLI process should hold it (whoever holds the master can read everything typed).
+        _ = fcntl(masterFD, F_SETFD, FD_CLOEXEC)
+
         guard grantpt(masterFD) == 0 else {
             close(masterFD)
             throw POSIXError(.init(rawValue: errno) ?? .EACCES)
