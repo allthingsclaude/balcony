@@ -1,6 +1,44 @@
 import SwiftUI
 import BalconyShared
 
+// MARK: - Project Title
+
+/// Resolves the user-facing project title shown in a notification panel header.
+///
+/// Prefers the enclosing git repository's root folder name, so the title shows
+/// the repo (e.g. "balcony") even when Claude Code was launched from a nested
+/// subdirectory (e.g. ".../balcony/BalconyMac/Sources", which would otherwise
+/// show "Sources"). Falls back to the working directory's own name when it isn't
+/// inside a git repo.
+enum ProjectTitle {
+    /// Title for a session working directory, or `nil` when no usable name.
+    static func resolve(forCwd cwd: String?) -> String? {
+        guard let cwd, !cwd.isEmpty else { return nil }
+        let root = gitRoot(forPath: cwd) ?? cwd
+        let name = (root as NSString).lastPathComponent
+        return name.isEmpty ? nil : name
+    }
+
+    /// Walks up the directory tree from `path` looking for a `.git` entry.
+    /// A `.git` directory marks a normal repo; a `.git` *file* marks a worktree
+    /// or submodule — `fileExists` matches both. Returns the repo root, or `nil`.
+    private static func gitRoot(forPath path: String) -> String? {
+        let fileManager = FileManager.default
+        var dir = (path as NSString).standardizingPath
+
+        while !dir.isEmpty, dir != "/" {
+            let gitPath = (dir as NSString).appendingPathComponent(".git")
+            if fileManager.fileExists(atPath: gitPath) {
+                return dir
+            }
+            let parent = (dir as NSString).deletingLastPathComponent
+            if parent == dir { break }
+            dir = parent
+        }
+        return nil
+    }
+}
+
 // MARK: - Panel Theme
 
 /// Terracotta color palette matching the Battery companion app.
@@ -376,9 +414,7 @@ struct PromptPanelView: View {
     }
 
     private var projectName: String? {
-        guard let cwd = info.cwd else { return nil }
-        let name = (cwd as NSString).lastPathComponent
-        return name.isEmpty ? nil : name
+        ProjectTitle.resolve(forCwd: info.cwd)
     }
 
     private var riskBadge: some View {
@@ -593,9 +629,7 @@ struct IdlePromptPanelView: View {
     @State private var voiceGlowOpacity: CGFloat = 0.0
 
     private var projectName: String? {
-        guard let cwd = info.cwd else { return nil }
-        let name = (cwd as NSString).lastPathComponent
-        return name.isEmpty ? nil : name
+        ProjectTitle.resolve(forCwd: info.cwd)
     }
 
     private var displayMessage: String {
@@ -771,9 +805,7 @@ struct MultiOptionPanelView: View {
     }
 
     private var projectName: String? {
-        guard let cwd = info.cwd else { return nil }
-        let name = (cwd as NSString).lastPathComponent
-        return name.isEmpty ? nil : name
+        ProjectTitle.resolve(forCwd: info.cwd)
     }
 
     private func submitOther(option: ParsedOption) {
@@ -987,9 +1019,7 @@ struct AskUserQuestionPanelView: View {
     }
 
     private var projectName: String? {
-        guard let cwd = info.cwd else { return nil }
-        let name = (cwd as NSString).lastPathComponent
-        return name.isEmpty ? nil : name
+        ProjectTitle.resolve(forCwd: info.cwd)
     }
 
     private func selectOption(_ index: Int) {
