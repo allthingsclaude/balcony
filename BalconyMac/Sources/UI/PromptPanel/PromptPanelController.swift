@@ -274,6 +274,29 @@ final class PromptPanelController {
     private static let collapsedScaleStep: CGFloat = 0.02
     private static let collapsedDimStep: CGFloat = 0.10
 
+    /// The screen the deck was first placed on, captured once when the deck is
+    /// created and reused for all subsequent placement/reposition math.
+    ///
+    /// `NSScreen.main` returns the screen containing the *key* window, not the
+    /// menu-bar screen — so on multi-display setups it can change between when a
+    /// panel is placed and when the deck is repositioned on hover. Re-reading it
+    /// each time made `repositionPanels` rebuild the stack against the wrong
+    /// screen's `visibleFrame.maxY`, dropping the deck away from the top toward
+    /// the other screen's center. Capturing it once keeps the deck anchored to
+    /// the screen it actually lives on. Cleared when the last panel is dismissed.
+    private var deckScreen: NSScreen?
+
+    /// The screen to lay the deck out on: the captured `deckScreen` if it's
+    /// still connected, otherwise the current main screen (which also re-seeds
+    /// `deckScreen` on the next placement). Guards against a display being
+    /// unplugged while panels are visible.
+    private var layoutScreen: NSScreen? {
+        if let deckScreen, NSScreen.screens.contains(deckScreen) {
+            return deckScreen
+        }
+        return NSScreen.main
+    }
+
     // MARK: - Hover State
 
     private var isExpanded = false
@@ -459,6 +482,12 @@ final class PromptPanelController {
             collapseTimer = nil
         }
 
+        // Once the deck is empty, forget its screen so the next notification
+        // re-anchors to wherever the user currently is.
+        if panels.isEmpty {
+            deckScreen = nil
+        }
+
         repositionPanels(animated: true)
         if !isExpanded {
             updateZOrdering()
@@ -591,6 +620,7 @@ final class PromptPanelController {
         panels.removeAll()
         selectedPanelIndex = nil
         isExpanded = false
+        deckScreen = nil
         collapseTimer?.invalidate()
         collapseTimer = nil
     }
@@ -664,7 +694,11 @@ final class PromptPanelController {
         }
         panel.contentView = trackingView
 
-        guard let screen = NSScreen.main else { return }
+        // Capture the deck's screen on first placement, then reuse it so later
+        // panels and hover-repositions all stack against the same screen. See
+        // `deckScreen` for why re-reading `NSScreen.main` each time is unsafe.
+        guard let screen = layoutScreen else { return }
+        deckScreen = screen
         let screenFrame = screen.visibleFrame
         let x = screenFrame.maxX - width - Self.rightMargin
 
@@ -699,7 +733,10 @@ final class PromptPanelController {
 
     /// Reposition all panels based on current expanded/collapsed state.
     private func repositionPanels(animated: Bool) {
-        guard let screen = NSScreen.main else { return }
+        // Reuse the deck's captured screen so the stack is always laid out
+        // relative to where the panels physically sit, not the current key
+        // window's screen (which `NSScreen.main` tracks).
+        guard let screen = layoutScreen else { return }
         let screenFrame = screen.visibleFrame
 
         if isExpanded || panels.count <= 1 {
