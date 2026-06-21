@@ -121,6 +121,11 @@ enum BalconyTheme {
     static let radiusMD: CGFloat = 12
     static let radiusLG: CGFloat = 16
     static let radiusPill: CGFloat = 24
+    /// Fixed corner radius for the message input bar. Equals half the
+    /// single-line bar height (44pt), so the bar reads as a perfect pill when
+    /// one line tall and keeps these exact corners — not a growing capsule —
+    /// as it expands to multiple lines.
+    static let radiusInput: CGFloat = 22
 
     // MARK: - Motion
 

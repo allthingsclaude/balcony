@@ -400,7 +400,8 @@ struct ConversationView: View {
                     .transition(.offset(y: 10).combined(with: .opacity))
                 }
 
-                // Input bar — glass pill
+                // Input bar — fixed-radius glass (a pill when single-line,
+                // a rounded rectangle once the text wraps to multiple lines)
                 HStack(spacing: BalconyTheme.spacingSM) {
                     // Slash command button — inserts "/" to trigger the menu
                     // (with a leading space if mid-word, so the trigger counts).
@@ -460,7 +461,7 @@ struct ConversationView: View {
                     .accessibilityLabel("Send")
                     .disabled(inputText.isEmpty)
                 }
-                .modifier(LiquidGlassCapsule())
+                .modifier(LiquidGlassRoundedRect(cornerRadius: BalconyTheme.radiusInput))
                 .overlay {
                     // Animated orange glow with shimmer when in bash mode (! prefix)
                     if showBashMode {
@@ -1187,7 +1188,9 @@ private struct BashModeGlow: View {
     var body: some View {
         let accent = BalconyTheme.accent
 
-        Capsule()
+        // Matches the input bar's fixed-radius rounded-rect shape so the
+        // animated border hugs the bar instead of bulging into a capsule.
+        RoundedRectangle(cornerRadius: BalconyTheme.radiusInput)
             .strokeBorder(
                 AngularGradient(
                     stops: [
