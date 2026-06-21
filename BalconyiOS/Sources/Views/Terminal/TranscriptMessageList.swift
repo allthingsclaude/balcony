@@ -58,12 +58,15 @@ struct TranscriptEventView: View {
     private func blockView(_ block: TranscriptBlock) -> some View {
         switch block {
         case .text(let text):
+            // Monospaced to match the terminal look and feel. Markdown bold /
+            // italic / inline-code render as monospaced variants because their
+            // inline presentation intents resolve against this base font.
             MarkdownText(text)
-                .font(BalconyTheme.bodyFont(15))
+                .font(BalconyTheme.monoFont(15))
                 .foregroundStyle(BalconyTheme.textPrimary)
         case .thinking(let text):
             MarkdownText(text)
-                .font(BalconyTheme.bodyFont(14).italic())
+                .font(BalconyTheme.monoFont(14).italic())
                 .foregroundStyle(BalconyTheme.textSecondary)
         case .toolUse(_, let name, let input):
             ToolUseRow(name: name, input: input)
@@ -71,7 +74,7 @@ struct TranscriptEventView: View {
             ToolResultRow(text: text, isError: isError)
         case .image(let altText):
             Label(altText, systemImage: "photo")
-                .font(BalconyTheme.bodyFont(13))
+                .font(BalconyTheme.monoFont(13))
                 .foregroundStyle(BalconyTheme.textSecondary)
                 .padding(.horizontal, 10).padding(.vertical, 6)
                 .background(BalconyTheme.surfaceSecondary, in: Capsule())
@@ -129,7 +132,7 @@ struct WorkingIndicator: View {
                     .foregroundStyle(BalconyTheme.accent)
                     .frame(width: 14, alignment: .leading)
                 Text(phrase + "…")
-                    .font(BalconyTheme.bodyFont(14))
+                    .font(BalconyTheme.monoFont(14))
                     .foregroundStyle(BalconyTheme.textSecondary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
