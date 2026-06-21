@@ -471,7 +471,11 @@ final class ConnectionManager: ObservableObject {
                 // Chunk so no single WebSocket frame exceeds the size limit.
                 if let fullBuffer = await ptySessionManager.getSessionBuffer(sessionId), !fullBuffer.isEmpty {
                     let initialReplayCap = 512 * 1024
-                    let startOffset = max(0, fullBuffer.count - initialReplayCap)
+                    // Index relative to startIndex/endIndex, not 0: a Data may carry a
+                    // non-zero startIndex (e.g. after removeFirst), and a 0-based offset
+                    // below startIndex traps. getSessionBuffer re-bases to 0 today, but
+                    // this keeps the slicing correct regardless of the buffer's base.
+                    let startOffset = max(fullBuffer.startIndex, fullBuffer.endIndex - initialReplayCap)
                     let buffer = fullBuffer[startOffset...]
                     let chunkSize = 256 * 1024 // 256 KB raw → ~350 KB after base64/JSON
                     var offset = buffer.startIndex
@@ -815,8 +819,12 @@ final class ConnectionManager: ObservableObject {
         // 2. Wait for the TUI picker to render
         try? await Task.sleep(nanoseconds: 500_000_000) // 500ms
 
-        // 3. Navigate: cursor starts at the most recent turn, press up for older turns
-        let arrowPresses = payload.turnCount - 1
+        // 3. Navigate: cursor starts at the most recent turn, press up for older turns.
+        // turnCount arrives unvalidated from the wire — clamp before the `- 1` so a
+        // malformed value (e.g. Int.min) can't overflow and trap (SIGTRAP), and cap the
+        // upper bound so an absurd count can't spin the actor sending arrow keys for minutes.
+        let safeTurnCount = max(0, min(payload.turnCount, 10_000))
+        let arrowPresses = max(0, safeTurnCount - 1)
         if arrowPresses > 0 {
             let upArrow = "\u{1B}[A" // ESC [ A
             for _ in 0..<arrowPresses {

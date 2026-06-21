@@ -239,7 +239,12 @@ actor PTYSessionManager {
             guard let state = clientFDs[fd], let sessionId = state.sessionId else { return }
             if sessionBuffers[sessionId] != nil {
                 sessionBuffers[sessionId]!.append(payload)
-                // Cap buffer size to prevent unbounded memory growth
+                // Cap buffer size to prevent unbounded memory growth.
+                // NOTE: Data.removeFirst advances startIndex instead of re-basing
+                // to 0 (it avoids a copy), so the stored buffer accumulates a
+                // non-zero startIndex over the session's lifetime. Any consumer must
+                // therefore index relative to startIndex/endIndex, never 0 — see
+                // getSessionBuffer below, which normalizes before handing it out.
                 if sessionBuffers[sessionId]!.count > Self.maxBufferSize {
                     let excess = sessionBuffers[sessionId]!.count - Self.maxBufferSize
                     sessionBuffers[sessionId]!.removeFirst(excess)
@@ -377,8 +382,13 @@ actor PTYSessionManager {
     }
 
     /// Get the buffered PTY output for a session (for history replay on subscribe).
+    ///
+    /// Returns a re-based (startIndex == 0) copy: the internal buffer is trimmed
+    /// with `removeFirst`, which leaves a non-zero startIndex, and callers that
+    /// compute 0-based offsets from `.count` would otherwise subscript out of
+    /// bounds and trap (EXC_BREAKPOINT). Wrapping in `Data(_:)` normalizes it.
     func getSessionBuffer(_ sessionId: String) -> Data? {
-        sessionBuffers[sessionId]
+        sessionBuffers[sessionId].map { Data($0) }
     }
 
     /// Get active PTY sessions.
