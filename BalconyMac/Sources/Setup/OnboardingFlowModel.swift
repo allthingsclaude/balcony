@@ -12,6 +12,7 @@ final class OnboardingFlowModel {
         case setup
         case floatingPanels
         case quickFocus
+        case jumpToWindow
         case voiceInput
         case iosCompanion
         case allSet

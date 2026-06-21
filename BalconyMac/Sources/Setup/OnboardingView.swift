@@ -40,6 +40,8 @@ struct OnboardingView: View {
                 floatingPanelsSlide
             case .quickFocus:
                 quickFocusSlide
+            case .jumpToWindow:
+                jumpToWindowSlide
             case .voiceInput:
                 voiceInputSlide
             case .iosCompanion:
@@ -406,7 +408,45 @@ struct OnboardingView: View {
         .frame(maxWidth: .infinity)
     }
 
-    // MARK: - Slide 5: Voice Input
+    // MARK: - Slide 5: Jump to Window
+
+    private var jumpToWindowSlide: some View {
+        VStack(spacing: 24) {
+            Spacer()
+
+            // Keyboard shortcut visual: ⌘⌘ → Tab
+            HStack(spacing: 12) {
+                keyCapView(symbol: "command")
+                keyCapView(symbol: "command")
+
+                Image(systemName: "arrow.right")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(.tertiary)
+
+                keyCapView(symbol: "arrow.right.to.line")
+            }
+
+            Text("Jump to the Window")
+                .font(.system(size: 24, weight: .semibold))
+
+            Text("With a panel focused, press **Tab** to jump straight\nto the window running that session.")
+                .font(.body)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .lineSpacing(2)
+
+            Text("The panel steps aside and your editor or terminal comes to the front.")
+                .font(.callout)
+                .foregroundStyle(.tertiary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 40)
+
+            Spacer()
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    // MARK: - Slide 6: Voice Input
 
     private var voiceInputSlide: some View {
         VStack(spacing: 24) {
@@ -452,7 +492,7 @@ struct OnboardingView: View {
         .frame(maxWidth: .infinity)
     }
 
-    // MARK: - Slide 6: iOS Companion
+    // MARK: - Slide 7: iOS Companion
 
     private var iosCompanionSlide: some View {
         VStack(spacing: 20) {
@@ -489,7 +529,7 @@ struct OnboardingView: View {
         .frame(maxWidth: .infinity)
     }
 
-    // MARK: - Slide 7: All Set
+    // MARK: - Slide 8: All Set
 
     private var allSetSlide: some View {
         VStack(spacing: 20) {
