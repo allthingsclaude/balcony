@@ -518,7 +518,25 @@ final class ConnectionManager: ObservableObject {
                 if let seq = input.seq, seq > (lastInputSeq[input.sessionId] ?? 0) {
                     lastInputSeq[input.sessionId] = seq
                 }
-                if let data = input.text.data(using: .utf8) {
+                // iOS submits a normal message as one string: <backspaces><text>"\r".
+                // Delivering text+CR to the PTY in a single read() makes Claude Code treat
+                // the CR as a literal newline (an inserted blank line) instead of submitting
+                // — the same failure the /model, /resume and /rewind handlers avoid by
+                // sending the command and Enter separately (see comment further below).
+                // Split off a trailing CR and send it after a brief delay, but only when
+                // there is real text in front of it: a bare "\r" (idle-prompt / prompt
+                // confirm) must still go through as a single carriage return.
+                let text = input.text
+                if text.count > 1, text.hasSuffix("\r") {
+                    let prefix = String(text.dropLast())
+                    if let prefixData = prefix.data(using: .utf8), !prefixData.isEmpty {
+                        await ptySessionManager.sendInput(sessionId: input.sessionId, data: prefixData)
+                    }
+                    try? await Task.sleep(nanoseconds: 50_000_000) // 50ms — matches /model, /resume, /rewind
+                    if let crData = "\r".data(using: .utf8) {
+                        await ptySessionManager.sendInput(sessionId: input.sessionId, data: crData)
+                    }
+                } else if let data = text.data(using: .utf8) {
                     await ptySessionManager.sendInput(sessionId: input.sessionId, data: data)
                 }
                 logger.info("Delivered input to PTY for session \(input.sessionId)")
