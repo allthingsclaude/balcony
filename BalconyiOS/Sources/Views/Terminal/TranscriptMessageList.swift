@@ -59,14 +59,12 @@ struct TranscriptEventView: View {
         switch block {
         case .text(let text):
             // Monospaced to match the terminal look and feel. Markdown bold /
-            // italic / inline-code render as monospaced variants because their
-            // inline presentation intents resolve against this base font.
-            MarkdownText(text)
-                .font(BalconyTheme.monoFont(15))
+            // italic / inline-code render as monospaced variants of this base
+            // font (see MarkdownText for how inline-code runs are pinned).
+            MarkdownText(text, font: BalconyTheme.monoFont(15))
                 .foregroundStyle(BalconyTheme.textPrimary)
         case .thinking(let text):
-            MarkdownText(text)
-                .font(BalconyTheme.monoFont(14).italic())
+            MarkdownText(text, font: BalconyTheme.monoFont(14).italic())
                 .foregroundStyle(BalconyTheme.textSecondary)
         case .toolUse(_, let name, let input):
             ToolUseRow(name: name, input: input)
@@ -218,10 +216,16 @@ private struct ToolResultRow: View {
 /// Lightweight inline-markdown text with a plain-string fallback.
 private struct MarkdownText: View {
     let raw: String
-    init(_ raw: String) { self.raw = raw }
+    let font: Font
+
+    init(_ raw: String, font: Font) {
+        self.raw = raw
+        self.font = font
+    }
 
     var body: some View {
         Text(attributed)
+            .font(font)
             .textSelection(.enabled)
             .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -230,7 +234,22 @@ private struct MarkdownText: View {
         let options = AttributedString.MarkdownParsingOptions(
             interpretedSyntax: .inlineOnlyPreservingWhitespace
         )
-        return (try? AttributedString(markdown: raw, options: options)) ?? AttributedString(raw)
+        guard var str = try? AttributedString(markdown: raw, options: options) else {
+            return AttributedString(raw)
+        }
+        // Bold / italic runs compose against the base `font` automatically, but
+        // inline-`code` runs go through SwiftUI's internal presentation-intent
+        // mapping, which can render them at ~85% size and ignore the base font's
+        // point size. Pin code runs to the same font so they match the
+        // surrounding monospaced text exactly. Collect ranges first to avoid
+        // mutating the string while iterating its runs view.
+        let codeRanges = str.runs.compactMap { run in
+            run.inlinePresentationIntent?.contains(.code) == true ? run.range : nil
+        }
+        for range in codeRanges {
+            str[range].font = font
+        }
+        return str
     }
 }
 
@@ -245,7 +264,13 @@ private struct MarkdownText: View {
             .text("yo! what's up?\n\nWant me to dig into anything in Balcony? I see you've got `HookEventHandler.swift` open."),
         ]),
         TranscriptEvent(id: "3", role: .user, blocks: [.text("no thanks")]),
+        // Exercises inline-code pinning: bold, italic, plain `code`, and
+        // combined **`code`** should all render at the same monospaced size.
         TranscriptEvent(id: "4", role: .assistant, blocks: [
+            .thinking("Need to call `readFile()` and check the **`isError`** flag."),
+            .text("Run `swift build`, then call **bold**, *italic*, and **`combined()`** all stay the same size."),
+        ]),
+        TranscriptEvent(id: "5", role: .assistant, blocks: [
             .text("Cool, no worries. I'm here when you need me. 🍺"),
             .toolUse(id: "t1", name: "Read", input: "BalconyiOS/Sources/Views/Terminal/HeadlessTerminalParser.swift"),
             .toolResult(toolUseID: "t1", text: "1\timport Foundation\n2\timport SwiftTerm\n…", isError: false),
