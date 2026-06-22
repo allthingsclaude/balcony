@@ -219,7 +219,7 @@ actor WebSocketServer {
 
             let ack = HandshakeAckPayload(
                 deviceInfo: DeviceInfo(
-                    id: getMacDeviceId(),
+                    id: MacDeviceID.current,
                     name: Host.current().localizedName ?? "Mac",
                     platform: .macOS,
                     certFingerprint: serverCertPin
@@ -375,24 +375,6 @@ actor WebSocketServer {
         }
     }
 
-    private func getMacDeviceId() -> String {
-        // Use a stable identifier based on hardware UUID
-        let platformExpert = IOServiceGetMatchingService(
-            kIOMasterPortDefault,
-            IOServiceMatching("IOPlatformExpertDevice")
-        )
-        defer { IOObjectRelease(platformExpert) }
-
-        if let serialNumberAsCFString = IORegistryEntryCreateCFProperty(
-            platformExpert,
-            kIOPlatformUUIDKey as CFString,
-            kCFAllocatorDefault,
-            0
-        ) {
-            return (serialNumberAsCFString.takeUnretainedValue() as? String) ?? UUID().uuidString
-        }
-        return UUID().uuidString
-    }
 }
 
 // MARK: - HTTP Placeholder Handler

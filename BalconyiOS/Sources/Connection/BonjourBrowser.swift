@@ -92,17 +92,22 @@ actor BonjourBrowser {
         }
 
         // Extract TXT record from metadata. The cert pin is NOT carried here — it comes from the
-        // QR pairing code, so a Bonjour-discovered device stays unpaired (empty pin) until scanned.
+        // QR pairing code. We DO read the Mac's stable device id (`did`) so a discovered Mac can be
+        // matched to a previously QR-paired record (by id) and reuse its pin.
         var deviceName = name
+        var deviceID: String?
 
         if case .bonjour(let txtRecord) = result.metadata {
             if let nameValue = txtRecord["name"] {
                 deviceName = nameValue
             }
+            if let didValue = txtRecord["did"], !didValue.isEmpty {
+                deviceID = didValue
+            }
         }
 
         return DeviceInfo(
-            id: endpointIdentifier(result.endpoint),
+            id: deviceID ?? endpointIdentifier(result.endpoint),
             name: deviceName,
             platform: .macOS,
             certFingerprint: ""

@@ -148,6 +148,7 @@
 		FA3AE27251B5AA926F8955B1 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 3123259349761E36C5D1B239 /* Assets.xcassets */; };
 		FF5E320946ACE90AC2B967F0 /* BalconyTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF662BA7926B1B03E10B19B6 /* BalconyTheme.swift */; };
 		FF6A53474BC72061A9E75FA7 /* Ripple.caf in Resources */ = {isa = PBXBuildFile; fileRef = 694B9C9CD1A2E4A33DD46B99 /* Ripple.caf */; };
+		FF8D1EA97E402B25947C16E9 /* MacDeviceID.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CB0A27E7DE84413E0F8C058 /* MacDeviceID.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -247,6 +248,7 @@
 		67403DD051A9CC317E0BD4E7 /* SoundEffect.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundEffect.swift; sourceTree = "<group>"; };
 		67504F8C2E5F8E316E1D73CB /* Dew.caf */ = {isa = PBXFileReference; path = Dew.caf; sourceTree = "<group>"; };
 		694B9C9CD1A2E4A33DD46B99 /* Ripple.caf */ = {isa = PBXFileReference; path = Ripple.caf; sourceTree = "<group>"; };
+		6CB0A27E7DE84413E0F8C058 /* MacDeviceID.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacDeviceID.swift; sourceTree = "<group>"; };
 		6D55EDA07D8C2EC099B5D24B /* PromptPanelController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromptPanelController.swift; sourceTree = "<group>"; };
 		6DDE06A45D5DB609E1918B25 /* InteractivePrompt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InteractivePrompt.swift; sourceTree = "<group>"; };
 		6F43204098DB6C4D61A3C700 /* WebSocketServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSocketServer.swift; sourceTree = "<group>"; };
@@ -740,6 +742,7 @@
 				DEFB8FEA08F6458F0103A0F7 /* BonjourAdvertiser.swift */,
 				DAE1288EF0CA05A15B0E30FF /* ConnectionManager.swift */,
 				644F18B24FBFBCA437861728 /* KeychainStore.swift */,
+				6CB0A27E7DE84413E0F8C058 /* MacDeviceID.swift */,
 				38DF41B88A7CDDD00F3F952E /* ServerTLSIdentity.swift */,
 				49449E8E646DB0F7693BF3F0 /* WebSocketClientHandler.swift */,
 				6F43204098DB6C4D61A3C700 /* WebSocketServer.swift */,
@@ -1153,6 +1156,7 @@
 				704FCFFB9BF2203E604A8771 /* HookEventHandler.swift in Sources */,
 				037713E20A0A5F516C6DE9E2 /* HookListener.swift in Sources */,
 				56B8F734C091EF9C8F07CB86 /* KeychainStore.swift in Sources */,
+				FF8D1EA97E402B25947C16E9 /* MacDeviceID.swift in Sources */,
 				BAC73425A4C54FCCD6036774 /* MenuBarView.swift in Sources */,
 				59D76619CC0838DDD232AE57 /* ModelListProvider.swift in Sources */,
 				A26E32B8ADE288C43700ADF7 /* OnboardingFlowModel.swift in Sources */,

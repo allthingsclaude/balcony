@@ -108,7 +108,7 @@ final class ConnectionManager: ObservableObject {
         let prefs = PreferencesManager.shared
 
         if prefs.bonjourEnabled {
-            bonjourAdvertiser.startAdvertising()
+            bonjourAdvertiser.startAdvertising(deviceID: MacDeviceID.current)
         }
         if prefs.bleEnabled {
             blePeripheral.startAdvertising(deviceName: prefs.displayName)

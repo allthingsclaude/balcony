@@ -20,10 +20,12 @@ final class BonjourAdvertiser: NSObject, NetServiceDelegate {
 
     /// Start advertising the Balcony service.
     ///
-    /// The TXT record carries only discovery metadata. The certificate pin that authenticates
-    /// the server is delivered out-of-band via the QR pairing code — never over Bonjour, since
-    /// a TXT record is unauthenticated and an on-path attacker could forge it.
-    func startAdvertising() {
+    /// The TXT record carries discovery metadata plus the Mac's stable device id (`did`) so the
+    /// iPhone can match a discovered Mac to a previously QR-paired record and reuse its pin. The
+    /// certificate **pin** is deliberately NOT advertised here — it comes out-of-band via the QR
+    /// code. Even if an attacker forges `did`, it gains nothing: the pin (validated by TLS) is the
+    /// trust anchor, and the attacker cannot present a certificate matching it.
+    func startAdvertising(deviceID: String) {
         let service = NetService(
             domain: "",
             type: "_balcony._tcp.",
@@ -35,6 +37,7 @@ final class BonjourAdvertiser: NSObject, NetServiceDelegate {
         let txtData = NetService.data(fromTXTRecord: [
             "v": "1".data(using: .utf8)!,
             "name": deviceName.data(using: .utf8)!,
+            "did": deviceID.data(using: .utf8)!,
         ])
         service.setTXTRecord(txtData)
         service.publish()
