@@ -57,6 +57,18 @@ final class HookEventHandler: ObservableObject {
     /// Active idle prompts per session (Claude waiting for user input).
     @Published private(set) var pendingIdlePrompts: [String: IdlePromptInfo] = [:]
 
+    /// Pending debounced idle-prompt emissions, keyed by Claude session ID.
+    ///
+    /// A `Stop` hook fires whenever Claude yields control — including when it has
+    /// just offloaded work to a background workflow/subagents and will resume
+    /// itself. Emitting an idle prompt immediately makes the Mac "Claude is done"
+    /// panel (and the iOS "finished — your turn" notification + sound) appear on
+    /// every such yield. Instead we wait out a short grace window: if Claude
+    /// resumes (PreToolUse / PermissionRequest / a newer Stop / user input) before
+    /// it elapses, the Stop was transient and we never notify. Only a Stop that
+    /// stays un-resumed past the window becomes a user-facing idle prompt.
+    private var idleEmitTasks: [String: Task<Void, Never>] = [:]
+
     /// Mapping from PTY session IDs to Claude Code session IDs.
     /// One PTY session can host multiple Claude Code sessions.
     private var ptyToClaudeSessionIds: [String: Set<String>] = [:]
@@ -106,6 +118,13 @@ final class HookEventHandler: ObservableObject {
     /// Threshold of new PTY output bytes that indicates the prompt was answered
     /// and Claude Code has moved on to producing new output.
     private static let dismissOutputThreshold = 200
+
+    /// Grace period before a `Stop` is treated as a genuine "waiting for you"
+    /// idle prompt. Absorbs the transient Stops Claude fires while handing work to
+    /// background workflows/agents. Kept above the 1s focus-restore stdin
+    /// suppression window in AppDelegate so a keystroke arriving just after a
+    /// refocus still cancels a pending emit.
+    private static let idleEmitDebounce: Duration = .seconds(1.5)
 
     // MARK: - PTY Session Mapping
 
@@ -248,9 +267,10 @@ final class HookEventHandler: ObservableObject {
         // Consume any pending Notification (arrived before this Stop)
         let notifData = pendingIdleNotifications.removeValue(forKey: sessionId)
 
-        // Emit immediately. If a PermissionRequest follows, it will dismiss the idle prompt.
-        logger.info("Idle prompt for session \(sessionId)")
-        emitIdlePrompt(
+        // Debounce: a Stop fired while offloading to a background workflow/agents
+        // is followed by Claude resuming, which cancels this before it surfaces.
+        logger.debug("Idle prompt scheduled for session \(sessionId)")
+        scheduleIdlePrompt(
             sessionId: sessionId,
             message: message,
             cwd: event.cwd ?? notifData?.cwd,
@@ -275,7 +295,7 @@ final class HookEventHandler: ObservableObject {
 
         // Try to correlate with a buffered Stop message (buffered when permission prompt was active)
         if let stopData = lastStopData.removeValue(forKey: sessionId) {
-            emitIdlePrompt(sessionId: sessionId, message: stopData.message, cwd: stopData.cwd ?? event.cwd, ptySessionId: stopData.ptySessionId ?? event.balconyPtySessionId, hookPeerPID: stopData.hookPeerPID ?? event.hookPeerPID)
+            scheduleIdlePrompt(sessionId: sessionId, message: stopData.message, cwd: stopData.cwd ?? event.cwd, ptySessionId: stopData.ptySessionId ?? event.balconyPtySessionId, hookPeerPID: stopData.hookPeerPID ?? event.hookPeerPID)
         } else {
             // Stop hasn't arrived yet — buffer this Notification and wait
             pendingIdleNotifications[sessionId] = (cwd: event.cwd, ptySessionId: event.balconyPtySessionId, hookPeerPID: event.hookPeerPID)
@@ -290,6 +310,45 @@ final class HookEventHandler: ObservableObject {
     }
 
     // MARK: - Idle Prompt Emission
+
+    /// Schedule an idle prompt to surface after the debounce window, replacing any
+    /// emission already pending for the session. The Stop becomes a user-facing
+    /// idle prompt only if Claude does not resume work (PreToolUse / PermissionRequest
+    /// / a newer Stop / user input) before the window elapses.
+    ///
+    /// Messages that show Claude has handed work to its own background
+    /// workflow/agents are dropped outright — those Stops never represent the
+    /// user's turn, and (unlike a quick flicker) the work can run long enough that
+    /// even a debounced prompt would wrongly appear and linger.
+    private func scheduleIdlePrompt(sessionId: String, message: String, cwd: String?, ptySessionId: String? = nil, hookPeerPID: Int32? = nil) {
+        if BackgroundWorkDetector.indicatesPendingBackgroundWork(message) {
+            logger.info("Suppressing idle prompt for session \(sessionId) — Claude is waiting on its own background work")
+            cancelPendingIdleEmit(for: sessionId)
+            return
+        }
+
+        // Already showing an idle prompt for this session — nothing to schedule.
+        guard pendingIdlePrompts[sessionId] == nil else { return }
+
+        // Restart the timer so the most recent Stop (and its message) wins.
+        idleEmitTasks[sessionId]?.cancel()
+        idleEmitTasks[sessionId] = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: Self.idleEmitDebounce)
+            guard let self, !Task.isCancelled else { return }
+            self.idleEmitTasks.removeValue(forKey: sessionId)
+            // Re-check: a permission prompt may have become active, or the prompt
+            // may already be showing, during the grace window.
+            guard self.sessionQueues[sessionId]?.isIdle ?? true,
+                  self.pendingIdlePrompts[sessionId] == nil else { return }
+            self.emitIdlePrompt(sessionId: sessionId, message: message, cwd: cwd, ptySessionId: ptySessionId, hookPeerPID: hookPeerPID)
+        }
+    }
+
+    /// Cancel a pending debounced idle-prompt emission for a session, if armed
+    /// (Claude resumed work, or the user is already interacting).
+    private func cancelPendingIdleEmit(for sessionId: String) {
+        idleEmitTasks.removeValue(forKey: sessionId)?.cancel()
+    }
 
     /// Create and emit an idle prompt once both Stop and Notification have been correlated.
     private func emitIdlePrompt(sessionId: String, message: String, cwd: String?, ptySessionId: String? = nil, hookPeerPID: Int32? = nil) {
@@ -369,6 +428,9 @@ final class HookEventHandler: ObservableObject {
     func handleStdinActivity(ptySessionId: String) {
         guard let claudeSessionIds = ptyToClaudeSessionIds[ptySessionId] else { return }
         for claudeSessionId in claudeSessionIds {
+            // The user is typing — drop any pending debounced idle emit even if it
+            // hasn't surfaced yet, and dismiss one that already has.
+            cancelPendingIdleEmit(for: claudeSessionId)
             guard pendingIdlePrompts[claudeSessionId] != nil else { continue }
             logger.info("Stdin activity detected for PTY \(ptySessionId) → dismissing idle prompt for \(claudeSessionId)")
             dismissIdlePrompt(for: claudeSessionId)
@@ -379,6 +441,9 @@ final class HookEventHandler: ObservableObject {
 
     /// Dismiss the idle prompt for a session (user started typing or new output arrived).
     func dismissIdlePrompt(for sessionId: String) {
+        // Cancel a still-pending debounced emit as well as an already-shown prompt,
+        // so a queued emit can't resurrect a prompt that was just dismissed.
+        cancelPendingIdleEmit(for: sessionId)
         guard let info = pendingIdlePrompts.removeValue(forKey: sessionId) else { return }
         logger.info("Idle prompt dismissed for session: \(sessionId)")
         onIdlePromptDismissed?(sessionId, info.ptySessionId)
@@ -464,6 +529,9 @@ final class HookEventHandler: ObservableObject {
 
     /// Clear all prompt state for a session that has ended.
     func sessionEnded(_ sessionId: String) {
+        // Cancel and drop any armed idle-emit timer to avoid firing for a dead
+        // session and to keep the per-session task map from growing.
+        idleEmitTasks.removeValue(forKey: sessionId)?.cancel()
         if sessionQueues.removeValue(forKey: sessionId) != nil {
             pendingPrompts.removeValue(forKey: sessionId)
             logger.debug("Cleared prompt state for ended session: \(sessionId)")
