@@ -1,0 +1,60 @@
+                       EXPORT COMPLIANCE STATEMENT
+
+
+Date:                «FILL IN DATE»
+
+Product:             Balcony for iOS
+Bundle identifier:   com.balcony.ios
+Responsible party:   Marko Radak
+Contact email:       mail@markoradak.com
+
+
+1. ENCRYPTION FUNCTIONALITY
+
+   Balcony establishes an end-to-end encrypted channel between a paired
+   macOS host and an iOS client in order to transport Claude Code session
+   data (terminal output and transcripts). The application implements the
+   following standard, published cryptographic algorithms by way of the
+   libsodium library:
+
+     - X25519 (Curve25519) for Diffie-Hellman key agreement
+         (IETF RFC 7748)
+     - XChaCha20-Poly1305, 256-bit, for authenticated symmetric encryption
+         (IETF RFC 8439 and draft-irtf-cfrg-xchacha)
+
+   These are standard algorithms accepted by international standards bodies.
+   The application does NOT implement proprietary or non-standard
+   cryptography, and does NOT expose an open cryptographic interface.
+
+
+2. EXPORT CLASSIFICATION
+
+   Under the U.S. Export Administration Regulations (EAR), this product is
+   classified as:
+
+     ECCN:           5D992.c  (mass-market encryption software)
+     Authorization:  License Exception ENC, 15 CFR Section 740.17(b)(1)
+
+   The product qualifies as mass-market encryption software and has been
+   self-classified accordingly.
+
+
+3. SELF-CLASSIFICATION REPORT
+
+   A self-classification report covering this product has been submitted to
+   the U.S. Bureau of Industry and Security (crypt-supp8@bis.doc.gov) and to
+   the National Security Agency (enc@nsa.gov), in accordance with
+   15 CFR Section 742.15(b), on «FILL IN DATE FILED».
+
+
+4. STATEMENT
+
+   The information set out above is accurate and complete to the best of my
+   knowledge.
+
+
+   Signature:  ______________________________
+
+   Name:       Marko Radak
+
+   Date:       «FILL IN DATE»

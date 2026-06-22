@@ -57,15 +57,18 @@ This skips the "what type of encryption?" questions on every build.
 ## Step 1 — Upload export compliance documentation (App Store Connect)
 
 The *France = Yes* dialog points you to **App Store Connect → your app → App Information →
-App Encryption Documentation**. Upload a document that states your classification. A simple
-one-page PDF works; include:
+App Encryption Documentation → Upload**.
 
-- Product: **Balcony** (com.balcony.ios)
-- The encryption description above
-- ECCN **5D992.c**, License Exception **ENC §740.17(b)(1)**
-- A line: *"Self-classification report filed with BIS and NSA on «DATE» (see Step 2)."*
+> 📄 A ready-to-upload statement is generated for you at
+> **`docs/export-compliance/apple-export-compliance-statement.pdf`**
+> (source: `…/apple-export-compliance-statement.txt`).
+> Fill in the three `«FILL IN DATE»` fields, sign it, and regenerate the PDF with
+> `cupsfilter apple-export-compliance-statement.txt > apple-export-compliance-statement.pdf`.
 
-Apple reviews it, then issues the `ITSEncryptionExportComplianceCode`.
+**Important — no code exists until you do this.** The `ITSEncryptionExportComplianceCode`
+is issued by Apple *after* it reviews this upload. Until then, App Store Connect shows only
+an `Upload` button (no code), and any build upload fails with error **90592** ("Invalid
+Export Compliance Code … value []"). So this upload is the gate that unblocks the pipeline.
 
 ## Step 2 — US self-classification report (BIS + NSA) — annual
 
