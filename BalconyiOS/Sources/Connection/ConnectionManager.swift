@@ -147,13 +147,17 @@ final class ConnectionManager: ObservableObject {
                 }
             }
 
-            // The cert pin (captured at QR pairing) authenticates the server. A Bonjour-discovered
-            // device carries no pin of its own, so fall back to the pin saved when this Mac was
-            // paired via QR — matched by the Mac's stable device id (`did`), which both the QR
-            // pairing record and the Bonjour advertisement key off. No pin → require QR first.
-            let pin = device.certFingerprint.isEmpty
-                ? (pairedDevices.first { $0.id == device.id }?.certFingerprint ?? "")
-                : device.certFingerprint
+            // Resolve the pin to validate the server's certificate against:
+            //  1. a pin already on this record;
+            //  2. else a saved record matched by the Mac's stable id (`did` from Bonjour);
+            //  3. else the most-recently-paired Mac's pin — covers the case where the Bonjour
+            //     `did` isn't surfaced. A wrong guess just fails the TLS pin check (safe).
+            let pin: String
+            if !device.certFingerprint.isEmpty {
+                pin = device.certFingerprint
+            } else {
+                pin = (pairedDevices.first { $0.id == device.id } ?? pairedDevices.last)?.certFingerprint ?? ""
+            }
             guard !pin.isEmpty else {
                 logger.error("No certificate pin for \(device.name); QR pairing required")
                 isConnecting = false
@@ -162,19 +166,18 @@ final class ConnectionManager: ObservableObject {
             }
             await webSocketClient.setPin(pin)
 
-            // Persist the resolved pin onto the record so it stays connectable on its own.
-            let pairedDevice = DeviceInfo(
-                id: device.id,
-                name: device.name,
-                platform: device.platform,
-                certFingerprint: pin
-            )
-
             // Connect WebSocket (the TLS handshake enforces the cert pin)
             try await webSocketClient.connect(host: host, port: port)
 
-            // Exchange device identity
-            try await performHandshake(with: pairedDevice)
+            // Exchange device identity; the ack carries the Mac's stable device id, which we use to
+            // (re-)key the saved record so future discovery matches it exactly.
+            let macInfo = try await performHandshake(with: device)
+            let pairedDevice = DeviceInfo(
+                id: macInfo.id,
+                name: macInfo.name,
+                platform: .macOS,
+                certFingerprint: pin
+            )
 
             isConnected = true
             isConnecting = false
@@ -184,7 +187,7 @@ final class ConnectionManager: ObservableObject {
             savePairedDevice(pairedDevice)
             lastConnectedDeviceId = pairedDevice.id
             startRSSIReporting()
-            logger.info("Connected to \(device.name)")
+            logger.info("Connected to \(macInfo.name)")
         } catch {
             logger.error("Connection failed: \(error.localizedDescription)")
             isConnecting = false
