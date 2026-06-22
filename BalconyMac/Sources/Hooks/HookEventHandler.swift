@@ -323,14 +323,20 @@ final class HookEventHandler: ObservableObject {
     private func scheduleIdlePrompt(sessionId: String, message: String, cwd: String?, ptySessionId: String? = nil, hookPeerPID: Int32? = nil) {
         if BackgroundWorkDetector.indicatesPendingBackgroundWork(message) {
             logger.info("Suppressing idle prompt for session \(sessionId) — Claude is waiting on its own background work")
-            cancelPendingIdleEmit(for: sessionId)
+            // Claude has demonstrably resumed: cancel a pending emit and retract a
+            // stale "Claude is done" prompt if one is somehow still showing.
+            dismissIdlePrompt(for: sessionId)
             return
         }
 
         // Already showing an idle prompt for this session — nothing to schedule.
         guard pendingIdlePrompts[sessionId] == nil else { return }
 
-        // Restart the timer so the most recent Stop (and its message) wins.
+        // Restart the timer so the most recent Stop (and its message) wins. This
+        // cancel-then-replace is race-free only because everything here runs on
+        // the @MainActor: a cancelled task resumes after its sleep, hits the
+        // `Task.isCancelled` guard below, and returns without touching the freshly
+        // stored entry. Do not move this off the main actor without rethinking it.
         idleEmitTasks[sessionId]?.cancel()
         idleEmitTasks[sessionId] = Task { @MainActor [weak self] in
             try? await Task.sleep(for: Self.idleEmitDebounce)
@@ -529,8 +535,14 @@ final class HookEventHandler: ObservableObject {
 
     /// Clear all prompt state for a session that has ended.
     func sessionEnded(_ sessionId: String) {
-        // Cancel and drop any armed idle-emit timer to avoid firing for a dead
-        // session and to keep the per-session task map from growing.
+        // `sessionId` is the PTY session id here, but idleEmitTasks is keyed by
+        // Claude session id — so cancel the timers for every Claude session this
+        // PTY hosts (resolved before the mapping is pruned below), plus the raw id
+        // in case this is ever called with a Claude id. Otherwise an armed timer
+        // could surface a "Claude is done" prompt for a session that just ended.
+        for claudeId in claudeSessionIds(for: sessionId) {
+            idleEmitTasks.removeValue(forKey: claudeId)?.cancel()
+        }
         idleEmitTasks.removeValue(forKey: sessionId)?.cancel()
         if sessionQueues.removeValue(forKey: sessionId) != nil {
             pendingPrompts.removeValue(forKey: sessionId)
