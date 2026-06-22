@@ -116,4 +116,20 @@ public struct TranscriptEvent: Codable, Sendable, Equatable, Identifiable {
         self.timestamp = timestamp
         self.isSidechain = isSidechain
     }
+
+    /// True only for genuine user-authored turns — typed prose or pasted images.
+    ///
+    /// Claude Code records tool results as `role: user` turns too, but those are
+    /// part of the assistant's working flow (the output of a tool *Claude* ran),
+    /// not messages the user sent. A turn is treated as a real user message when
+    /// it carries any non-`toolResult` block; a turn made up solely of tool
+    /// results is not. The transcript uses this to reserve the user accent rail
+    /// for actual user input and render tool-result turns plainly.
+    public var isUserMessage: Bool {
+        guard role == .user else { return false }
+        return blocks.contains { block in
+            if case .toolResult = block { return false }
+            return true
+        }
+    }
 }

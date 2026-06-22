@@ -73,6 +73,33 @@ final class TranscriptParserTests: XCTestCase {
         XCTAssertTrue(event.isSidechain)
     }
 
+    // MARK: - isUserMessage (accent-rail eligibility)
+
+    /// Genuine user input — typed prose or pasted images — counts as a user
+    /// message and gets the accent rail.
+    func testIsUserMessageForTypedAndPastedInput() throws {
+        let typed = #"{"type":"user","uuid":"u1","message":{"role":"user","content":"no thanks"}}"#
+        XCTAssertTrue(try XCTUnwrap(TranscriptParser.parseLine(Data(typed.utf8))).isUserMessage)
+
+        let pasted = #"{"type":"user","uuid":"u2","message":{"role":"user","content":[{"type":"image","source":{"type":"base64","media_type":"image/png","data":"AAAA"}},{"type":"text","text":"look"}]}}"#
+        XCTAssertTrue(try XCTUnwrap(TranscriptParser.parseLine(Data(pasted.utf8))).isUserMessage)
+    }
+
+    /// A `role: user` turn that only carries tool results is Claude's working
+    /// flow, not a user message — so it must NOT get the accent rail.
+    func testIsUserMessageFalseForToolResultTurn() throws {
+        let line = #"{"type":"user","uuid":"u3","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"t","content":[{"type":"text","text":"file not found"}]}]}}"#
+        let event = try XCTUnwrap(TranscriptParser.parseLine(Data(line.utf8)))
+        XCTAssertEqual(event.role, .user)
+        XCTAssertFalse(event.isUserMessage)
+    }
+
+    /// Assistant turns are never user messages, regardless of content.
+    func testIsUserMessageFalseForAssistant() throws {
+        let line = #"{"type":"assistant","uuid":"a1","message":{"role":"assistant","content":[{"type":"text","text":"hi"}]}}"#
+        XCTAssertFalse(try XCTUnwrap(TranscriptParser.parseLine(Data(line.utf8))).isUserMessage)
+    }
+
     // MARK: - Tool input summaries
 
     func testBashCommandSummary() throws {

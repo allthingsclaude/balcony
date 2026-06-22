@@ -51,7 +51,7 @@ struct TranscriptEventView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .modifier(RoleContainer(role: event.role))
+        .modifier(RoleContainer(isUserMessage: event.isUserMessage))
     }
 
     @ViewBuilder
@@ -80,13 +80,14 @@ struct TranscriptEventView: View {
     }
 }
 
-/// User turns get the accent rail + tinted surface; assistant turns are plain.
+/// Real user messages get the accent rail + tinted surface. Assistant turns —
+/// and the synthetic `role: user` turns that merely carry tool results — render
+/// plain, so the rail marks only what the user actually sent.
 private struct RoleContainer: ViewModifier {
-    let role: TranscriptEvent.Role
+    let isUserMessage: Bool
 
     func body(content: Content) -> some View {
-        switch role {
-        case .user:
+        if isUserMessage {
             content
                 .padding(BalconyTheme.spacingMD)
                 .background(BalconyTheme.surfaceSecondary, in: RoundedRectangle(cornerRadius: BalconyTheme.radiusMD))
@@ -95,7 +96,7 @@ private struct RoleContainer: ViewModifier {
                         .fill(BalconyTheme.accent)
                         .frame(width: 3)
                 }
-        case .assistant:
+        } else {
             content
         }
     }
