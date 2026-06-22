@@ -511,13 +511,22 @@ struct OnboardingView: View {
                 .multilineTextAlignment(.center)
                 .lineSpacing(2)
 
-            if let qrImage = generateQRCode(from: "https://balcony.app/ios") {
+            if let qrImage = generateQRCode(from: "https://allthingsclaude.cc/balcony") {
                 Image(nsImage: qrImage)
                     .renderingMode(.template)
                     .resizable()
                     .interpolation(.none)
                     .frame(width: 120, height: 120)
                     .foregroundStyle(.primary)
+                    .overlay {
+                        Text("COMING SOON")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 4)
+                            .background(.orange, in: Capsule())
+                            .rotationEffect(.degrees(-12))
+                    }
             }
 
             Text("Scan to download from the App Store")
