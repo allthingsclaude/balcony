@@ -19,7 +19,11 @@ final class BonjourAdvertiser: NSObject, NetServiceDelegate {
     }
 
     /// Start advertising the Balcony service.
-    func startAdvertising(publicKeyFingerprint: String) {
+    ///
+    /// The TXT record carries only discovery metadata. The certificate pin that authenticates
+    /// the server is delivered out-of-band via the QR pairing code — never over Bonjour, since
+    /// a TXT record is unauthenticated and an on-path attacker could forge it.
+    func startAdvertising() {
         let service = NetService(
             domain: "",
             type: "_balcony._tcp.",
@@ -31,7 +35,6 @@ final class BonjourAdvertiser: NSObject, NetServiceDelegate {
         let txtData = NetService.data(fromTXTRecord: [
             "v": "1".data(using: .utf8)!,
             "name": deviceName.data(using: .utf8)!,
-            "pk": publicKeyFingerprint.data(using: .utf8)!,
         ])
         service.setTXTRecord(txtData)
         service.publish()

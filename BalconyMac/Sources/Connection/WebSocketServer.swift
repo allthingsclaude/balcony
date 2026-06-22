@@ -2,6 +2,7 @@ import Foundation
 import NIO
 import NIOHTTP1
 import NIOWebSocket
+import NIOSSL
 import BalconyShared
 import os
 
@@ -31,16 +32,27 @@ actor WebSocketServer {
     private let encoder = MessageEncoder()
     private let decoder = MessageDecoder()
 
+    /// SHA-256 pin of this server's TLS certificate, surfaced in the handshake ack as the Mac's
+    /// device identity. Set in `start()`.
+    private var serverCertPin = ""
+
     init(port: Int = 29170) {
         self.port = port
     }
 
     // MARK: - Server Lifecycle
 
-    /// Start the WebSocket server and return a stream of server events.
-    func start() async throws -> AsyncStream<WebSocketServerEvent> {
+    /// Start the WebSocket server (over TLS) and return a stream of server events.
+    ///
+    /// - Parameters carry the Mac's persisted self-signed certificate + private key (PEM). TLS is
+    ///   terminated by NIOSSL at the front of each connection's pipeline; everything downstream
+    ///   (HTTP upgrade, WebSocket frames) operates on already-decrypted bytes.
+    func start(certPEM: String, keyPEM: String) async throws -> AsyncStream<WebSocketServerEvent> {
         let (stream, continuation) = AsyncStream.makeStream(of: WebSocketServerEvent.self)
         self.eventContinuation = continuation
+
+        let sslContext = try TLSIdentity.makeServerContext(certPEM: certPEM, keyPEM: keyPEM)
+        self.serverCertPin = try TLSIdentity.pin(forCertPEM: certPEM)
 
         let group = MultiThreadedEventLoopGroup(numberOfThreads: 2)
         self.group = group
@@ -88,9 +100,11 @@ actor WebSocketServer {
                     }
                 )
 
-                return channel.pipeline.configureHTTPServerPipeline(
-                    withServerUpgrade: config
-                ).flatMap {
+                // TLS must terminate first, before HTTP parsing sees any bytes.
+                let sslHandler = NIOSSLServerHandler(context: sslContext)
+                return channel.pipeline.addHandler(sslHandler).flatMap {
+                    channel.pipeline.configureHTTPServerPipeline(withServerUpgrade: config)
+                }.flatMap {
                     channel.pipeline.addHandler(
                         HTTPPlaceholderHandler(),
                         name: "HTTPHandler"
@@ -164,22 +178,10 @@ actor WebSocketServer {
     func send(_ message: BalconyMessage, to client: ConnectedClient) {
         do {
             let data = try encoder.encode(message)
-
-            // If client has crypto set up, encrypt before sending — on the client's serial
-            // send chain so concurrent encrypts can't reorder frames on the wire.
-            if let crypto = client.cryptoManager {
-                let logger = self.logger
-                let clientId = client.id
-                client.enqueueSend {
-                    do {
-                        let encrypted = try await crypto.encrypt(data)
-                        client.send(encrypted)
-                    } catch {
-                        logger.error("Encryption failed for client \(clientId): \(error.localizedDescription)")
-                    }
-                }
-            } else {
-                // Handshake messages are sent unencrypted
+            // Confidentiality is handled by the TLS transport. Enqueue on the client's serial
+            // send chain so concurrent sends can't reorder frames on the wire (which would
+            // corrupt the chunked terminal/history stream).
+            client.enqueueSend {
                 client.send(data)
             }
         } catch {
@@ -204,48 +206,30 @@ actor WebSocketServer {
     // MARK: - Handshake
 
     /// Process a handshake message from a client.
+    ///
+    /// The transport is already TLS-encrypted and the client has already pinned this server's
+    /// certificate, so the handshake no longer performs key exchange — it just exchanges device
+    /// identity and flips the client to `.authenticated`, which the auth gate keys off.
     private func handleHandshake(from client: ConnectedClient, message: BalconyMessage) {
         do {
             let handshake = try message.decodePayload(HandshakePayload.self)
 
-            // Store device info. Stay in `.authenticating` until crypto is established —
-            // marking `.authenticated` before the shared secret exists would open a window
-            // where messages take the plaintext path and the auth gate trusts a client with
-            // no key.
             client.deviceInfo = handshake.deviceInfo
-            client.state = .authenticating
+            client.state = .authenticated
 
-            // Set up per-client crypto
-            let crypto = CryptoManager()
-            Task {
-                do {
-                    let keyPair = try await crypto.generateKeyPair()
-                    try await crypto.deriveSharedSecret(theirPublicKey: handshake.publicKey)
-                    client.setupCrypto(crypto)
-                    client.state = .authenticated
+            let ack = HandshakeAckPayload(
+                deviceInfo: DeviceInfo(
+                    id: getMacDeviceId(),
+                    name: Host.current().localizedName ?? "Mac",
+                    platform: .macOS,
+                    certFingerprint: serverCertPin
+                )
+            )
+            let ackMessage = try BalconyMessage.create(type: .handshakeAck, payload: ack)
+            client.send(try encoder.encode(ackMessage))
 
-                    // Send handshake acknowledgement with our public key
-                    let ack = HandshakeAckPayload(
-                        deviceInfo: DeviceInfo(
-                            id: getMacDeviceId(),
-                            name: Host.current().localizedName ?? "Mac",
-                            platform: .macOS,
-                            publicKeyFingerprint: keyPair.fingerprint
-                        ),
-                        publicKey: keyPair.publicKey
-                    )
-                    let ackMessage = try BalconyMessage.create(type: .handshakeAck, payload: ack)
-                    // Send ack unencrypted since client doesn't have our key yet
-                    let data = try self.encoder.encode(ackMessage)
-                    client.send(data)
-
-                    self.logger.info("Client \(client.id) authenticated: \(handshake.deviceInfo.name)")
-                    self.eventContinuation?.yield(.clientAuthenticated(client, handshake.deviceInfo))
-                } catch {
-                    self.logger.error("Handshake crypto failed for \(client.id): \(error.localizedDescription)")
-                    self.sendError(to: client, message: "Handshake failed: \(error.localizedDescription)")
-                }
-            }
+            logger.info("Client \(client.id) authenticated: \(handshake.deviceInfo.name)")
+            eventContinuation?.yield(.clientAuthenticated(client, handshake.deviceInfo))
         } catch {
             logger.error("Failed to decode handshake from \(client.id): \(error.localizedDescription)")
             sendError(to: client, message: "Invalid handshake payload")
@@ -254,25 +238,9 @@ actor WebSocketServer {
 
     // MARK: - Message Handling
 
-    /// Handle a raw data frame from a client, decrypting if needed.
+    /// Handle a raw data frame from a client. Bytes are already TLS-decrypted by the transport.
     private func handleRawMessage(from client: ConnectedClient, data: Data) {
-        let messageData: Data
-        if let crypto = client.cryptoManager {
-            // Decrypt incoming message
-            Task {
-                do {
-                    let decrypted = try await crypto.decrypt(data)
-                    await self.processMessage(from: client, data: decrypted)
-                } catch {
-                    self.logger.error("Decryption failed from \(client.id): \(error.localizedDescription)")
-                }
-            }
-            return
-        } else {
-            // Pre-handshake: messages are plaintext
-            messageData = data
-        }
-        processMessage(from: client, data: messageData)
+        processMessage(from: client, data: data)
     }
 
     private func processMessage(from client: ConnectedClient, data: Data) {
@@ -461,13 +429,11 @@ private final class HTTPPlaceholderHandler: ChannelInboundHandler, RemovableChan
 /// Handshake payload sent by iOS client.
 struct HandshakePayload: Codable, Sendable {
     let deviceInfo: DeviceInfo
-    let publicKey: [UInt8]
 }
 
 /// Handshake acknowledgement payload sent by Mac server.
 struct HandshakeAckPayload: Codable, Sendable {
     let deviceInfo: DeviceInfo
-    let publicKey: [UInt8]
 }
 
 /// Error payload.

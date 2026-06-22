@@ -303,10 +303,10 @@ struct DiscoveryView: View {
             return
         }
 
-        let publicKey = queryItems.first(where: { $0.name == "pk" })?.value
+        let certFingerprint = queryItems.first(where: { $0.name == "fp" })?.value
 
         Task {
-            await connectionManager.connectDirect(host: host, port: port, publicKeyBase64: publicKey)
+            await connectionManager.connectDirect(host: host, port: port, certFingerprint: certFingerprint)
         }
     }
 }

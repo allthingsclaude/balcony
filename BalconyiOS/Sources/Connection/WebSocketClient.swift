@@ -1,42 +1,63 @@
 import Foundation
 import BalconyShared
+import Security
 import os
 
-/// URLSession delegate that trusts self-signed certificates for local connections.
-private final class LocalTLSDelegate: NSObject, URLSessionDelegate, Sendable {
+/// URLSession delegate that authenticates the Mac by pinning its self-signed certificate.
+///
+/// Because the client dials a raw IP (the Bonjour endpoint is resolved before connecting), there
+/// is no usable hostname/SAN and no CA chain — so trust evaluation is taken over entirely and the
+/// server is accepted **only** if the leaf certificate's SHA-256 (the `pin`) matches the value
+/// captured from the pairing QR. Any other outcome cancels the connection (never falls back to
+/// default handling, which would silently fail differently). This is what prevents MITM on the LAN.
+private final class PinningDelegate: NSObject, URLSessionDelegate, Sendable {
+    private let expectedPin: String?
+
+    init(expectedPin: String?) {
+        self.expectedPin = expectedPin
+    }
+
     func urlSession(
         _ session: URLSession,
         didReceive challenge: URLAuthenticationChallenge,
         completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void
     ) {
         guard challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodServerTrust,
-              let serverTrust = challenge.protectionSpace.serverTrust else {
-            completionHandler(.performDefaultHandling, nil)
+              let trust = challenge.protectionSpace.serverTrust,
+              let expectedPin,
+              let chain = SecTrustCopyCertificateChain(trust) as? [SecCertificate],
+              let leaf = chain.first else {
+            completionHandler(.cancelAuthenticationChallenge, nil)
             return
         }
-        // Trust self-signed certificates for local network connections
-        completionHandler(.useCredential, URLCredential(trust: serverTrust))
+
+        let der = SecCertificateCopyData(leaf) as Data
+        // Same canonical pin definition the Mac uses for the QR: SHA-256 of the leaf cert DER.
+        if TLSIdentity.pin(forCertDER: Array(der)) == expectedPin {
+            completionHandler(.useCredential, URLCredential(trust: trust))
+        } else {
+            completionHandler(.cancelAuthenticationChallenge, nil)
+        }
     }
 }
 
 /// WebSocket client for connecting to BalconyMac.
 actor WebSocketClient {
     private let logger = Logger(subsystem: "com.balcony.ios", category: "WebSocketClient")
-    private let tlsDelegate = LocalTLSDelegate()
 
     private var webSocketTask: URLSessionWebSocketTask?
     private var session: URLSession?
     private(set) var isConnected = false
 
-    // MARK: - Encryption
+    // MARK: - Certificate pinning
 
-    /// Crypto manager for E2E encryption. Set after handshake completes.
-    private var cryptoManager: CryptoManager?
+    /// Expected SHA-256 pin of the Mac's TLS certificate (from QR pairing). Must be set before
+    /// `connect`; the TLS handshake is rejected if the server's cert doesn't match.
+    private var expectedPin: String?
 
-    /// Enable encryption for all subsequent send/receive operations.
-    func setCrypto(_ crypto: CryptoManager) {
-        self.cryptoManager = crypto
-        logger.info("Crypto enabled for WebSocket")
+    /// Set the certificate pin to enforce on the next connection.
+    func setPin(_ pin: String?) {
+        self.expectedPin = pin
     }
 
     // MARK: - Reconnection State
@@ -89,7 +110,6 @@ actor WebSocketClient {
         reconnectAttempt = 0
         currentHost = nil
         currentPort = nil
-        cryptoManager = nil
 
         webSocketTask?.cancel(with: .normalClosure, reason: nil)
         webSocketTask = nil
@@ -105,13 +125,8 @@ actor WebSocketClient {
             throw BalconyError.connectionFailed("Not connected")
         }
         let encoder = MessageEncoder()
-        var data = try encoder.encode(message)
-
-        // Encrypt if crypto is set up (post-handshake)
-        if let crypto = cryptoManager {
-            data = try await crypto.encrypt(data)
-        }
-
+        let data = try encoder.encode(message)
+        // Confidentiality is handled by the TLS (wss) transport.
         try await task.send(.data(data))
     }
 
@@ -122,10 +137,10 @@ actor WebSocketClient {
         webSocketTask?.cancel(with: .normalClosure, reason: nil)
         session?.invalidateAndCancel()
 
-        // Use plain ws:// for local network — E2E encryption is handled at the app layer
-        // via XSalsa20-Poly1305 (libsodium crypto_secretbox), so TLS is not needed.
+        // wss:// — confidentiality via TLS; the server is authenticated by pinning its
+        // self-signed certificate (PinningDelegate) against the pin captured at QR pairing.
         var components = URLComponents()
-        components.scheme = "ws"
+        components.scheme = "wss"
         components.host = host
         components.port = port
         components.path = "/ws"
@@ -133,7 +148,8 @@ actor WebSocketClient {
             throw BalconyError.connectionFailed("Invalid URL for host: \(host):\(port)")
         }
         let config = URLSessionConfiguration.default
-        let urlSession = URLSession(configuration: config, delegate: tlsDelegate, delegateQueue: nil)
+        let delegate = PinningDelegate(expectedPin: expectedPin)
+        let urlSession = URLSession(configuration: config, delegate: delegate, delegateQueue: nil)
         let task = urlSession.webSocketTask(with: url)
         task.maximumMessageSize = 16 * 1024 * 1024 // 16 MB (default 1 MB is too small for session history)
         task.resume()
@@ -170,27 +186,11 @@ actor WebSocketClient {
                     continue
                 }
 
-                // Decrypt if crypto is set up, otherwise decode plaintext.
-                // Once the secure channel is established, a frame that fails authentication
-                // must be dropped — never reinterpreted as plaintext, or a forged/garbage
-                // frame would bypass integrity and be acted upon. Plaintext is only valid
-                // before crypto exists (the handshake itself).
-                let messageData: Data
-                if let crypto = cryptoManager {
-                    do {
-                        messageData = try await crypto.decrypt(rawData)
-                    } catch {
-                        logger.error("Dropping frame that failed to decrypt (\(rawData.count) bytes)")
-                        continue
-                    }
-                } else {
-                    messageData = rawData
-                }
-
-                if let decoded = try? decoder.decode(messageData) {
+                // Bytes are already TLS-decrypted by the transport.
+                if let decoded = try? decoder.decode(rawData) {
                     onMessage?(decoded)
                 } else {
-                    logger.warning("Failed to decode message (\(messageData.count) bytes)")
+                    logger.warning("Failed to decode message (\(rawData.count) bytes)")
                 }
             }
         } catch {

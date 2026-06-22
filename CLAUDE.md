@@ -2,7 +2,7 @@
 
 ## Project Overview
 Balcony is a companion app system for monitoring and interacting with Claude Code sessions from your iPhone.
-It consists of three components: BalconyMac (macOS menu bar agent), BalconyiOS (iPhone app), and BalconyShared (Swift package with shared models and crypto).
+It consists of three components: BalconyMac (macOS menu bar agent), BalconyiOS (iPhone app), and BalconyShared (Swift package with shared models, TLS identity, and protocol).
 
 ## Build & Run
 
@@ -26,24 +26,23 @@ cd BalconyShared && swift test
 # Build BalconyMac (from Xcode or command line)
 xcodebuild -project Balcony.xcodeproj -scheme BalconyMac -configuration Debug build
 
-# Build BalconyiOS (requires signing)
-xcodebuild -project Balcony.xcodeproj -scheme BalconyiOS -configuration Debug -destination 'platform=iOS Simulator,name=iPhone 15' build
+# Build BalconyiOS (simulator build needs no signing; deployment target is iOS 26)
+xcodebuild -project Balcony.xcodeproj -scheme BalconyiOS -configuration Debug -destination 'generic/platform=iOS Simulator' build
 ```
 
 ## Architecture
 
 ### Components
-- **BalconyShared/** - Swift Package with models, crypto, parser, protocol definitions
-- **BalconyMac/** - macOS menu bar agent (WebSocket server, Bonjour, BLE peripheral, session monitor)
-- **BalconyiOS/** - iOS app (WebSocket client, Bonjour browser, BLE central, terminal view)
-- **supabase/** - Cloud relay scaffold (Phase 2)
+- **BalconyShared/** - Swift Package with models, TLS identity (`Security/TLSIdentity.swift`), parser, protocol definitions
+- **BalconyMac/** - macOS menu bar agent (TLS WebSocket server, Bonjour, BLE peripheral, session monitor)
+- **BalconyiOS/** - iOS app (WebSocket client w/ cert pinning, Bonjour browser, BLE central, terminal view)
 
 ### Key Patterns
 - **Concurrency**: Use Swift Concurrency (async/await, Actor, AsyncStream) throughout
 - **Observation**: Use @Observable (macOS 14+/iOS 17+) or @ObservableObject for older targets
 - **Error Handling**: Use BalconyError enum, log with os.Logger (not print)
 - **Networking**: SwiftNIO for WebSocket server (Mac), URLSession for client (iOS)
-- **Encryption**: libsodium via Swift Sodium - X25519 + XChaCha20-Poly1305
+- **Transport security**: TLS (`wss://`) via NIOSSL on the Mac, using a persistent self-signed cert. The iOS client dials a raw IP, so it authenticates the server by **pinning** the cert's SHA-256 — delivered in the pairing QR (`fp`). See `TLSIdentity` + `WebSocketClient.PinningDelegate`. This is OS/standard TLS only, so the iOS app is export-exempt (`ITSAppUsesNonExemptEncryption=false`).
 
 ### File Organization
 - One type per file
@@ -60,20 +59,20 @@ xcodebuild -project Balcony.xcodeproj -scheme BalconyiOS -configuration Debug -d
 
 ## Dependencies (SPM only - no CocoaPods/Carthage)
 - swift-nio (2.65+) - WebSocket server
-- swift-nio-ssl (2.27+) - TLS
+- swift-nio-ssl (2.27+) - TLS for the WebSocket transport (wss)
 - swift-nio-transport-services (1.21+) - Network.framework bridge
-- swift-sodium (0.9.1+) - E2E encryption
+- swift-certificates (1.0+) / swift-crypto (3.0+) / swift-asn1 (1.0+) - self-signed cert generation + pinning
 - SwiftTerm (2.0+) - Terminal rendering (iOS only, Phase 1.8)
 
 ## Testing
 - Unit tests in BalconyShared/Tests/
 - Run: `cd BalconyShared && swift test`
-- Test crypto, models, parser, protocol encoding/decoding
+- Test TLS identity/pinning (`TLSIdentityTests`), models, parser, protocol encoding/decoding
 
 ## Important Notes
 - BalconyMac runs as menu bar agent (LSUIElement = YES)
 - WebSocket server port: 29170 (configurable)
 - Bonjour service type: _balcony._tcp.
 - BLE service UUID: B41C0000-0001-0001-0001-000000000001
-- Store encryption keys in Keychain, never log them
+- Store the TLS private key + cert (PEM) in the Keychain on the Mac (`KeychainStore`); the cert is long-lived and must be stable, since its pin anchors every pairing. Never log key material.
 - Claude Code session files: ~/.claude/projects/{hash}/{id}.jsonl

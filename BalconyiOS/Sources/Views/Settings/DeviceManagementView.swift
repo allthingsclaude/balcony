@@ -19,7 +19,7 @@ struct DeviceManagementView: View {
                         VStack(alignment: .leading) {
                             Text(device.name)
                                 .font(.headline)
-                            Text("Fingerprint: \(device.publicKeyFingerprint.prefix(8))...")
+                            Text("Certificate pin: \(device.certFingerprint.prefix(8))...")
                                 .font(.caption)
                                 .foregroundStyle(BalconyTheme.textSecondary)
                         }

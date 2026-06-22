@@ -95,7 +95,7 @@ final class MessageTypeIntegrationTests: XCTestCase {
             id: "mac-001",
             name: "Dev MacBook Pro",
             platform: .macOS,
-            publicKeyFingerprint: "a1b2c3d4e5f6g7h8"
+            certFingerprint: "a1b2c3d4e5f6g7h8"
         )
         let msg = try BalconyMessage.create(type: .handshake, payload: device)
         let decoded = try decoder.decode(try encoder.encode(msg))
@@ -111,7 +111,7 @@ final class MessageTypeIntegrationTests: XCTestCase {
             id: "ios-001",
             name: "Dev iPhone",
             platform: .iOS,
-            publicKeyFingerprint: "e5f6g7h8i9j0k1l2"
+            certFingerprint: "e5f6g7h8i9j0k1l2"
         )
         let msg = try BalconyMessage.create(type: .handshakeAck, payload: device)
         let decoded = try decoder.decode(try encoder.encode(msg))

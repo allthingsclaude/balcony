@@ -91,16 +91,13 @@ actor BonjourBrowser {
             return nil
         }
 
-        // Extract TXT record from metadata
+        // Extract TXT record from metadata. The cert pin is NOT carried here — it comes from the
+        // QR pairing code, so a Bonjour-discovered device stays unpaired (empty pin) until scanned.
         var deviceName = name
-        var publicKeyFingerprint = ""
 
         if case .bonjour(let txtRecord) = result.metadata {
             if let nameValue = txtRecord["name"] {
                 deviceName = nameValue
-            }
-            if let pkValue = txtRecord["pk"] {
-                publicKeyFingerprint = pkValue
             }
         }
 
@@ -108,7 +105,7 @@ actor BonjourBrowser {
             id: endpointIdentifier(result.endpoint),
             name: deviceName,
             platform: .macOS,
-            publicKeyFingerprint: publicKeyFingerprint
+            certFingerprint: ""
         )
     }
 

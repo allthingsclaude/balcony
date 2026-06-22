@@ -32,8 +32,8 @@ final class ConnectionManager: ObservableObject {
     private let blePeripheral: BLEPeripheral
     private let ptySessionManager: PTYSessionManager
 
-    /// Server identity crypto manager used for QR code pairing.
-    let serverCrypto = CryptoManager()
+    /// The Mac's persisted self-signed TLS identity (cert + key PEM), loaded lazily on first use.
+    private var cachedTLSIdentity: (certPEM: String, keyPEM: String)?
     private let port: Int
     private let encoder = MessageEncoder()
     private var serverEventTask: Task<Void, Never>?
@@ -65,10 +65,21 @@ final class ConnectionManager: ObservableObject {
         self.ptySessionManager = ptySessionManager
     }
 
-    /// Generate the pairing URL containing host, port, and public key.
+    /// Load (or create + persist on first run) the Mac's stable TLS identity.
+    private func tlsIdentity() throws -> (certPEM: String, keyPEM: String) {
+        if let identity = cachedTLSIdentity { return identity }
+        let identity = try ServerTLSIdentity.loadOrCreate()
+        cachedTLSIdentity = identity
+        return identity
+    }
+
+    /// Generate the pairing URL containing host, port, and the TLS certificate pin (`fp`).
+    ///
+    /// The pin is the trust anchor: the iPhone validates the server's certificate against it,
+    /// which is what authenticates the connection (TLS provides confidentiality; the pin provides
+    /// server identity over the raw-IP link).
     func generatePairingURL() async throws -> String {
-        _ = try await serverCrypto.generateKeyPair()
-        let publicKeyBase64 = try await serverCrypto.publicKeyBase64()
+        let pin = try TLSIdentity.pin(forCertPEM: tlsIdentity().certPEM)
         let host = ProcessInfo.processInfo.hostName
         var components = URLComponents()
         components.scheme = "balcony"
@@ -76,9 +87,9 @@ final class ConnectionManager: ObservableObject {
         components.queryItems = [
             URLQueryItem(name: "host", value: host),
             URLQueryItem(name: "port", value: String(port)),
-            URLQueryItem(name: "pk", value: publicKeyBase64),
+            URLQueryItem(name: "fp", value: pin),
         ]
-        return components.string ?? "balcony://pair?host=\(host)&port=\(port)&pk=\(publicKeyBase64)"
+        return components.string ?? "balcony://pair?host=\(host)&port=\(port)&fp=\(pin)"
     }
 
     // MARK: - Lifecycle
@@ -86,7 +97,8 @@ final class ConnectionManager: ObservableObject {
     func start() async throws {
         logger.info("Starting connection services")
 
-        let serverEvents = try await webSocketServer.start()
+        let identity = try tlsIdentity()
+        let serverEvents = try await webSocketServer.start(certPEM: identity.certPEM, keyPEM: identity.keyPEM)
         serverEventTask = Task { [weak self] in
             for await event in serverEvents {
                 await self?.handleServerEvent(event)
@@ -94,10 +106,9 @@ final class ConnectionManager: ObservableObject {
         }
 
         let prefs = PreferencesManager.shared
-        let keyPair = try await serverCrypto.generateKeyPair()
 
         if prefs.bonjourEnabled {
-            bonjourAdvertiser.startAdvertising(publicKeyFingerprint: keyPair.fingerprint)
+            bonjourAdvertiser.startAdvertising()
         }
         if prefs.bleEnabled {
             blePeripheral.startAdvertising(deviceName: prefs.displayName)

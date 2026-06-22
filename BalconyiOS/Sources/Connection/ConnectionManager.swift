@@ -51,7 +51,6 @@ final class ConnectionManager: ObservableObject {
     private let bonjourBrowser = BonjourBrowser()
     private let webSocketClient = WebSocketClient()
     private let bleCentral = BLECentral()
-    private let cryptoManager = CryptoManager()
 
     /// Maps device IDs to their resolved NWEndpoints for connection.
     private var discoveredEndpoints: [String: NWEndpoint] = [:]
@@ -148,19 +147,41 @@ final class ConnectionManager: ObservableObject {
                 }
             }
 
-            // Connect WebSocket
+            // The cert pin (captured at QR pairing) authenticates the server. A Bonjour-discovered
+            // device carries no pin of its own, so fall back to the pin saved when this Mac was
+            // paired via QR, matched by host:port. No pin anywhere → require QR pairing first.
+            let pin = device.certFingerprint.isEmpty
+                ? (pairedDevices.first { $0.id == "\(host):\(port)" }?.certFingerprint ?? "")
+                : device.certFingerprint
+            guard !pin.isEmpty else {
+                logger.error("No certificate pin for \(device.name); QR pairing required")
+                isConnecting = false
+                connectionError = "Pair with \(device.name) by scanning its QR code first."
+                return
+            }
+            await webSocketClient.setPin(pin)
+
+            // Persist the resolved pin onto the record so it stays connectable on its own.
+            let pairedDevice = DeviceInfo(
+                id: device.id,
+                name: device.name,
+                platform: device.platform,
+                certFingerprint: pin
+            )
+
+            // Connect WebSocket (the TLS handshake enforces the cert pin)
             try await webSocketClient.connect(host: host, port: port)
 
-            // Perform E2E handshake
-            try await performHandshake(with: device)
+            // Exchange device identity
+            try await performHandshake(with: pairedDevice)
 
             isConnected = true
             isConnecting = false
             isReconnecting = false
             isAutoConnecting = false
-            connectedDevice = device
-            savePairedDevice(device)
-            lastConnectedDeviceId = device.id
+            connectedDevice = pairedDevice
+            savePairedDevice(pairedDevice)
+            lastConnectedDeviceId = pairedDevice.id
             startRSSIReporting()
             logger.info("Connected to \(device.name)")
         } catch {
@@ -174,8 +195,8 @@ final class ConnectionManager: ObservableObject {
         }
     }
 
-    /// Connect directly using host/port from QR code scan.
-    func connectDirect(host: String, port: Int, publicKeyBase64: String?) async {
+    /// Connect directly using host/port + certificate pin from a QR code scan.
+    func connectDirect(host: String, port: Int, certFingerprint: String?) async {
         logger.info("Direct connect to \(host):\(port)")
         isConnecting = true
         connectionError = nil
@@ -184,7 +205,7 @@ final class ConnectionManager: ObservableObject {
             id: "\(host):\(port)",
             name: host,
             platform: .macOS,
-            publicKeyFingerprint: publicKeyBase64 ?? ""
+            certFingerprint: certFingerprint ?? ""
         )
 
         do {
@@ -202,10 +223,18 @@ final class ConnectionManager: ObservableObject {
                 }
             }
 
-            // Connect WebSocket
+            guard !device.certFingerprint.isEmpty else {
+                logger.error("QR code missing certificate pin")
+                isConnecting = false
+                connectionError = "This QR code is missing security info. Regenerate it on your Mac."
+                return
+            }
+            await webSocketClient.setPin(device.certFingerprint)
+
+            // Connect WebSocket (the TLS handshake enforces the cert pin)
             try await webSocketClient.connect(host: host, port: port)
 
-            // Perform E2E handshake
+            // Exchange device identity
             try await performHandshake(with: device)
 
             isConnected = true
@@ -353,8 +382,8 @@ final class ConnectionManager: ObservableObject {
             await connect(to: device)
         } else if let colon = device.id.lastIndex(of: ":"),
                   let port = Int(device.id[device.id.index(after: colon)...]) {
-            // QR-paired device ids are "host:port".
-            await connectDirect(host: String(device.id[..<colon]), port: port, publicKeyBase64: nil)
+            // QR-paired device ids are "host:port"; reuse the saved cert pin.
+            await connectDirect(host: String(device.id[..<colon]), port: port, certFingerprint: device.certFingerprint)
         } else {
             // Bonjour endpoint not currently known — restart discovery so the
             // device reappears; the next loop attempt may find it.
@@ -511,24 +540,18 @@ final class ConnectionManager: ObservableObject {
 
     // MARK: - Handshake
 
-    /// Perform the E2E encrypted handshake with the Mac server.
+    /// Exchange device identity with the Mac server over the (already pinned + TLS-encrypted)
+    /// connection. No key exchange — confidentiality and server authentication are handled by the
+    /// TLS transport and the certificate pin.
     private func performHandshake(with device: DeviceInfo) async throws {
-        // Generate our key pair
-        let keyPair = try await cryptoManager.generateKeyPair()
-
-        // Build our device info
         let ourDeviceInfo = DeviceInfo(
             id: UIDevice.current.identifierForVendor?.uuidString ?? UUID().uuidString,
             name: UIDevice.current.name,
             platform: .iOS,
-            publicKeyFingerprint: keyPair.fingerprint
+            certFingerprint: ""
         )
 
-        // Send handshake with our public key
-        let handshake = HandshakePayload(
-            deviceInfo: ourDeviceInfo,
-            publicKey: keyPair.publicKey
-        )
+        let handshake = HandshakePayload(deviceInfo: ourDeviceInfo)
         let handshakeMessage = try BalconyMessage.create(type: .handshake, payload: handshake)
         try await webSocketClient.send(handshakeMessage)
 
@@ -536,17 +559,11 @@ final class ConnectionManager: ObservableObject {
         let ackMessage = try await waitForMessage(ofType: .handshakeAck, timeout: 10.0)
         let ack = try ackMessage.decodePayload(HandshakeAckPayload.self)
 
-        // Derive shared secret from server's public key
-        try await cryptoManager.deriveSharedSecret(theirPublicKey: ack.publicKey)
-
-        // Enable encryption on the WebSocket transport
-        await webSocketClient.setCrypto(cryptoManager)
-
         logger.info("Handshake complete with \(ack.deviceInfo.name)")
 
-        // Request session list now that crypto is ready (the initial list
-        // sent by the Mac during authentication arrives before setCrypto
-        // and gets dropped, so we re-request here)
+        // Re-request the session list: the initial list the Mac sends on authentication can
+        // arrive while waitForMessage has temporarily swapped the message handler, so re-request
+        // to be sure the UI gets it.
         let requestMsg = try BalconyMessage.create(type: .sessionList, payload: EmptyPayload())
         try await webSocketClient.send(requestMsg)
     }
@@ -647,11 +664,9 @@ final class ConnectionManager: ObservableObject {
 /// Handshake payload sent by iOS client.
 struct HandshakePayload: Codable, Sendable {
     let deviceInfo: DeviceInfo
-    let publicKey: [UInt8]
 }
 
 /// Handshake acknowledgement payload sent by Mac server.
 struct HandshakeAckPayload: Codable, Sendable {
     let deviceInfo: DeviceInfo
-    let publicKey: [UInt8]
 }

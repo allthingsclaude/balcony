@@ -5,18 +5,20 @@ public struct DeviceInfo: Codable, Identifiable, Hashable, Sendable {
     public let id: String
     public let name: String
     public let platform: DevicePlatform
-    public let publicKeyFingerprint: String
+    /// SHA-256 (base64) pin of the peer's self-signed TLS certificate, captured at QR pairing.
+    /// Empty until the device has been paired via QR.
+    public let certFingerprint: String
 
     public init(
         id: String,
         name: String,
         platform: DevicePlatform,
-        publicKeyFingerprint: String
+        certFingerprint: String
     ) {
         self.id = id
         self.name = name
         self.platform = platform
-        self.publicKeyFingerprint = publicKeyFingerprint
+        self.certFingerprint = certFingerprint
     }
 }
 

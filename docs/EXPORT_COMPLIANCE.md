@@ -1,5 +1,15 @@
 # Export Compliance — Balcony iOS
 
+> 🟥 **SUPERSEDED (2026-06-22).** Balcony's custom libsodium E2E was replaced with standard
+> OS/NIOSSL **TLS (`wss://`) + certificate pinning**. The iOS app now uses only standard
+> encryption provided by the operating system, so it is **export-exempt**:
+> `ITSAppUsesNonExemptEncryption` is set to `false` and **no** App Store export-compliance
+> documentation, self-classification report, or France/ANSSI declaration is required.
+> The steps below are kept only for historical reference / in case custom crypto is ever
+> reintroduced. They do **not** apply to the current build.
+
+---
+
 > ⚠️ **Not legal advice.** This is a practical checklist assembled from Apple's flow + US BIS / French ANSSI public guidance. For a shipping E2E product, have someone confirm the classification once.
 
 ## TL;DR — what's going on

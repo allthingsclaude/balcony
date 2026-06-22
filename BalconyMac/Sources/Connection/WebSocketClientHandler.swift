@@ -9,8 +9,6 @@ import os
 /// Lifecycle state of a connected WebSocket client.
 enum ClientState: Sendable {
     case connected
-    /// Handshake received, crypto setup in flight — not yet trusted.
-    case authenticating
     case authenticated
     case disconnected
 }
@@ -25,22 +23,16 @@ final class ConnectedClient: @unchecked Sendable {
     var state: ClientState = .connected
     var subscribedSessionIds: Set<String> = []
     var lastPongAt: Date = Date()
-    private(set) var cryptoManager: CryptoManager?
 
     /// Serial chain that preserves outbound frame order. Each enqueued send awaits the
-    /// previous one before encrypting+writing, so concurrent `encrypt` calls can't reorder
-    /// frames on the wire (which would corrupt the terminal/history stream). Only mutated
-    /// from the `WebSocketServer` actor, so no extra locking is needed.
+    /// previous one before writing, so concurrent sends can't reorder frames on the wire
+    /// (which would corrupt the chunked terminal/history stream). Only mutated from the
+    /// `WebSocketServer` actor, so no extra locking is needed.
     private var sendChain: Task<Void, Never> = Task {}
 
     init(id: String = UUID().uuidString, channel: Channel) {
         self.id = id
         self.channel = channel
-    }
-
-    /// Set up encryption after handshake.
-    func setupCrypto(_ crypto: CryptoManager) {
-        self.cryptoManager = crypto
     }
 
     /// Append work to the per-client serial send chain, preserving FIFO order.
@@ -52,13 +44,13 @@ final class ConnectedClient: @unchecked Sendable {
         }
     }
 
-    /// Whether this client has completed the handshake AND established crypto.
+    /// Whether this client has completed the device-identity handshake.
     ///
-    /// Requiring `cryptoManager != nil` guarantees an "authenticated" client can never be
-    /// served on the plaintext path, and that input/control messages are only accepted once
-    /// the shared secret is in place.
+    /// Confidentiality and server authentication are provided by the TLS (`wss`) transport;
+    /// this gate ensures input/control messages are only accepted from a client that has
+    /// identified itself via the handshake.
     var isAuthenticated: Bool {
-        state == .authenticated && cryptoManager != nil
+        state == .authenticated
     }
 
     /// Whether this client is subscribed to a given session.
