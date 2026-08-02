@@ -637,10 +637,20 @@ final class HeadlessTerminalParser: ObservableObject {
     /// column, which precisely marks where the user's text ends. This avoids
     /// both trimming the user's trailing space and including box padding.
     ///
-    /// Placeholder text (e.g. "Type a message...") uses non-default foreground
-    /// color or dim styling and is ignored — only real user input is returned.
+    /// The terminal cursor is the only reliable end-of-input marker. Claude Code
+    /// styles neither its placeholder ('Try "fix lint errors"') nor its slash-command
+    /// argument hints (`/foo --arg description`) with the `dim` SGR — both use a
+    /// truecolor grey foreground — and it draws no inverse-video cursor cell, relying
+    /// on the real terminal cursor instead. So colour/style alone cannot separate typed
+    /// text from hint text: with `/autopilot hello world` only `/autopilot` is coloured
+    /// while ` hello world` is default-foreground, so a colour cutoff would truncate
+    /// real input. Anchoring on the cursor column handles every case.
     private func extractChromeInputText(allRows: [BufferLine], chromeStart: Int) -> String {
         guard chromeStart < allRows.count else { return "" }
+
+        // Cursor row in `allRows` index space (getCursorLocation's y is viewport-relative).
+        let cursor = terminal.getCursorLocation()
+        let cursorRow = terminal.getTopVisibleRow() + cursor.y
 
         for i in chromeStart..<allRows.count {
             let bufLine = allRows[i]
@@ -657,11 +667,25 @@ final class HeadlessTerminalParser: ObservableObject {
             }
             guard promptCol >= 0 else { continue }
 
-            // Skip ❯ and the space after it.
+            // Skip ❯ and the separator after it. Claude Code uses a non-breaking space
+            // (U+00A0) here, not U+0020 — matching only " " leaves it in the result.
             var startCol = promptCol + 1
             if startCol < trimmedLen {
                 let ch = terminal.getCharacter(for: bufLine[startCol])
-                if ch == " " || ch == "\0" { startCol += 1 }
+                if ch == "\0" || ch.isWhitespace { startCol += 1 }
+            }
+
+            // Primary path: the cursor sits exactly one column past the last typed
+            // character, so anything at or beyond it is hint/placeholder text.
+            if i == cursorRow, cursor.x >= startCol {
+                let endCol = min(cursor.x, terminal.cols)
+                guard endCol > startCol else { return "" }
+                var result = ""
+                for col in startCol..<endCol {
+                    let ch = terminal.getCharacter(for: bufLine[col])
+                    result.append(ch == "\0" ? " " : ch)
+                }
+                return result
             }
 
             // No content after ❯ — empty input.
