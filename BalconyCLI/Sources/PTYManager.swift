@@ -6,10 +6,13 @@ enum PTYManager {
     /// Result of creating a PTY pair.
     struct PTYPair {
         let masterFD: Int32
+        /// The slave side, already open. Ownership passes to the caller, which must
+        /// `close()` it once the child has inherited it (see `spawnProcess`).
+        let slaveFD: Int32
         let slavePath: String
     }
 
-    /// Create a PTY master/slave pair.
+    /// Create a PTY master/slave pair, with the slave side already opened.
     static func createPTY() throws -> PTYPair {
         let masterFD = posix_openpt(O_RDWR | O_NOCTTY)
         guard masterFD >= 0 else {
@@ -36,13 +39,35 @@ enum PTYManager {
         }
 
         let slavePath = String(cString: slaveNameC)
-        return PTYPair(masterFD: masterFD, slavePath: slavePath)
+
+        // Open the slave *here*, not in `spawnProcess`. On macOS TIOCSWINSZ against the
+        // master fails with ENOTTY until the slave has been opened at least once, so
+        // sizing the PTY before this point is a silent no-op — the child would start on a
+        // 0x0 tty and fall back to terminfo's 80x24.
+        let slaveFD = open(slavePath, O_RDWR)
+        guard slaveFD >= 0 else {
+            close(masterFD)
+            throw POSIXError(.init(rawValue: errno) ?? .ENOENT)
+        }
+
+        return PTYPair(masterFD: masterFD, slaveFD: slaveFD, slavePath: slavePath)
     }
 
     /// Set the terminal window size on the PTY master.
-    static func setWindowSize(masterFD: Int32, cols: UInt16, rows: UInt16) {
+    ///
+    /// - Returns: `false` if the ioctl failed. The usual cause is calling this before the
+    ///   PTY slave has ever been opened, which macOS rejects with ENOTTY.
+    @discardableResult
+    static func setWindowSize(masterFD: Int32, cols: UInt16, rows: UInt16) -> Bool {
         var ws = winsize(ws_row: rows, ws_col: cols, ws_xpixel: 0, ws_ypixel: 0)
-        _ = ioctl(masterFD, TIOCSWINSZ, &ws)
+        return ioctl(masterFD, TIOCSWINSZ, &ws) == 0
+    }
+
+    /// Read the window size currently applied to the PTY master.
+    static func currentWindowSize(masterFD: Int32) -> (cols: UInt16, rows: UInt16)? {
+        var ws = winsize()
+        guard ioctl(masterFD, TIOCGWINSZ, &ws) == 0 else { return nil }
+        return (ws.ws_col, ws.ws_row)
     }
 
     /// Get the current terminal window size from a file descriptor.
@@ -63,20 +88,17 @@ enum PTYManager {
     /// - Parameters:
     ///   - executable: Full path to the executable.
     ///   - args: Arguments (including argv[0]).
-    ///   - slavePath: Path to the PTY slave device.
+    ///   - slaveFD: Open descriptor for the PTY slave (from `createPTY`). Still owned by
+    ///     the caller, which must close it once this returns so that the master reports
+    ///     EIO when the child exits.
     ///   - env: Environment variables as `KEY=VALUE` strings.
     /// - Returns: PID of the spawned process.
     static func spawnProcess(
         executable: String,
         args: [String],
-        slavePath: String,
+        slaveFD: Int32,
         env: [String]
     ) throws -> pid_t {
-        let slaveFD = open(slavePath, O_RDWR)
-        guard slaveFD >= 0 else {
-            throw POSIXError(.init(rawValue: errno) ?? .ENOENT)
-        }
-
         var fileActions: posix_spawn_file_actions_t?
         posix_spawn_file_actions_init(&fileActions)
         // Redirect stdin/stdout/stderr to the PTY slave
@@ -105,7 +127,6 @@ enum PTYManager {
 
         posix_spawn_file_actions_destroy(&fileActions)
         posix_spawnattr_destroy(&spawnAttrs)
-        close(slaveFD)
 
         guard result == 0 else {
             throw POSIXError(.init(rawValue: result) ?? .ENOEXEC)

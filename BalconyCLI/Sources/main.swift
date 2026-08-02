@@ -93,14 +93,32 @@ if !socketConnected {
     fputs("[balcony] Mac agent not running — will retry in background\n", stderr)
 }
 
-// Set initial PTY size to match the local Mac terminal.
+// Set initial PTY size to match the local Mac terminal. This must happen before the
+// child is spawned, otherwise claude reads a 0x0 tty and lays itself out at 80x24.
+// `createPTY` has already opened the slave, which is what makes TIOCSWINSZ legal here.
 // When iOS connects it will send its own size, which takes priority.
 let (cols, rows) = PTYManager.getWindowSize(fd: STDOUT_FILENO)
-PTYManager.setWindowSize(masterFD: pty.masterFD, cols: cols, rows: rows)
+if !PTYManager.setWindowSize(masterFD: pty.masterFD, cols: cols, rows: rows) {
+    fputs("[balcony] Warning: could not set initial PTY size (\(cols)x\(rows))\n", stderr)
+}
 
 /// Once iOS sends a resize, it owns the PTY size — local SIGWINCH is ignored
 /// so that resizing the Mac terminal window doesn't break the iOS display.
 var remoteControlsResize = false
+
+/// PID of the spawned child, or 0 before `posix_spawn` returns. The SIGWINCH handler is
+/// installed ahead of the spawn — SIGWINCH's default disposition is "ignore", so a resize
+/// arriving during claude's startup would otherwise be dropped — and guards on this.
+var childPID: pid_t = 0
+
+// Handle SIGWINCH — forward terminal resize to PTY and child,
+// but only if iOS hasn't taken control of the PTY size.
+signal(SIGWINCH) { _ in
+    guard !remoteControlsResize else { return }
+    let (newCols, newRows) = PTYManager.getWindowSize(fd: STDOUT_FILENO)
+    PTYManager.setWindowSize(masterFD: pty.masterFD, cols: newCols, rows: newRows)
+    if childPID > 0 { kill(childPID, SIGWINCH) }
+}
 
 // Generate a session ID
 let sessionId = UUID().uuidString
@@ -112,19 +130,23 @@ env["BALCONY_PTY_SESSION_ID"] = sessionId
 let envStrings = env.map { "\($0.key)=\($0.value)" }
 
 // Spawn claude in the PTY
-let childPID: pid_t
 do {
     childPID = try PTYManager.spawnProcess(
         executable: claudePath,
         args: fullArgs,
-        slavePath: pty.slavePath,
+        slaveFD: pty.slaveFD,
         env: envStrings
     )
 } catch {
     fputs("Error: Failed to spawn claude: \(error)\n", stderr)
+    close(pty.slaveFD)
     close(pty.masterFD)
     exit(1)
 }
+
+// Drop our copy of the slave now that the child has inherited it via dup2. If we kept it
+// open the master would never see EIO, and the `onPTYClosed` exit path would never fire.
+close(pty.slaveFD)
 
 // Build session info (used on connect and reconnect)
 let cwd = FileManager.default.currentDirectoryPath
@@ -167,15 +189,6 @@ bridge.onPTYClosed = {
     }
 }
 
-// Handle SIGWINCH — forward terminal resize to PTY and child,
-// but only if iOS hasn't taken control of the PTY size.
-signal(SIGWINCH) { _ in
-    guard !remoteControlsResize else { return }
-    let (newCols, newRows) = PTYManager.getWindowSize(fd: STDOUT_FILENO)
-    PTYManager.setWindowSize(masterFD: pty.masterFD, cols: newCols, rows: newRows)
-    kill(childPID, SIGWINCH)
-}
-
 // Handle SIGINT — forward to child instead of killing ourselves
 signal(SIGINT) { _ in
     kill(childPID, SIGINT)
@@ -207,10 +220,15 @@ bridge.start()
 
 // Re-check terminal size shortly after startup. Some terminal emulators
 // (split panes, new tabs) finalize TIOCGWINSZ after the child spawns,
-// so the initial read may be stale. Forward any change to the child.
+// so the initial read may be stale. Forward any change to the child — but stay silent
+// when nothing moved, so a correctly-sized session isn't forced into a needless relayout.
 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
     guard !remoteControlsResize else { return }
     let (refreshCols, refreshRows) = PTYManager.getWindowSize(fd: STDOUT_FILENO)
+    if let applied = PTYManager.currentWindowSize(masterFD: pty.masterFD),
+       applied == (refreshCols, refreshRows) {
+        return
+    }
     PTYManager.setWindowSize(masterFD: pty.masterFD, cols: refreshCols, rows: refreshRows)
     kill(childPID, SIGWINCH)
 }
