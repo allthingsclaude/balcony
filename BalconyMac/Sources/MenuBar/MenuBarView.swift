@@ -283,8 +283,14 @@ struct MenuBarView: View {
                     .font(.caption)
             }
             .simultaneousGesture(TapGesture().onEnded {
+                // Capture the popover synchronously, before SettingsLink's own
+                // action opens the Settings window and steals key status — by
+                // the time the async block below runs, `NSApp.keyWindow` would
+                // be the Settings window itself, so closing it there closed the
+                // window we'd just opened instead of the popover.
+                let popover = NSApp.keyWindow
                 DispatchQueue.main.async {
-                    NSApp.keyWindow?.close()
+                    popover?.close()
                     NSApp.activate(ignoringOtherApps: true)
                 }
             })
