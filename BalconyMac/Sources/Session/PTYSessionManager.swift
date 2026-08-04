@@ -265,6 +265,7 @@ actor PTYSessionManager {
                 id: info.sessionId,
                 projectPath: info.cwd,
                 status: .active,
+                createdAt: Self.processStartTime(pid: info.pid) ?? Date(),
                 cwd: info.cwd,
                 cols: info.cols,
                 rows: info.rows
@@ -328,6 +329,38 @@ actor PTYSessionManager {
     }
 
     // MARK: - Process Info
+
+    /// Wall-clock start time of a process, read from the kernel's proc table.
+    ///
+    /// Used as a session's `createdAt` in place of "now". The CLI re-registers
+    /// its session every time the Mac app restarts, so stamping the registration
+    /// moment made a long-running session look brand-new on every relaunch.
+    ///
+    /// That mattered because `ConnectionManager.resolveTranscriptPath` falls back
+    /// to picking the newest JSONL in the project directory *created at or after*
+    /// `createdAt` when no hook has revealed the exact path yet. A session that
+    /// outlived a Balcony restart would reject its own (older) transcript, so the
+    /// phone showed an empty conversation until the session's next hook fired —
+    /// at which point the full history arrived at once.
+    ///
+    /// Reading the real process start keeps the original guard intact: a genuinely
+    /// new session still starts "now", so an unrelated previous session's
+    /// transcript is still correctly excluded.
+    ///
+    /// Returns nil when the process is gone or the kernel reports no start time.
+    private static func processStartTime(pid: Int32) -> Date? {
+        var info = kinfo_proc()
+        var size = MemoryLayout<kinfo_proc>.size
+        var mib: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_PID, pid]
+        // sysctl reports success with size == 0 for a PID that no longer exists,
+        // which would otherwise hand back a zeroed struct (epoch 1970).
+        guard sysctl(&mib, UInt32(mib.count), &info, &size, nil, 0) == 0, size > 0 else { return nil }
+        let start = info.kp_proc.p_starttime
+        guard start.tv_sec > 0 else { return nil }
+        return Date(
+            timeIntervalSince1970: TimeInterval(start.tv_sec) + TimeInterval(start.tv_usec) / 1_000_000
+        )
+    }
 
     /// Get the PID of the Claude process for a session.
     func pid(for sessionId: String) -> Int32? {

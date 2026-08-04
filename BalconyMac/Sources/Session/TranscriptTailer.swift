@@ -22,15 +22,17 @@ final class TranscriptTailer: @unchecked Sendable {
     /// and switches to.
     private var path: String
     private let sessionId: String
-    /// The PTY session's start time. In fallback mode the directory watch only
-    /// adopts a transcript created at/after this, so a pre-existing session's
-    /// file is never shown (e.g. when this session is brand-new with no file yet).
-    private let createdAfter: Date?
+    /// The session's start time. In fallback mode the directory watch only
+    /// adopts a transcript *written* at/after this, so a dormant session's file
+    /// is never shown (e.g. when this session is brand-new with no file yet).
+    /// A resumed conversation's file can be far older than the session, so this
+    /// bounds by modification, not creation — see `latestJSONL`.
+    private let activeSince: Date?
     /// True when `path` is the session's exact transcript (resolved from a hook,
     /// e.g. SessionStart). In that case the directory watch only waits for that
     /// exact file to appear and never switches to a sibling session's file —
     /// path changes (/clear, resume) arrive as fresh hooks that restart the tailer.
-    /// When false (no hook yet) it falls back to the latest file created after start.
+    /// When false (no hook yet) it falls back to the latest file written since start.
     private let authoritative: Bool
     private let onEvents: @Sendable (TranscriptEventsPayload) -> Void
 
@@ -54,13 +56,13 @@ final class TranscriptTailer: @unchecked Sendable {
     /// - Parameters:
     ///   - path: absolute path to the session JSONL (from `HookEvent.transcriptPath`).
     ///   - sessionId: the PTY session id this transcript is shown under on iOS.
-    ///   - createdAfter: the PTY session's start time; bounds fallback switches.
+    ///   - activeSince: the session's start time; bounds fallback switches.
     ///   - authoritative: whether `path` is the exact, hook-resolved transcript.
     ///   - onEvents: invoked on the tailer's queue with each batch to send.
-    init(path: String, sessionId: String, createdAfter: Date? = nil, authoritative: Bool = false, onEvents: @escaping @Sendable (TranscriptEventsPayload) -> Void) {
+    init(path: String, sessionId: String, activeSince: Date? = nil, authoritative: Bool = false, onEvents: @escaping @Sendable (TranscriptEventsPayload) -> Void) {
         self.path = path
         self.sessionId = sessionId
-        self.createdAfter = createdAfter
+        self.activeSince = activeSince
         self.authoritative = authoritative
         self.onEvents = onEvents
     }
@@ -220,7 +222,7 @@ final class TranscriptTailer: @unchecked Sendable {
         // session started — covers the file first appearing and /clear creating
         // a new one, while never reaching back to a pre-existing session.
         let dir = URL(fileURLWithPath: path).deletingLastPathComponent()
-        guard let latest = Self.latestJSONL(inDirectory: dir, createdAfter: createdAfter), latest != path else {
+        guard let latest = Self.latestJSONL(inDirectory: dir, activeSince: activeSince), latest != path else {
             // Our chosen file may just now have appeared — start watching it.
             if source == nil, FileManager.default.fileExists(atPath: path) {
                 snapshot()
@@ -237,22 +239,32 @@ final class TranscriptTailer: @unchecked Sendable {
     }
 
     /// Most-recently-modified non-agent `.jsonl` in a directory, or nil. When
-    /// `createdAfter` is set, only files created at/after it (minus a small
-    /// tolerance, since the file may be created just before the session is
-    /// registered) are considered — so a pre-existing session is never picked.
-    static func latestJSONL(inDirectory dir: URL, createdAfter: Date? = nil) -> String? {
+    /// `activeSince` is set, only files *written* at/after it (minus a small
+    /// tolerance) are considered — so an unrelated dormant session is never
+    /// picked up by a session that has no transcript of its own yet.
+    ///
+    /// This deliberately tests modification time, not creation time. A resumed
+    /// conversation (`claude --resume`, `--continue`) keeps appending to a file
+    /// that can be *older than the process writing it* — one real case had a
+    /// transcript created Aug 1, its Claude process started Aug 2, and the Mac
+    /// app started Aug 4. Filtering on creation date excluded that session's own
+    /// live transcript, so the phone showed an empty conversation until the next
+    /// hook revealed the exact path and the whole history landed at once.
+    /// Modification time answers the question actually being asked: is this file
+    /// the one currently being written?
+    static func latestJSONL(inDirectory dir: URL, activeSince: Date? = nil) -> String? {
         guard let files = try? FileManager.default.contentsOfDirectory(
             at: dir,
-            includingPropertiesForKeys: [.contentModificationDateKey, .creationDateKey],
+            includingPropertiesForKeys: [.contentModificationDateKey],
             options: [.skipsHiddenFiles]
         ) else { return nil }
-        let cutoff = createdAfter?.addingTimeInterval(-10)
+        let cutoff = activeSince?.addingTimeInterval(-10)
         let latest = files
             .filter { url in
                 guard url.pathExtension == "jsonl", !url.lastPathComponent.hasPrefix("agent-") else { return false }
                 guard let cutoff else { return true }
-                let created = (try? url.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? .distantPast
-                return created >= cutoff
+                let modified = (try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+                return modified >= cutoff
             }
             .max { a, b in
                 let da = (try? a.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast

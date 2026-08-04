@@ -189,7 +189,7 @@ final class ConnectionManager: ObservableObject {
         let tailer = TranscriptTailer(
             path: path,
             sessionId: ptySessionId,
-            createdAfter: session?.createdAt,
+            activeSince: session?.createdAt,
             authoritative: authoritative
         ) { [weak self] payload in
             Task { await self?.sendTranscriptEvents(payload) }
@@ -239,16 +239,16 @@ final class ConnectionManager: ObservableObject {
             return (path, true)
         }
         guard let session,
-              let latest = Self.latestTranscriptPath(forProjectPath: session.projectPath, createdAfter: session.createdAt)
+              let latest = Self.latestTranscriptPath(forProjectPath: session.projectPath, activeSince: session.createdAt)
         else { return nil }
         return (latest, false)
     }
 
     /// Most-recently-modified non-agent `.jsonl` for a project path. Mirrors the
     /// project-hash scheme Claude Code uses (`/` → `-`).
-    private static func latestTranscriptPath(forProjectPath projectPath: String, createdAfter: Date? = nil) -> String? {
+    private static func latestTranscriptPath(forProjectPath projectPath: String, activeSince: Date? = nil) -> String? {
         let dir = ClaudeProjectLocator.sessionDirectory(for: projectPath)
-        return TranscriptTailer.latestJSONL(inDirectory: dir, createdAfter: createdAfter)
+        return TranscriptTailer.latestJSONL(inDirectory: dir, activeSince: activeSince)
     }
 
     // MARK: - Hook Event Forwarding
