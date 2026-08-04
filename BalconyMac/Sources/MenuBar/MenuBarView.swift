@@ -443,11 +443,24 @@ private struct StateDot: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var dimmed = false
 
+    private var shouldPulse: Bool {
+        guard case .working = state else { return false }
+        return !reduceMotion
+    }
+
+    /// Scoped to `dimmed` alone, and deliberately *not* a bare `withAnimation`
+    /// inside `onAppear`: that sets the animation for the whole transaction, and
+    /// the popover's first layout is part of that transaction. Attaching a
+    /// `.repeatForever` curve to it made the entire window animate in from the
+    /// top-left corner on every open.
+    private var pulse: Animation? {
+        shouldPulse ? .easeInOut(duration: 0.95).repeatForever(autoreverses: true) : nil
+    }
+
     var body: some View {
         Circle()
             .fill(state.color)
             .frame(width: 7, height: 7)
-            .opacity(dimmed ? 0.35 : 1)
             .overlay {
                 if case .needsAttention = state {
                     Circle()
@@ -456,11 +469,9 @@ private struct StateDot: View {
                 }
             }
             .frame(width: 12, height: 12)
-            .onAppear {
-                guard case .working = state, !reduceMotion else { return }
-                withAnimation(.easeInOut(duration: 0.95).repeatForever(autoreverses: true)) {
-                    dimmed = true
-                }
-            }
+            .opacity(dimmed ? 0.35 : 1)
+            .animation(pulse, value: dimmed)
+            .onAppear { dimmed = shouldPulse }
+            .onDisappear { dimmed = false }
     }
 }
