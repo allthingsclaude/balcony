@@ -985,10 +985,10 @@
 			projectRoot = "";
 			targets = (
 				F9977008AA49E8E96D6CCF49 /* BalconyCLI */,
-				774FB53B75224EF183A2396C /* BalconyLiveActivity */,
 				03D0CAD8415E829E5988EBF7 /* BalconyMac */,
-				B37488F2CC17C37E395BE6C9 /* BalconySharedTests */,
 				28EDF2F1EEB7F9CAAE8BE0F5 /* BalconyiOS */,
+				774FB53B75224EF183A2396C /* BalconyLiveActivity */,
+				B37488F2CC17C37E395BE6C9 /* BalconySharedTests */,
 			);
 		};
 /* End PBXProject section */

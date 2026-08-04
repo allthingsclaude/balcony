@@ -9,8 +9,12 @@ import BalconyShared
 final class SessionListModel: ObservableObject {
     @Published var sessions: [Session] = []
 
-    /// Active sessions only.
-    var activeSessions: [Session] {
-        sessions.filter { $0.status == .active }
+    /// Sessions most-recently-active first.
+    ///
+    /// Callers that also care about whether a session is *waiting* on the user
+    /// layer that on top — see `MenuBarView.prioritizedSessions`, which ranks by
+    /// attention state and falls back to this order within each rank.
+    var sessionsByActivity: [Session] {
+        sessions.sorted { $0.lastActivityAt > $1.lastActivityAt }
     }
 }

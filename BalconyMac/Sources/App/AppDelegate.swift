@@ -240,6 +240,52 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         PreferencesManager.playBundledSound(soundName)
     }
 
+    // MARK: - Reveal
+
+    /// Bring a session back in front of the user.
+    ///
+    /// Re-opens the session's pending panel when one is waiting, otherwise
+    /// focuses the terminal/IDE running it. This is the recovery path for a
+    /// dismissed panel: swiping a notification away previously left no way back
+    /// to that session short of hunting for its terminal window.
+    ///
+    /// - Parameter ptySessionId: the PTY session ID shown in the menu bar.
+    func revealSession(_ ptySessionId: String) {
+        let claudeIds = hookEventHandler.claudeSessionIds(for: ptySessionId)
+
+        // Already on screen — focus it rather than rebuilding (avoids a flash).
+        for claudeId in claudeIds where promptPanelController.hasPanel(for: claudeId) {
+            promptPanelController.activatePanel(for: claudeId)
+            return
+        }
+
+        // AskUserQuestion is checked before the plain permission prompt it also
+        // registers, so the user gets the rich question UI rather than allow/deny.
+        if let ask = claudeIds.compactMap({ hookEventHandler.pendingAskUserQuestion(for: $0) }).first {
+            logger.info("[REVEAL] pty=\(ptySessionId) → AskUserQuestion panel")
+            promptPanelController.showAskUserQuestion(ask)
+            return
+        }
+        // A permission request outranks an idle prompt: it is actively blocking Claude.
+        if let prompt = hookEventHandler.pendingPrompt(forResolvedPTYSession: ptySessionId) {
+            logger.info("[REVEAL] pty=\(ptySessionId) → permission panel")
+            promptPanelController.showPrompt(prompt)
+            return
+        }
+        if let idle = hookEventHandler.pendingIdlePrompt(forResolvedPTYSession: ptySessionId) {
+            logger.info("[REVEAL] pty=\(ptySessionId) → idle panel")
+            if let detected = idle.detectedOptions {
+                promptPanelController.showMultiOptionPrompt(idle, options: detected.options)
+            } else {
+                promptPanelController.showIdlePrompt(idle)
+            }
+            return
+        }
+
+        logger.info("[REVEAL] pty=\(ptySessionId) → no pending prompt, focusing terminal")
+        focusSession(ptySessionId)
+    }
+
     // MARK: - Focus
 
     /// Activate the terminal/IDE app that owns the given session's CLI process

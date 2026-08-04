@@ -514,6 +514,41 @@ final class PromptPanelController {
     /// The app that was active before the panel was focused via hotkey.
     private var previousApp: NSRunningApplication?
 
+    /// Whether a panel is currently on screen for the given Claude session.
+    func hasPanel(for sessionId: String) -> Bool {
+        panels.contains { $0.sessionId == sessionId }
+    }
+
+    /// Bring an already-visible panel to the front and give it keyboard focus.
+    /// Returns false when no panel is shown for that session.
+    ///
+    /// Unlike `showPrompt`/`showIdlePrompt` this does not rebuild the panel, so
+    /// re-revealing a session the user is already looking at doesn't flash.
+    @discardableResult
+    func activatePanel(for sessionId: String) -> Bool {
+        guard let index = panels.firstIndex(where: { $0.sessionId == sessionId }) else { return false }
+        logger.info("[REVEAL] Activating existing panel for session=\(sessionId)")
+        rememberPreviousApp()
+        isPanelActive = true
+        NSApp.activate(ignoringOtherApps: true)
+        panels[index].panel.makeKeyAndOrderFront(nil)
+        focusFirstTextField(in: panels[index].panel)
+        selectedPanelIndex = index
+        updateKeyboardFocusStates()
+        return true
+    }
+
+    /// Record the app to restore focus to after the panel is dismissed.
+    ///
+    /// Skips Balcony itself: when a panel is opened from the menu bar popover
+    /// *we* are already frontmost, and storing that would make dismissing the
+    /// panel "restore" focus to Balcony instead of the user's editor.
+    private func rememberPreviousApp() {
+        let frontmost = NSWorkspace.shared.frontmostApplication
+        guard frontmost?.processIdentifier != ProcessInfo.processInfo.processIdentifier else { return }
+        previousApp = frontmost
+    }
+
     /// Activate the frontmost panel and make it key so it accepts keyboard input.
     func activateFrontmostPanel() {
         guard let entry = panels.first else { return }

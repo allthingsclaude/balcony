@@ -8,9 +8,13 @@ struct BalconyMacApp: App {
 
     var body: some Scene {
         MenuBarExtra {
-            MenuBarView(updaterService: updaterService)
-                .environmentObject(appDelegate.connectionManager)
-                .environmentObject(appDelegate.sessionListModel)
+            MenuBarView(
+                updaterService: updaterService,
+                onSelectSession: { appDelegate.revealSession($0) }
+            )
+            .environmentObject(appDelegate.connectionManager)
+            .environmentObject(appDelegate.sessionListModel)
+            .environmentObject(appDelegate.hookEventHandler)
         } label: {
             Image("MenuBarIcon")
         }

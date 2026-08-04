@@ -237,6 +237,7 @@ actor PTYSessionManager {
         switch type {
         case 0x01: // PTY output
             guard let state = clientFDs[fd], let sessionId = state.sessionId else { return }
+            touchActivity(sessionId)
             if sessionBuffers[sessionId] != nil {
                 sessionBuffers[sessionId]!.append(payload)
                 // Cap buffer size to prevent unbounded memory growth.
@@ -285,11 +286,29 @@ actor PTYSessionManager {
 
         case 0x06: // Stdin activity — user typed in local terminal
             guard let state = clientFDs[fd], let sessionId = state.sessionId else { return }
+            touchActivity(sessionId)
             onStdinActivity?(sessionId)
 
         default:
             break
         }
+    }
+
+    /// Stamp a session as active *now*.
+    ///
+    /// `lastActivityAt` was previously set once at registration and never
+    /// updated, so every surface that showed it ("2m ago") was really showing
+    /// session age, and the iOS sidebar's recency sort was meaningless.
+    ///
+    /// Called from the PTY output and stdin paths, both of which are hot —
+    /// hundreds of chunks a second during a turn. The one-second floor keeps
+    /// that to at most one write per session per second, which is well below
+    /// the granularity anything renders this at.
+    private func touchActivity(_ sessionId: String) {
+        guard let last = sessions[sessionId]?.lastActivityAt else { return }
+        let now = Date()
+        guard now.timeIntervalSince(last) >= 1 else { return }
+        sessions[sessionId]?.lastActivityAt = now
     }
 
     private func clientDisconnected(fd: Int32) {
