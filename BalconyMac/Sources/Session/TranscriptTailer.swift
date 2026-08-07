@@ -7,10 +7,15 @@ import os
 ///
 /// This is the reliable companion to the PTY stream: instead of scraping the
 /// reconstructed terminal screen, it reads the structured log Claude Code writes
-/// for every turn. On `start()` it emits the full history once (`reset == true`),
-/// then watches the file and emits appended turns as they land (`reset == false`).
-/// If the file shrinks (compaction) or is replaced (`/clear`, atomic rewrite) it
-/// re-snapshots with `reset == true`.
+/// for every turn. On `start()` it emits a history snapshot once (`reset ==
+/// true`), then watches the file and emits appended turns as they land
+/// (`reset == false`). If the file shrinks (compaction) or is replaced
+/// (`/clear`, atomic rewrite) it re-snapshots with `reset == true`.
+///
+/// When `historyLimit` is set the snapshot carries only the **last** N turns,
+/// read by walking the file backwards from its end — so opening a months-old
+/// 25 MB transcript costs one chunk read, not a full parse. Older turns are
+/// paged in on demand via `loadHistory(before:limit:completion:)`.
 ///
 /// All mutable state is confined to `queue`; the FS-event handler and the public
 /// API both hop onto it, so no locking is needed.
@@ -34,6 +39,10 @@ final class TranscriptTailer: @unchecked Sendable {
     /// path changes (/clear, resume) arrive as fresh hooks that restart the tailer.
     /// When false (no hook yet) it falls back to the latest file written since start.
     private let authoritative: Bool
+    /// How many turns the reset snapshot carries, counting back from the newest.
+    /// Nil restores the legacy behaviour of sending the entire file — kept for
+    /// clients that don't ask for a limit in their subscribe.
+    private let historyLimit: Int?
     private let onEvents: @Sendable (TranscriptEventsPayload) -> Void
 
     private let queue = DispatchQueue(label: "com.balcony.mac.transcript-tailer", qos: .utility)
@@ -58,12 +67,21 @@ final class TranscriptTailer: @unchecked Sendable {
     ///   - sessionId: the PTY session id this transcript is shown under on iOS.
     ///   - activeSince: the session's start time; bounds fallback switches.
     ///   - authoritative: whether `path` is the exact, hook-resolved transcript.
+    ///   - historyLimit: turns to include in the snapshot (nil = the whole file).
     ///   - onEvents: invoked on the tailer's queue with each batch to send.
-    init(path: String, sessionId: String, activeSince: Date? = nil, authoritative: Bool = false, onEvents: @escaping @Sendable (TranscriptEventsPayload) -> Void) {
+    init(
+        path: String,
+        sessionId: String,
+        activeSince: Date? = nil,
+        authoritative: Bool = false,
+        historyLimit: Int? = nil,
+        onEvents: @escaping @Sendable (TranscriptEventsPayload) -> Void
+    ) {
         self.path = path
         self.sessionId = sessionId
         self.activeSince = activeSince
         self.authoritative = authoritative
+        self.historyLimit = historyLimit
         self.onEvents = onEvents
     }
 
@@ -78,7 +96,7 @@ final class TranscriptTailer: @unchecked Sendable {
             } else {
                 // Fresh session — the file isn't written yet. Show empty and let
                 // the directory watch pick it up the moment it's created.
-                self.emit([], reset: true)
+                self.emit([], reset: true, historyStart: 0, hasMore: false)
             }
             self.beginWatchingDirectory()
         }
@@ -95,27 +113,55 @@ final class TranscriptTailer: @unchecked Sendable {
 
     // MARK: - Reading (queue-confined)
 
-    /// Read the whole file, emit it as a reset batch, and reset bookkeeping.
+    /// Emit a reset batch of history and reset bookkeeping. With a
+    /// `historyLimit` this reads only the file's tail; without one it reads the
+    /// whole file (legacy clients).
     private func snapshot() {
+        guard let limit = historyLimit else {
+            fullSnapshot()
+            return
+        }
+
+        leftover = Data()
+        seenIDs.removeAll(keepingCapacity: true)
+
+        let size = fileSize()
+        // `offset` tracks how many bytes of the file we've accounted for. A
+        // trailing partial line — a turn still being written — is carried in
+        // `leftover`; the next read appends only the *new* bytes past `offset`
+        // to it, so the line is completed rather than lost or doubled.
+        offset = size
+        guard size > 0 else {
+            emit([], reset: true, historyStart: 0, hasMore: false)
+            return
+        }
+
+        // Everything after the file's final newline is a turn still being
+        // written: carry it in `leftover` so the next read completes it rather
+        // than parsing half a JSON object.
+        let (lineEnd, partial) = TranscriptPager.lastLineBoundary(inFileAt: path, size: size)
+        leftover = partial
+
+        let page = TranscriptPager.eventsBackwards(fromFileAt: path, end: lineEnd, limit: limit)
+        seenIDs.formUnion(page.events.map(\.id))
+        // Always emit a reset — even when empty — so iOS clears any stale list.
+        emit(page.events, reset: true, historyStart: page.start, hasMore: page.hasMore)
+        logger.info("Transcript snapshot: \(page.events.count) events (tail of \(size) bytes, more=\(page.hasMore)) for session \(self.sessionId, privacy: .public)")
+    }
+
+    /// Read and emit the entire file. Only used when no `historyLimit` was set.
+    private func fullSnapshot() {
         guard let data = FileManager.default.contents(atPath: path) else {
             logger.warning("Transcript not readable at \(self.path, privacy: .public)")
             return
         }
         leftover = Data()
         seenIDs.removeAll(keepingCapacity: true)
-
-        // `offset` tracks how many bytes we've read from the file (the whole
-        // snapshot). A trailing partial line — a turn still being written — is
-        // carried in `leftover`; the next read appends only the *new* bytes past
-        // `offset` to it, so the line is completed rather than lost or doubled.
         offset = UInt64(data.count)
-        let lines = completeLines(from: data, carryingPartial: true)
-
-        let events = parse(lines)
+        let events = parse(completeLines(from: data, carryingPartial: true))
         seenIDs.formUnion(events.map(\.id))
-        // Always emit a reset — even when empty — so iOS clears any stale list.
         emit(events, reset: true)
-        logger.info("Transcript snapshot: \(events.count) events for session \(self.sessionId, privacy: .public)")
+        logger.info("Transcript full snapshot: \(events.count) events for session \(self.sessionId, privacy: .public)")
     }
 
     /// Read bytes appended since `offset` and emit any newly-completed turns.
@@ -142,6 +188,34 @@ final class TranscriptTailer: @unchecked Sendable {
         guard !fresh.isEmpty else { return }
         emit(fresh, reset: false)
         logger.debug("Transcript appended: \(fresh.count) events for session \(self.sessionId, privacy: .public)")
+    }
+
+    // MARK: - Paged history
+
+    /// Read the page of turns immediately before `end` (a byte offset from an
+    /// earlier batch's `historyStart`). Answers on the tailer's queue, so it
+    /// never races a re-snapshot switching `path` underneath it.
+    func loadHistory(before end: UInt64, limit: Int, completion: @escaping @Sendable (TranscriptHistoryPayload) -> Void) {
+        queue.async { [weak self] in
+            guard let self else { return }
+            func reply(_ page: TranscriptPager.Page) {
+                completion(TranscriptHistoryPayload(
+                    sessionId: self.sessionId,
+                    events: page.events,
+                    beforeOffset: end,
+                    historyStart: page.start,
+                    hasMore: page.hasMore
+                ))
+            }
+            // A cursor past the current end means the file was rewritten or
+            // swapped under us. The re-snapshot that follows resends a reset
+            // with a fresh cursor, so answer this stale page with nothing.
+            guard end > 0, limit > 0, end <= self.fileSize() else {
+                reply(TranscriptPager.Page(events: [], start: 0))
+                return
+            }
+            reply(TranscriptPager.eventsBackwards(fromFileAt: self.path, end: end, limit: limit))
+        }
     }
 
     // MARK: - Watching (queue-confined)
@@ -304,8 +378,14 @@ final class TranscriptTailer: @unchecked Sendable {
         lines.compactMap { TranscriptParser.parseLine($0) }
     }
 
-    private func emit(_ events: [TranscriptEvent], reset: Bool) {
-        onEvents(TranscriptEventsPayload(sessionId: sessionId, events: events, reset: reset))
+    private func emit(_ events: [TranscriptEvent], reset: Bool, historyStart: UInt64? = nil, hasMore: Bool? = nil) {
+        onEvents(TranscriptEventsPayload(
+            sessionId: sessionId,
+            events: events,
+            reset: reset,
+            historyStart: historyStart,
+            hasMore: hasMore
+        ))
     }
 
     private func fileSize() -> UInt64 {

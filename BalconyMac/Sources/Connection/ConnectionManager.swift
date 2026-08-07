@@ -42,6 +42,11 @@ final class ConnectionManager: ObservableObject {
     /// structured JSONL transcript to that session's subscribers.
     private var transcriptTailers: [String: TranscriptTailer] = [:]
 
+    /// Snapshot size each session's subscriber asked for, keyed by PTY session
+    /// ID. Remembered so a tailer restarted by a hook (`/clear`, resume) keeps
+    /// paging rather than reverting to a whole-file send.
+    private var transcriptHistoryLimits: [String: Int] = [:]
+
     /// Highest input sequence received from the phone, per PTY session. Stamped
     /// onto outgoing PTY chunks so the phone can tell when the terminal reflects
     /// its sent input (input-box sync).
@@ -190,7 +195,8 @@ final class ConnectionManager: ObservableObject {
             path: path,
             sessionId: ptySessionId,
             activeSince: session?.createdAt,
-            authoritative: authoritative
+            authoritative: authoritative,
+            historyLimit: transcriptHistoryLimits[ptySessionId]
         ) { [weak self] payload in
             Task { await self?.sendTranscriptEvents(payload) }
         }
@@ -223,7 +229,39 @@ final class ConnectionManager: ObservableObject {
             if await webSocketServer.hasSubscribers(for: sessionId) == false {
                 transcriptTailers[sessionId]?.stop()
                 transcriptTailers.removeValue(forKey: sessionId)
+                transcriptHistoryLimits.removeValue(forKey: sessionId)
             }
+        }
+    }
+
+    /// Answer a "load earlier turns" request by paging backwards through the
+    /// session's transcript from the client's cursor.
+    private func sendTranscriptHistory(_ request: TranscriptHistoryRequestPayload, to client: ConnectedClient) async {
+        let payload: TranscriptHistoryPayload
+        if let tailer = transcriptTailers[request.sessionId] {
+            payload = await withCheckedContinuation { continuation in
+                tailer.loadHistory(before: request.beforeOffset, limit: request.limit) { result in
+                    continuation.resume(returning: result)
+                }
+            }
+        } else {
+            // No tailer (unsubscribed mid-flight). Answer anyway so the phone's
+            // "loading earlier messages" row resolves instead of hanging.
+            logger.warning("No transcript tailer for history request on \(request.sessionId)")
+            payload = TranscriptHistoryPayload(
+                sessionId: request.sessionId,
+                events: [],
+                beforeOffset: request.beforeOffset,
+                historyStart: 0,
+                hasMore: false
+            )
+        }
+        do {
+            let msg = try BalconyMessage.create(type: .transcriptHistory, payload: payload)
+            await webSocketServer.send(msg, to: client)
+            logger.info("Sent \(payload.events.count) earlier turns for \(request.sessionId) (more=\(payload.hasMore))")
+        } catch {
+            logger.error("Failed to send transcript history: \(error.localizedDescription)")
         }
     }
 
@@ -471,8 +509,25 @@ final class ConnectionManager: ObservableObject {
                 let sessionId = payload.sessionId
                 logger.info("Client subscribed to PTY session \(sessionId)")
 
+                // Remember how much transcript this client wants up front, so
+                // the tailer below (and any hook-driven restart) sends a tail
+                // snapshot rather than a whole-file parse.
+                if let limit = payload.historyLimit, limit > 0 {
+                    transcriptHistoryLimits[sessionId] = limit
+                } else {
+                    transcriptHistoryLimits.removeValue(forKey: sessionId)
+                }
+
+                // Start the structured transcript first: it's what the phone
+                // actually renders, and a tail snapshot is small, so the
+                // conversation paints before the half-megabyte of PTY replay
+                // below has finished crossing the wire. Re-(start) on every
+                // subscribe so a freshly-joined client gets a reset snapshot.
+                await startTranscriptTailer(ptySessionId: sessionId)
+
                 // Send buffered PTY history so iOS can reconstruct the current
-                // screen. The ring buffer is capped at 4 MB, but sending that
+                // screen — it drives prompt detection and input-box sync, not
+                // the message list. The ring buffer is capped at 4 MB, but sending that
                 // much on every subscribe froze iOS for seconds while the
                 // parser chewed through it on the main thread. Cap the initial
                 // handoff to the last 512 KB — enough for the current screen
@@ -516,13 +571,16 @@ final class ConnectionManager: ObservableObject {
 
                 // Resend pending idle prompt if Claude is waiting for input.
                 await resendPendingIdlePrompt(sessionId: sessionId, to: client)
-
-                // Begin streaming the structured JSONL transcript for this
-                // session. Re-(start) on every subscribe so a freshly-joined
-                // client receives a full reset snapshot.
-                await startTranscriptTailer(ptySessionId: sessionId)
             } catch {
                 logger.error("Failed to decode session subscribe: \(error.localizedDescription)")
+            }
+
+        case .transcriptHistoryRequest:
+            do {
+                let payload = try message.decodePayload(TranscriptHistoryRequestPayload.self)
+                await sendTranscriptHistory(payload, to: client)
+            } catch {
+                logger.error("Failed to decode transcript history request: \(error.localizedDescription)")
             }
 
         case .userInput:
@@ -863,6 +921,10 @@ struct SessionListPayload: Codable, Sendable {
 
 struct SessionSubscribePayload: Codable, Sendable {
     let sessionId: String
+    /// How many recent turns the initial transcript snapshot should carry.
+    /// Absent (older clients) means "send the whole file" — see
+    /// `TranscriptTailer.historyLimit`.
+    var historyLimit: Int?
 }
 
 struct UserInputPayload: Codable, Sendable {

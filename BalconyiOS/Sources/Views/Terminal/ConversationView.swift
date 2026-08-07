@@ -13,6 +13,14 @@ struct ConversationView: View {
     let transcriptEvents: [TranscriptEvent]
     /// Just-sent messages shown immediately (dimmed) until they land in the JSONL.
     let optimisticMessages: [TranscriptEvent]
+    /// True when turns older than the loaded window exist on the Mac.
+    let hasMoreHistory: Bool
+    /// Cursor for the next page back — doubles as the load-more row's identity
+    /// so it re-fires while it stays on screen (see `historyLoadRow`).
+    let historyCursor: UInt64?
+    /// The turn that was oldest before the last page landed; scrolled back to
+    /// the top so prepending history doesn't move the content being read.
+    let historyAnchorID: String?
     /// True after the user interrupts the run (Esc) — suppresses the spinner.
     let interrupted: Bool
     /// True when the terminal reflects all input the phone has sent — gates
@@ -32,6 +40,9 @@ struct ConversationView: View {
     let rewindTurns: [RewindTurnInfo]
     let showRewindPicker: Bool
     let pendingAskUserQuestion: AskUserQuestionPayload?
+    /// Called when the top of the conversation comes into view — fetch the
+    /// previous page of turns.
+    var onLoadMoreHistory: (() -> Void)?
     var onSendInput: ((String) -> Void)?
     /// Called with a plain message's text the moment it's submitted, for
     /// optimistic rendering (before the Mac round-trips it into the JSONL).
@@ -146,6 +157,36 @@ struct ConversationView: View {
         visibleTranscript.count + optimisticMessages.count + (showLoader ? 1 : 0)
     }
 
+    /// Top-of-list row that pulls in the previous page of turns as it scrolls
+    /// into view.
+    @ViewBuilder
+    private var historyLoadRow: some View {
+        if hasMoreHistory {
+            HStack(spacing: 8) {
+                ProgressView()
+                    .controlSize(.small)
+                Text("Loading earlier messages…")
+                    .font(BalconyTheme.monoFont(12))
+                    .foregroundStyle(BalconyTheme.textSecondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .center)
+            .padding(.vertical, 10)
+            // Keyed on the cursor so each page that lands replaces this row:
+            // `onAppear` fires again while it's still on screen (filling a
+            // short conversation), and stops once it scrolls out of view and
+            // the LazyVStack drops it.
+            .id(historyCursor ?? 0)
+            .onAppear {
+                // Not before the view has settled at the bottom — during the
+                // opening layout pass the top of the list can flash into view,
+                // and paging then would yank the reader away from the newest
+                // messages.
+                guard !needsInitialScroll else { return }
+                onLoadMoreHistory?()
+            }
+        }
+    }
+
     var body: some View {
         ZStack(alignment: .bottom) {
             if transcriptEvents.isEmpty && !awaitingReply && showEmptyState {
@@ -158,6 +199,11 @@ struct ConversationView: View {
                 ZStack(alignment: .bottom) {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: BalconyTheme.spacingMD) {
+                        // Earlier turns load as the top comes into view. Only a
+                        // page of history is fetched on subscribe, so a months-
+                        // old session opens as fast as a fresh one.
+                        historyLoadRow
+
                         // Settled history — rendered natively from the structured
                         // JSONL transcript (no PTY screen-scrape guessing).
                         ForEach(visibleTranscript) { event in
@@ -250,6 +296,17 @@ struct ConversationView: View {
                 }
                 .onAppear {
                     scrollToBottom(proxy: proxy, animated: false)
+                }
+                .onChange(of: historyAnchorID) { anchor in
+                    // A page of older turns just landed above the viewport. Pin
+                    // the turn that was at the top back to the top so the
+                    // content being read doesn't slide out from under the thumb.
+                    //
+                    // Only while actually reading history: at the bottom, the
+                    // displayCount handler above re-pins to the newest message,
+                    // and the two must not fight over the scroll position.
+                    guard let anchor, !isNearBottom else { return }
+                    proxy.scrollTo(anchor, anchor: .top)
                 }
                 .onChange(of: inputFocused) { focused in
                     if focused {
@@ -1292,6 +1349,9 @@ private struct ConversationEmptyView: View {
             ]),
         ],
         optimisticMessages: [],
+        hasMoreHistory: false,
+        historyCursor: nil,
+        historyAnchorID: nil,
         interrupted: false,
         inputInSync: true,
         slashCommands: [

@@ -37,7 +37,31 @@ final class SessionManager {
     /// Structured transcript events parsed from the session JSONL on the Mac.
     /// Rendered by `ConversationView` as settled history; the live PTY
     /// `conversationLines` supply only the in-flight reply tail.
+    ///
+    /// Subscribing loads only the last `initialHistoryLimit` turns so the view
+    /// opens instantly; scrolling to the top pages older turns in.
     var transcriptEvents: [TranscriptEvent] = []
+
+    /// Turns loaded on subscribe, and per page when scrolling back. Sized to
+    /// comfortably overfill a phone screen without making the first paint wait.
+    static let initialHistoryLimit = 40
+    static let historyPageSize = 40
+
+    /// Byte offset in the Mac's transcript file where the oldest loaded turn
+    /// begins — the cursor for the next page back. Zero once the whole
+    /// transcript is loaded; nil before the first snapshot lands.
+    private(set) var historyCursor: UInt64?
+
+    /// True when turns older than `historyCursor` exist on the Mac.
+    private(set) var hasMoreHistory = false
+
+    /// True while a page of older turns is in flight.
+    private(set) var isLoadingHistory = false
+
+    /// The turn that was oldest before the last page was prepended. The
+    /// conversation view pins it back to the top so inserting history above the
+    /// user's reading position doesn't move the content under their thumb.
+    private(set) var historyAnchorID: String?
 
     /// Messages the user just sent, shown immediately (dimmed) before the Mac
     /// round-trips them into the JSONL. Pruned as the real events arrive.
@@ -190,6 +214,7 @@ final class SessionManager {
         conversationLines = []
         transcriptEvents = []
         optimisticMessages = []
+        resetHistoryPaging()
         interrupted = false
         localInputSeq = 0
         ackedInputSeq = 0
@@ -218,12 +243,47 @@ final class SessionManager {
 
         guard let connectionManager else { return }
         do {
-            let payload = SessionSubscribePayload(sessionId: session.id)
+            let payload = SessionSubscribePayload(sessionId: session.id, historyLimit: Self.initialHistoryLimit)
             let msg = try BalconyMessage.create(type: .sessionSubscribe, payload: payload)
             try await connectionManager.send(msg)
         } catch {
             logger.error("Failed to subscribe to session: \(error.localizedDescription)")
         }
+    }
+
+    // MARK: - Transcript History Paging
+
+    /// Request the page of turns before the oldest one loaded. Called when the
+    /// top of the conversation scrolls into view.
+    func loadOlderTranscript() async {
+        guard hasMoreHistory, !isLoadingHistory,
+              let cursor = historyCursor, cursor > 0,
+              let session = activeSession,
+              let connectionManager
+        else { return }
+
+        isLoadingHistory = true
+        do {
+            let payload = TranscriptHistoryRequestPayload(
+                sessionId: session.id,
+                beforeOffset: cursor,
+                limit: Self.historyPageSize
+            )
+            let msg = try BalconyMessage.create(type: .transcriptHistoryRequest, payload: payload)
+            try await connectionManager.send(msg)
+            logger.info("Requested earlier transcript before offset \(cursor)")
+        } catch {
+            isLoadingHistory = false
+            logger.error("Failed to request transcript history: \(error.localizedDescription)")
+        }
+    }
+
+    /// Clear paging state — on subscribe, session switch, or a fresh snapshot.
+    private func resetHistoryPaging() {
+        historyCursor = nil
+        hasMoreHistory = false
+        isLoadingHistory = false
+        historyAnchorID = nil
     }
 
     /// Unsubscribe from a session.
@@ -494,6 +554,8 @@ final class SessionManager {
             handleTerminalData(message)
         case .transcriptEvents:
             handleTranscriptEvents(message)
+        case .transcriptHistory:
+            handleTranscriptHistory(message)
         case .slashCommands:
             handleSlashCommands(message)
         case .fileList:
@@ -608,6 +670,7 @@ final class SessionManager {
                 conversationLines = []
                 transcriptEvents = []
                 optimisticMessages = []
+                resetHistoryPaging()
                 interrupted = false
                 activePrompt = nil
                 pendingHookData = nil
@@ -652,9 +715,14 @@ final class SessionManager {
             guard payload.sessionId == activeSession?.id else { return }
             if payload.reset {
                 transcriptEvents = payload.events
-                // A reset (initial load, /clear, rewrite) supersedes any pending sends.
+                // A reset (initial load, /clear, rewrite) supersedes any pending
+                // sends — and hands us a fresh cursor, invalidating any page
+                // request still in flight against the old one.
                 optimisticMessages = []
                 interrupted = false
+                resetHistoryPaging()
+                historyCursor = payload.historyStart
+                hasMoreHistory = payload.hasMore ?? false
             } else {
                 // Append, de-duplicating by event id (defends against snapshot/
                 // delta overlap on reconnect).
@@ -665,6 +733,37 @@ final class SessionManager {
             logger.debug("Transcript events for \(payload.sessionId): +\(payload.events.count) reset=\(payload.reset)")
         } catch {
             logger.error("Failed to decode transcript events: \(error.localizedDescription)")
+        }
+    }
+
+    /// Prepend a page of older turns fetched by `loadOlderTranscript()`.
+    private func handleTranscriptHistory(_ message: BalconyMessage) {
+        do {
+            let payload = try message.decodePayload(TranscriptHistoryPayload.self)
+            guard payload.sessionId == activeSession?.id else { return }
+            // A page answering a cursor we've moved past (a reset landed while
+            // it was in flight) describes a transcript we no longer show.
+            guard payload.beforeOffset == historyCursor else {
+                logger.debug("Discarding stale transcript history page at \(payload.beforeOffset)")
+                return
+            }
+
+            isLoadingHistory = false
+            historyCursor = payload.historyStart
+            hasMoreHistory = payload.hasMore
+
+            let existing = Set(transcriptEvents.map(\.id))
+            let older = payload.events.filter { !existing.contains($0.id) }
+            guard !older.isEmpty else { return }
+
+            // Capture what's currently at the top *before* inserting, so the
+            // view can hold that turn in place as history grows above it.
+            historyAnchorID = transcriptEvents.first { !$0.isSidechain }?.id
+            transcriptEvents.insert(contentsOf: older, at: 0)
+            logger.debug("Prepended \(older.count) earlier turns, more=\(payload.hasMore)")
+        } catch {
+            isLoadingHistory = false
+            logger.error("Failed to decode transcript history: \(error.localizedDescription)")
         }
     }
 
@@ -875,6 +974,9 @@ struct SessionListPayload: Codable, Sendable {
 
 struct SessionSubscribePayload: Codable, Sendable {
     let sessionId: String
+    /// How many recent turns the Mac should include in the initial transcript
+    /// snapshot. Omitted on unsubscribe, where it carries no meaning.
+    var historyLimit: Int? = nil
 }
 
 struct UserInputPayload: Codable, Sendable {

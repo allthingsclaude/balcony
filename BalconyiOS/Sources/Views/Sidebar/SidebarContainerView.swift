@@ -193,6 +193,9 @@ struct SidebarContainerView: View {
                                 lines: sessionManager.conversationLines,
                                 transcriptEvents: sessionManager.transcriptEvents,
                                 optimisticMessages: sessionManager.optimisticMessages,
+                                hasMoreHistory: sessionManager.hasMoreHistory,
+                                historyCursor: sessionManager.historyCursor,
+                                historyAnchorID: sessionManager.historyAnchorID,
                                 interrupted: sessionManager.interrupted,
                                 inputInSync: sessionManager.inputInSync,
                                 slashCommands: sessionManager.slashCommands,
@@ -209,6 +212,9 @@ struct SidebarContainerView: View {
                                 rewindTurns: sessionManager.rewindTurns,
                                 showRewindPicker: sessionManager.showRewindPicker,
                                 pendingAskUserQuestion: sessionManager.pendingAskUserQuestion,
+                                onLoadMoreHistory: {
+                                    Task { await sessionManager.loadOlderTranscript() }
+                                },
                                 onSendInput: { text in
                                     Task {
                                         await sessionManager.sendInput(text, to: session)

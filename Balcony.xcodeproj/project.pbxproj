@@ -56,6 +56,7 @@
 		628DAF89EEED44E0C0EA4A63 /* Beacon.caf in Resources */ = {isa = PBXBuildFile; fileRef = DEB84D5F935C3D3FAD09BC58 /* Beacon.caf */; };
 		698E305A279DB24359AD747B /* Signal.caf in Resources */ = {isa = PBXBuildFile; fileRef = 607A4DE1CE244BB40A8841E8 /* Signal.caf */; };
 		6B4353EBEE2E8A5A6B8E1AFF /* NIOHTTP1 in Frameworks */ = {isa = PBXBuildFile; productRef = D5859053BEF37E29C28D0EF6 /* NIOHTTP1 */; };
+		6C36B747FC3A1FD2C959999F /* TranscriptPagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B6D392801E1684906145E03 /* TranscriptPagerTests.swift */; };
 		6C87400D2EC1230404517FF0 /* Prism.caf in Resources */ = {isa = PBXBuildFile; fileRef = A0EC3A4D7CFBD6E8FC14F1DC /* Prism.caf */; };
 		6D0A2E05B4BB51E209736639 /* UpdaterService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 257A291FF11C38CFEA2032D8 /* UpdaterService.swift */; };
 		6F8A50581509E3EC452B2AA9 /* Spark.caf in Resources */ = {isa = PBXBuildFile; fileRef = CF54DDAD3FB19A6B3A5FEC89 /* Spark.caf */; };
@@ -238,6 +239,7 @@
 		575956E033E5EF90DEBBE923 /* BalconyCLI */ = {isa = PBXFileReference; includeInIndex = 0; path = BalconyCLI; sourceTree = BUILT_PRODUCTS_DIR; };
 		5AC8BE534D77DC7380EC60C0 /* Spark.caf */ = {isa = PBXFileReference; path = Spark.caf; sourceTree = "<group>"; };
 		5B258356A1384FD0CB24D97F /* Aurora.caf */ = {isa = PBXFileReference; path = Aurora.caf; sourceTree = "<group>"; };
+		5B6D392801E1684906145E03 /* TranscriptPagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptPagerTests.swift; sourceTree = "<group>"; };
 		5DDCAFB5BCAFBAA48CE7D90D /* Droplet.caf */ = {isa = PBXFileReference; path = Droplet.caf; sourceTree = "<group>"; };
 		607A4DE1CE244BB40A8841E8 /* Signal.caf */ = {isa = PBXFileReference; path = Signal.caf; sourceTree = "<group>"; };
 		63C417099683EF822F4B30DF /* BLECentral.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BLECentral.swift; sourceTree = "<group>"; };
@@ -696,6 +698,7 @@
 				F777879D3E4F998951042E36 /* MessageTypeIntegrationTests.swift */,
 				0C02C757F4FB8D345A6EFEF9 /* ModelTests.swift */,
 				369FC877DF1FF65C69322899 /* TLSIdentityTests.swift */,
+				5B6D392801E1684906145E03 /* TranscriptPagerTests.swift */,
 				DFBEB69155E322A7CA042F51 /* TranscriptParserTests.swift */,
 			);
 			path = BalconySharedTests;
@@ -1198,6 +1201,7 @@
 				7D0C3EACF2BF192ECEC1D05B /* MessageTypeIntegrationTests.swift in Sources */,
 				2D59B119C66E821CA94AE3BC /* ModelTests.swift in Sources */,
 				BDB3F3C87F659FE171F9FE1E /* TLSIdentityTests.swift in Sources */,
+				6C36B747FC3A1FD2C959999F /* TranscriptPagerTests.swift in Sources */,
 				7C4EE801AF152048CA950185 /* TranscriptParserTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

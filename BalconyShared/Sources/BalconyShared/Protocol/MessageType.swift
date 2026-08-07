@@ -24,6 +24,10 @@ public enum MessageType: String, Codable, Sendable, CaseIterable {
     // Structured transcript (parsed from the session JSONL) — the reliable
     // source of truth for settled messages, complementing the PTY stream.
     case transcriptEvents
+    // Paging further back into the transcript: subscribing delivers only the
+    // tail, and scrolling up requests the turns before it.
+    case transcriptHistoryRequest
+    case transcriptHistory
 
     // Slash commands
     case slashCommands
